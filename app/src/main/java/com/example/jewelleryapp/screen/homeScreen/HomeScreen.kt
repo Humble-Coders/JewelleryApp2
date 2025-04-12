@@ -40,6 +40,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.foundation.pager.HorizontalPager
 import androidx.compose.foundation.pager.rememberPagerState
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.navigation.NavController
 import coil.compose.AsyncImage
 import coil.request.ImageRequest
@@ -75,7 +76,6 @@ fun HomeScreen(
     val featuredProducts by viewModel.featuredProducts.collectAsState()
     val collections by viewModel.collections.collectAsState()
     val carouselItems by viewModel.carouselItems.collectAsState()
-    val recentlyViewed by viewModel.recentlyViewedProducts.collectAsState()
     val isLoading by viewModel.isLoading.collectAsState()
     val error by viewModel.error.collectAsState()
 
@@ -177,7 +177,7 @@ fun TopAppbar(
                 // Show back button if onBackClick is provided
                 IconButton(onClick = onBackClick) {
                     Icon(
-                        imageVector = Icons.Default.ArrowBack,
+                        imageVector = Icons.AutoMirrored.Filled.ArrowBack,
                         contentDescription = "Back",
                         tint = amberColor
                     )
@@ -431,9 +431,7 @@ fun ProductItem(
     viewModel: HomeViewModel // Add ViewModel parameter to handle wishlist
 ) {
     // Track wishlist status with state
-    val isInWishlist by remember(product.id) {
-        mutableStateOf(product.isFavorite)
-    }
+
 
     // Track any updates to wishlist status
     LaunchedEffect(product.id) {

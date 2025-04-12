@@ -8,20 +8,17 @@ import com.example.jewelleryapp.model.Category
 import com.example.jewelleryapp.model.Collection
 import com.example.jewelleryapp.model.Product
 import com.example.jewelleryapp.repository.JewelryRepository
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.async
+import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
-import kotlinx.coroutines.launch
-import kotlinx.coroutines.async
-import kotlinx.coroutines.awaitAll
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.coroutineScope
-import kotlinx.coroutines.Job
-import kotlinx.coroutines.joinAll
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.launch
 
 class HomeViewModel(private val repository: JewelryRepository) : ViewModel() {
-    private val TAG = "HomeViewModel"
+    private val tag = "HomeViewModel"
 
     // StateFlows to hold data for UI
     private val _categories = MutableStateFlow<List<Category>>(emptyList())
@@ -37,7 +34,6 @@ class HomeViewModel(private val repository: JewelryRepository) : ViewModel() {
     val carouselItems: StateFlow<List<CarouselItem>> = _carouselItems.asStateFlow()
 
     private val _recentlyViewedProducts = MutableStateFlow<List<Product>>(emptyList())
-    val recentlyViewedProducts: StateFlow<List<Product>> = _recentlyViewedProducts.asStateFlow()
 
     // Loading states
     private val _isLoading = MutableStateFlow(false)
@@ -68,7 +64,7 @@ class HomeViewModel(private val repository: JewelryRepository) : ViewModel() {
                         try {
                             repository.getCategories().first()
                         } catch (e: Exception) {
-                            Log.e(TAG, "Error loading categories", e)
+                            Log.e(tag, "Error loading categories", e)
                             errors.add("Categories: ${e.message}")
                             emptyList()
                         }
@@ -78,7 +74,7 @@ class HomeViewModel(private val repository: JewelryRepository) : ViewModel() {
                         try {
                             repository.getFeaturedProducts().first()
                         } catch (e: Exception) {
-                            Log.e(TAG, "Error loading featured products", e)
+                            Log.e(tag, "Error loading featured products", e)
                             errors.add("Featured Products: ${e.message}")
                             emptyList()
                         }
@@ -88,7 +84,7 @@ class HomeViewModel(private val repository: JewelryRepository) : ViewModel() {
                         try {
                             repository.getThemedCollections().first()
                         } catch (e: Exception) {
-                            Log.e(TAG, "Error loading collections", e)
+                            Log.e(tag, "Error loading collections", e)
                             errors.add("Collections: ${e.message}")
                             emptyList()
                         }
@@ -98,7 +94,7 @@ class HomeViewModel(private val repository: JewelryRepository) : ViewModel() {
                         try {
                             repository.getCarouselItems().first()
                         } catch (e: Exception) {
-                            Log.e(TAG, "Error loading carousel items", e)
+                            Log.e(tag, "Error loading carousel items", e)
                             errors.add("Carousel Items: ${e.message}")
                             emptyList()
                         }
@@ -132,7 +128,7 @@ class HomeViewModel(private val repository: JewelryRepository) : ViewModel() {
 
                 _isLoading.value = false
             } catch (e: Exception) {
-                Log.e(TAG, "Failed to load data", e)
+                Log.e(tag, "Failed to load data", e)
                 _error.value = "Failed to load data: ${e.message}"
                 _isLoading.value = false
             }
@@ -145,43 +141,43 @@ class HomeViewModel(private val repository: JewelryRepository) : ViewModel() {
     }
 
     // Called when a product is viewed
-    fun recordProductView(userId: String, productId: String) {
-        viewModelScope.launch {
-            try {
-                repository.recordProductView(userId, productId)
-            } catch (e: Exception) {
-                Log.e(TAG, "Error recording product view", e)
-            }
-        }
-    }
+//    fun recordProductView(userId: String, productId: String) {
+//        viewModelScope.launch {
+//            try {
+//                repository.recordProductView(userId, productId)
+//            } catch (e: Exception) {
+//                Log.e(TAG, "Error recording product view", e)
+//            }
+//        }
+//    }
 
     // New optimized function to update all products with current wishlist status in parallel
-    private suspend fun updateProductsWithWishlistStatus(products: List<Product>) {
-        try {
-            val productsWithWishlistStatus = coroutineScope {
-                products.map { product ->
-                    async(Dispatchers.Default) {
-                        try {
-                            val isInWishlist = repository.isInWishlist(product.id)
-                            product.copy(isFavorite = isInWishlist)
-                        } catch (e: Exception) {
-                            Log.e(
-                                TAG,
-                                "Error checking wishlist status for product ${product.id}",
-                                e
-                            )
-                            product
-                        }
-                    }
-                }.awaitAll()
-            }
-
-            _featuredProducts.value = productsWithWishlistStatus
-            Log.d(TAG, "Updated wishlist status for ${products.size} products")
-        } catch (e: Exception) {
-            Log.e(TAG, "Error updating wishlist status for products", e)
-        }
-    }
+//    private suspend fun updateProductsWithWishlistStatus(products: List<Product>) {
+//        try {
+//            val productsWithWishlistStatus = coroutineScope {
+//                products.map { product ->
+//                    async(Dispatchers.Default) {
+//                        try {
+//                            val isInWishlist = repository.isInWishlist(product.id)
+//                            product.copy(isFavorite = isInWishlist)
+//                        } catch (e: Exception) {
+//                            Log.e(
+//                                TAG,
+//                                "Error checking wishlist status for product ${product.id}",
+//                                e
+//                            )
+//                            product
+//                        }
+//                    }
+//                }.awaitAll()
+//            }
+//
+//            _featuredProducts.value = productsWithWishlistStatus
+//            Log.d(TAG, "Updated wishlist status for ${products.size} products")
+//        } catch (e: Exception) {
+//            Log.e(TAG, "Error updating wishlist status for products", e)
+//        }
+//    }
 
     // Check if a product is in wishlist
     fun checkWishlistStatus(productId: String) {
@@ -207,9 +203,9 @@ class HomeViewModel(private val repository: JewelryRepository) : ViewModel() {
                     }
                 }
 
-                Log.d(TAG, "Product $productId wishlist status: $isInWishlist")
+                Log.d(tag, "Product $productId wishlist status: $isInWishlist")
             } catch (e: Exception) {
-                Log.e(TAG, "Error checking wishlist status for product $productId", e)
+                Log.e(tag, "Error checking wishlist status for product $productId", e)
             }
         }
     }
@@ -235,10 +231,10 @@ class HomeViewModel(private val repository: JewelryRepository) : ViewModel() {
                     // Update UI state immediately for responsive feedback
                     updateProductFavoriteStatus(productId, !isCurrentlyFavorite)
 
-                    Log.d(TAG, "Toggled favorite for product $productId to ${!isCurrentlyFavorite}")
+                    Log.d(tag, "Toggled favorite for product $productId to ${!isCurrentlyFavorite}")
                 }
             } catch (e: Exception) {
-                Log.e(TAG, "Error toggling favorite for product $productId", e)
+                Log.e(tag, "Error toggling favorite for product $productId", e)
             }
         }
     }

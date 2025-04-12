@@ -50,7 +50,7 @@ class CategoriesViewModel(private val repository: JewelryRepository) : ViewModel
                     _categories.value = categoriesResult
                     _collections.value = collectionsResult
                 }
-            } catch (e: Exception) {
+            } catch (_: Exception) {
                 // Handle errors
             } finally {
                 _isLoading.value = false
@@ -58,26 +58,26 @@ class CategoriesViewModel(private val repository: JewelryRepository) : ViewModel
         }
     }
 
-    private fun loadCategories() {
-        viewModelScope.launch {
-            _isLoading.value = true
-            repository.getCategories().collect { categories ->
-                _categories.value = categories
-                _isLoading.value = false
-            }
-        }
-    }
-
-    private fun loadCollections() {
-        viewModelScope.launch {
-            repository.getThemedCollections().collect { collections ->
-                _collections.value = collections
-            }
-        }
-    }
-
-    // Public method to manually refresh data
-    fun refreshData() {
-        loadCategoriesAndCollections()
-    }
+//    private fun loadCategories() {
+//        viewModelScope.launch {
+//            _isLoading.value = true
+//            repository.getCategories().collect { categories ->
+//                _categories.value = categories
+//                _isLoading.value = false
+//            }
+//        }
+//    }
+//
+//    private fun loadCollections() {
+//        viewModelScope.launch {
+//            repository.getThemedCollections().collect { collections ->
+//                _collections.value = collections
+//            }
+//        }
+//    }
+//
+//    // Public method to manually refresh data
+//    fun refreshData() {
+//        loadCategoriesAndCollections()
+//    }
 }

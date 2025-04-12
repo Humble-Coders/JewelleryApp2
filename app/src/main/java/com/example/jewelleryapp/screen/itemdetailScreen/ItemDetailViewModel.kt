@@ -61,7 +61,7 @@ class ItemDetailViewModel(
                     _product.value = productDetails
                     _isInWishlist.value = isInWishlist
 
-                    Log.d(TAG, "Loaded product with material_id: ${productDetails.material_id}, material_type: ${productDetails.material_type}")
+                    Log.d(TAG, "Loaded product with material_id: ${productDetails.materialId}, material_type: ${productDetails.materialType}")
                     Log.d(TAG, "Product $productId wishlist status: $isInWishlist")
                 }
             } catch (e: Exception) {
@@ -73,18 +73,18 @@ class ItemDetailViewModel(
         }
     }
 
-    private fun checkWishlistStatus(productId: String) {
-        viewModelScope.launch {
-            try {
-                val isInWishlistResult = repository.isInWishlist(productId)
-                _isInWishlist.value = isInWishlistResult
-                Log.d(TAG, "Product $productId wishlist status: $isInWishlistResult")
-            } catch (e: Exception) {
-                Log.e(TAG, "Error checking wishlist status", e)
-                // Don't update the wishlist status on error
-            }
-        }
-    }
+//    private fun checkWishlistStatus(productId: String) {
+//        viewModelScope.launch {
+//            try {
+//                val isInWishlistResult = repository.isInWishlist(productId)
+//                _isInWishlist.value = isInWishlistResult
+//                Log.d(TAG, "Product $productId wishlist status: $isInWishlistResult")
+//            } catch (e: Exception) {
+//                Log.e(TAG, "Error checking wishlist status", e)
+//                // Don't update the wishlist status on error
+//            }
+//        }
+//    }
 
     fun toggleWishlist() {
         viewModelScope.launch {
@@ -172,13 +172,13 @@ class ItemDetailViewModel(
         viewModelScope.launch {
             try {
                 // Log before fetching
-                Log.d(TAG, "Loading similar products for category: ${currentProduct.category_id}")
+                Log.d(TAG, "Loading similar products for category: ${currentProduct.categoryId}")
 
                 // Collect similar products and check wishlist status in parallel
                 coroutineScope {
                     val similarProductsJob = async(Dispatchers.Default) {
                         repository.getProductsByCategory(
-                            categoryId = currentProduct.category_id,
+                            categoryId = currentProduct.categoryId,
                             excludeProductId = currentProduct.id
                         ).first()
                     }

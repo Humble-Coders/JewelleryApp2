@@ -1,7 +1,6 @@
 package com.example.jewelleryapp.repository
 
 import com.google.firebase.auth.FirebaseAuth
-import com.google.firebase.auth.AuthCredential
 import kotlinx.coroutines.tasks.await
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
@@ -61,9 +60,9 @@ class FirebaseAuthRepository(private val firebaseAuth: FirebaseAuth) {
         }
     }
 
-    fun getCurrentUser() = firebaseAuth.currentUser
+    //fun getCurrentUser() = firebaseAuth.currentUser
 
-    fun signOut() = firebaseAuth.signOut()
+    //fun signOut() = firebaseAuth.signOut()
 
     fun isUserLoggedIn() = firebaseAuth.currentUser != null
 }

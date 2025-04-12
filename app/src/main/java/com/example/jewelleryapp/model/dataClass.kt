@@ -19,9 +19,9 @@ data class Product(
     val stone: String = "",
     val clarity: String = "",
     val cut: String = "",
-    val category_id: String = "",
-    val material_id: String? = null,
-    val material_type : String? = null,
+    val categoryId: String = "",
+    val materialId: String? = null,
+    val materialType : String? = null,
     val description: String = "",
     val category: String = ""
 )

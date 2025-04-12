@@ -3,7 +3,6 @@ package com.example.jewelleryapp.screen.itemdetailScreen
 import android.util.Log
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.ExperimentalFoundationApi
-import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -27,7 +26,7 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.ArrowBack
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Favorite
 import androidx.compose.material.icons.filled.FavoriteBorder
 import androidx.compose.material.icons.filled.Share
@@ -54,7 +53,6 @@ import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.text.style.TextOverflow
-import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.navigation.NavController
@@ -75,11 +73,11 @@ private val TextDescriptionColor = Color(0xFF4B5563)
 private val TextPriceColor = Color(0xFF333333)
 
 // Data models for similar products display
-data class SimilarProductData(
-    val imageId: Int,
-    val title: String,
-    val price: String
-)
+//data class SimilarProductData(
+//    val imageId: Int,
+//    val title: String,
+//    val price: String
+//)
 
 data class ProductSpec(
     val iconId: Int,
@@ -95,7 +93,6 @@ fun JewelryProductScreen(
     navController: NavController,
     onBackClick: () -> Unit = {},
     onShareClick: () -> Unit = {},
-    onAddToWishlistClick: () -> Unit = {},
     onProductClick: (String) -> Unit = {}
 ) {
     val product by viewModel.product.collectAsState()
@@ -114,8 +111,8 @@ fun JewelryProductScreen(
     // Fetch similar products when product is loaded
     LaunchedEffect(product) {
         product?.let {
-            if (it.category_id.isNotBlank()) {
-                Log.d("JewelryProductScreen", "Loading similar products for category: ${it.category_id}")
+            if (it.categoryId.isNotBlank()) {
+                Log.d("JewelryProductScreen", "Loading similar products for category: ${it.categoryId}")
                 viewModel.loadSimilarProducts()
             }
         }
@@ -157,11 +154,11 @@ fun JewelryProductScreen(
                     ProductSpec(
                         R.drawable.material_icon,
                         "Material",
-                        if (!prod.material_id.isNullOrBlank()) {
-                            val materialName = prod.material_id.replace("material_", "")
+                        if (!prod.materialId.isNullOrBlank()) {
+                            val materialName = prod.materialId.replace("material_", "")
                                 .replaceFirstChar { if (it.isLowerCase()) it.titlecase(Locale.getDefault()) else it.toString() }
-                            if (!prod.material_type.isNullOrBlank()) {
-                                "$materialName ${prod.material_type}"
+                            if (!prod.materialType.isNullOrBlank()) {
+                                "$materialName ${prod.materialType}"
                             } else {
                                 materialName
                             }
@@ -290,7 +287,7 @@ private fun ProductTopAppBar(
         },
         navigationIcon = {
             IconButton(onClick = onBackClick) {
-                Icon(Icons.Default.ArrowBack, contentDescription = "Back")
+                Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
             }
         },
         actions = {
@@ -407,7 +404,7 @@ private fun ProductHeader(
             fontWeight = FontWeight.Bold
         )
         Text(
-            text = "$originalPrice",
+            text = originalPrice,
             fontSize = 16.sp,
             color = TextGrayColor,
             textDecoration = TextDecoration.LineThrough,
@@ -578,44 +575,44 @@ private fun SimilarProductItem(
     }
 }
 
-@Composable
-private fun WishlistButton(onClick: () -> Unit) {
-    Button(
-        onClick = onClick,
-        modifier = Modifier.fillMaxWidth(),
-        colors = ButtonDefaults.buttonColors(containerColor = ButtonColor),
-        border = BorderStroke(1.dp, Color.Black)
-    ) {
-        Text(
-            text = "Add to Wishlist",
-            color = Color.Black,
-            modifier = Modifier.padding(vertical = 8.dp)
-        )
-    }
-}
+//@Composable
+//private fun WishlistButton(onClick: () -> Unit) {
+//    Button(
+//        onClick = onClick,
+//        modifier = Modifier.fillMaxWidth(),
+//        colors = ButtonDefaults.buttonColors(containerColor = ButtonColor),
+//        border = BorderStroke(1.dp, Color.Black)
+//    ) {
+//        Text(
+//            text = "Add to Wishlist",
+//            color = Color.Black,
+//            modifier = Modifier.padding(vertical = 8.dp)
+//        )
+//    }
+//}
 
-@Composable
-fun WishlistStatusIndicator(
-    isInWishlist: Boolean,
-    onToggle: () -> Unit,
-    modifier: Modifier = Modifier,
-    iconSize: Dp = 24.dp,
-    containerSize: Dp = 36.dp
-) {
-    Box(
-        modifier = modifier
-            .size(containerSize)
-            .clip(CircleShape)
-            .background(Color.White.copy(alpha = 0.7f))
-            .clickable(onClick = onToggle),
-        contentAlignment = Alignment.Center
-    ) {
-        Icon(
-            imageVector = if (isInWishlist) Icons.Default.Favorite else Icons.Default.FavoriteBorder,
-            contentDescription = if (isInWishlist) "Remove from Wishlist" else "Add to Wishlist",
-            tint = if (isInWishlist) Color.Red else Color.Gray,
-            modifier = Modifier.size(iconSize)
-        )
-    }
-}
+//@Composable
+//fun WishlistStatusIndicator(
+//    isInWishlist: Boolean,
+//    onToggle: () -> Unit,
+//    modifier: Modifier = Modifier,
+//    iconSize: Dp = 24.dp,
+//    containerSize: Dp = 36.dp
+//) {
+//    Box(
+//        modifier = modifier
+//            .size(containerSize)
+//            .clip(CircleShape)
+//            .background(Color.White.copy(alpha = 0.7f))
+//            .clickable(onClick = onToggle),
+//        contentAlignment = Alignment.Center
+//    ) {
+//        Icon(
+//            imageVector = if (isInWishlist) Icons.Default.Favorite else Icons.Default.FavoriteBorder,
+//            contentDescription = if (isInWishlist) "Remove from Wishlist" else "Add to Wishlist",
+//            tint = if (isInWishlist) Color.Red else Color.Gray,
+//            modifier = Modifier.size(iconSize)
+//        )
+//    }
+//}
 

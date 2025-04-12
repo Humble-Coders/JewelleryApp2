@@ -146,7 +146,6 @@ fun AppNavigation(
                 }
             )
         ) { backStackEntry ->
-            val categoryId = backStackEntry.arguments?.getString("categoryId") ?: ""
             CategoryScreenView(
                 viewModel = categoryViewModel,
                 navController = navController // Pass navController for bottom navigation
@@ -178,9 +177,6 @@ fun AppNavigation(
                 onShareClick = {
                     // Handle share functionality (will be implemented later)
                 },
-                onAddToWishlistClick = {
-                    // This will be handled inside the viewModel's toggleWishlist function
-                },
                 onProductClick = { selectedProductId ->
                     // Navigate to the selected product's detail screen
                     navController.navigate("itemDetail/$selectedProductId") {
@@ -203,7 +199,6 @@ fun AppNavigation(
                 }
             )
         ) { backStackEntry ->
-            val collectionId = backStackEntry.arguments?.getString("collectionId") ?: ""
             // For now, we'll redirect to categories screen as a placeholder
             CategoryScreenView(
                 viewModel = categoryViewModel,

@@ -11,7 +11,6 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.async
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.coroutineScope
-import kotlinx.coroutines.awaitAll
 
 class WishlistViewModel(private val repository: JewelryRepository) : ViewModel() {
     private val _wishlistItems = MutableStateFlow<List<Product>>(emptyList())

@@ -3,7 +3,6 @@ package com.example.jewelleryapp.screen.categoriesScreen
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -69,10 +68,10 @@ fun CategoryScreenView(viewModel: CategoriesViewModel,
                     // Display categories in pairs
                     categories.chunked(2).forEach { pair ->
                         CategoryRowView(
-                            listOf(
+                            listOfNotNull(
                                 pair.getOrNull(0),
                                 pair.getOrNull(1)
-                            ).filterNotNull()
+                            )
                         )
                         Spacer(modifier = Modifier.height(16.dp))
                     }

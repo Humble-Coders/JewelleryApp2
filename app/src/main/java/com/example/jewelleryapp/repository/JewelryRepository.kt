@@ -20,7 +20,7 @@ import java.lang.Exception
 class JewelryRepository(
     private val userId: String,
     private val firestore: FirebaseFirestore) {
-    private val TAG = "JewelryRepository"
+    private val tag = "JewelryRepository"
 
     // Cache for wishlist status to avoid excessive Firestore calls
     private val wishlistCache = mutableMapOf<String, Boolean>()
@@ -28,9 +28,9 @@ class JewelryRepository(
     // Function to update wishlist cache from Firestore - Optimized with async
     suspend fun refreshWishlistCache() {
         try {
-            Log.d(TAG, "Refreshing wishlist cache for user: $userId")
+            Log.d(tag, "Refreshing wishlist cache for user: $userId")
             if (userId.isBlank()) {
-                Log.d(TAG, "User ID is blank, cannot refresh wishlist cache")
+                Log.d(tag, "User ID is blank, cannot refresh wishlist cache")
                 wishlistCache.clear()
                 return
             }
@@ -52,17 +52,17 @@ class JewelryRepository(
                 }
             }
 
-            Log.d(TAG, "Refreshed wishlist cache with ${wishlistCache.size} items")
+            Log.d(tag, "Refreshed wishlist cache with ${wishlistCache.size} items")
         } catch (e: Exception) {
-            Log.e(TAG, "Error refreshing wishlist cache", e)
+            Log.e(tag, "Error refreshing wishlist cache", e)
             // Don't clear cache on error to prevent data loss
         }
     }
 
     // Optimized with async
-    suspend fun getWishlistItems(): Flow<List<Product>> = flow {
+     fun getWishlistItems(): Flow<List<Product>> = flow {
         try {
-            Log.d(TAG, "Fetching wishlist items for user: $userId")
+            Log.d(tag, "Fetching wishlist items for user: $userId")
 
             // Refresh the cache in the background
             val refreshJob = withContext(Dispatchers.Default) {
@@ -78,10 +78,10 @@ class JewelryRepository(
             }
 
             val productIds = snapshot.documents.map { it.id }
-            Log.d(TAG, "Found ${productIds.size} items in wishlist: $productIds")
+            Log.d(tag, "Found ${productIds.size} items in wishlist: $productIds")
 
             if (productIds.isEmpty()) {
-                Log.d(TAG, "No items in wishlist")
+                Log.d(tag, "No items in wishlist")
                 emit(emptyList())
                 return@flow
             }
@@ -89,13 +89,13 @@ class JewelryRepository(
             refreshJob.await() // Ensure cache is refreshed before proceeding
 
             val products = fetchProductsByIds(productIds)
-            Log.d(TAG, "Successfully fetched ${products.size} products for wishlist")
+            Log.d(tag, "Successfully fetched ${products.size} products for wishlist")
 
             // Mark all products as favorites since they're in the wishlist
             val productsWithFavoriteFlag = products.map { it.copy(isFavorite = true) }
             emit(productsWithFavoriteFlag)
         } catch (e: Exception) {
-            Log.e(TAG, "Error fetching wishlist items", e)
+            Log.e(tag, "Error fetching wishlist items", e)
             throw e  // Re-throw so it can be caught and handled in the ViewModel
         }
     }
@@ -103,7 +103,7 @@ class JewelryRepository(
     suspend fun removeFromWishlist(productId: String) {
         try {
             if (userId.isBlank()) {
-                Log.e(TAG, "Cannot remove from wishlist: User ID is blank")
+                Log.e(tag, "Cannot remove from wishlist: User ID is blank")
                 return
             }
 
@@ -117,10 +117,10 @@ class JewelryRepository(
 
                 // Update cache
                 wishlistCache[productId] = false
-                Log.d(TAG, "Successfully removed product $productId from wishlist")
+                Log.d(tag, "Successfully removed product $productId from wishlist")
             }
         } catch (e: Exception) {
-            Log.e(TAG, "Error removing product from wishlist", e)
+            Log.e(tag, "Error removing product from wishlist", e)
             throw e
         }
     }
@@ -128,7 +128,7 @@ class JewelryRepository(
     suspend fun addToWishlist(productId: String) {
         try {
             if (userId.isBlank()) {
-                Log.e(TAG, "Cannot add to wishlist: User ID is blank")
+                Log.e(tag, "Cannot add to wishlist: User ID is blank")
                 return
             }
 
@@ -145,15 +145,15 @@ class JewelryRepository(
 
                 // Update cache
                 wishlistCache[productId] = true
-                Log.d(TAG, "Successfully added product $productId to wishlist")
+                Log.d(tag, "Successfully added product $productId to wishlist")
             }
         } catch (e: Exception) {
-            Log.e(TAG, "Error adding product to wishlist", e)
+            Log.e(tag, "Error adding product to wishlist", e)
             throw e
         }
     }
 
-    suspend fun getCategoryProducts(categoryId: String): Flow<List<Product>> = flow {
+     fun getCategoryProducts(categoryId: String): Flow<List<Product>> = flow {
         try {
             // Get product IDs from category_products collection
             val categoryDoc = withContext(Dispatchers.IO) {
@@ -173,19 +173,19 @@ class JewelryRepository(
             val products = fetchProductsByIds(productIds)
             emit(products)
         } catch (e: Exception) {
-            Log.e(TAG, "Error fetching category products", e)
+            Log.e(tag, "Error fetching category products", e)
             emit(emptyList())
         }
     }
 
     private suspend fun fetchProductsByIds(productIds: List<String>): List<Product> = coroutineScope {
         try {
-            Log.d(TAG, "Fetching products for IDs: $productIds")
+            Log.d(tag, "Fetching products for IDs: $productIds")
 
             // Process in batches of 10 (Firestore limitation) but fetch asynchronously
             val productBatches = productIds.chunked(10).map { batch ->
                 async(Dispatchers.IO) {
-                    Log.d(TAG, "Fetching batch of products: $batch")
+                    Log.d(tag, "Fetching batch of products: $batch")
 
                     // Process each product document in parallel within the batch
                     val docDeferred = batch.map { productId ->
@@ -193,13 +193,13 @@ class JewelryRepository(
                             try {
                                 val doc = firestore.collection("products").document(productId).get().await()
                                 if (!doc.exists()) {
-                                    Log.e(TAG, "Product document $productId does not exist")
+                                    Log.e(tag, "Product document $productId does not exist")
                                     null
                                 } else {
                                     doc
                                 }
                             } catch (e: Exception) {
-                                Log.e(TAG, "Error fetching product $productId", e)
+                                Log.e(tag, "Error fetching product $productId", e)
                                 null
                             }
                         }
@@ -239,17 +239,17 @@ class JewelryRepository(
                 }
             }.awaitAll()
 
-            Log.d(TAG, "Successfully fetched ${products.size} products")
+            Log.d(tag, "Successfully fetched ${products.size} products")
             return@coroutineScope products
 
         } catch (e: Exception) {
-            Log.e(TAG, "Error fetching products by IDs: $productIds", e)
+            Log.e(tag, "Error fetching products by IDs: $productIds", e)
             throw e  // Re-throw to handle in ViewModel
         }
     }
 
     // Fix for getCategories function
-    suspend fun getCategories(): Flow<List<Category>> = flow {
+     fun getCategories(): Flow<List<Category>> = flow {
         try {
             val snapshot = withContext(Dispatchers.IO) {
                 firestore.collection("categories")
@@ -274,19 +274,19 @@ class JewelryRepository(
                 }.awaitAll()
             }
 
-            Log.d(TAG, "Fetched ${categories.size} categories")
+            Log.d(tag, "Fetched ${categories.size} categories")
             emit(categories)
         } catch (e: Exception) {
-            Log.e(TAG, "Error fetching categories", e)
+            Log.e(tag, "Error fetching categories", e)
             // Don't emit inside catch block - use catch operator instead
         }
     }.catch { e ->
-        Log.e(TAG, "Error in categories flow", e)
+        Log.e(tag, "Error in categories flow", e)
         emit(emptyList<Category>())
     }
 
     // Fix for getThemedCollections function
-    suspend fun getThemedCollections(): Flow<List<Collection>> = flow {
+     fun getThemedCollections(): Flow<List<Collection>> = flow {
         try {
             val snapshot = withContext(Dispatchers.IO) {
                 firestore.collection("themed_collections")
@@ -312,19 +312,19 @@ class JewelryRepository(
                 }.awaitAll()
             }
 
-            Log.d(TAG, "Fetched ${collections.size} themed collections")
+            Log.d(tag, "Fetched ${collections.size} themed collections")
             emit(collections)
         } catch (e: Exception) {
-            Log.e(TAG, "Error fetching themed collections", e)
+            Log.e(tag, "Error fetching themed collections", e)
             // Don't emit inside catch block - use catch operator instead
         }
     }.catch { e ->
-        Log.e(TAG, "Error in themed collections flow", e)
+        Log.e(tag, "Error in themed collections flow", e)
         emit(emptyList<Collection>())
     }
 
     // Fix for getCarouselItems function
-    suspend fun getCarouselItems(): Flow<List<CarouselItem>> = flow {
+     fun getCarouselItems(): Flow<List<CarouselItem>> = flow {
         try {
             val snapshot = withContext(Dispatchers.IO) {
                 firestore.collection("carousel_items")
@@ -350,19 +350,19 @@ class JewelryRepository(
                 }.awaitAll()
             }
 
-            Log.d(TAG, "Fetched ${carouselItems.size} carousel items")
+            Log.d(tag, "Fetched ${carouselItems.size} carousel items")
             emit(carouselItems)
         } catch (e: Exception) {
-            Log.e(TAG, "Error fetching carousel items", e)
+            Log.e(tag, "Error fetching carousel items", e)
             // Don't emit inside catch block - use catch operator instead
         }
     }.catch { e ->
-        Log.e(TAG, "Error in carousel items flow", e)
+        Log.e(tag, "Error in carousel items flow", e)
         emit(emptyList<CarouselItem>())
     }
 
     // Fix for getFeaturedProducts function
-    suspend fun getFeaturedProducts(): Flow<List<Product>> = flow {
+     fun getFeaturedProducts(): Flow<List<Product>> = flow {
         try {
             // Make sure the wishlist cache is up to date in the background
             val refreshCacheJob = withContext(Dispatchers.Default) {
@@ -380,12 +380,12 @@ class JewelryRepository(
             val productIds = featuredListDoc.get("product_ids") as? List<*>
 
             if (productIds.isNullOrEmpty()) {
-                Log.d(TAG, "No featured product IDs found")
+                Log.d(tag, "No featured product IDs found")
                 emit(emptyList<Product>())
                 return@flow
             }
 
-            Log.d(TAG, "Found ${productIds.size} featured product IDs")
+            Log.d(tag, "Found ${productIds.size} featured product IDs")
 
             // Wait for cache refresh to complete
             refreshCacheJob.await()
@@ -427,36 +427,36 @@ class JewelryRepository(
                 }.awaitAll()
             }
 
-            Log.d(TAG, "Fetched ${products.size} featured products")
+            Log.d(tag, "Fetched ${products.size} featured products")
             emit(products)
         } catch (e: Exception) {
-            Log.e(TAG, "Error fetching featured products", e)
+            Log.e(tag, "Error fetching featured products", e)
             // Don't emit inside catch block - use catch operator instead
         }
     }.catch { e ->
-        Log.e(TAG, "Error in featured products flow", e)
+        Log.e(tag, "Error in featured products flow", e)
         emit(emptyList<Product>())
     }
 
     // This would be called when a user views a product
-    suspend fun recordProductView(userId: String, productId: String) {
-        // In a real app, you'd store this in a user's recently viewed collection
-        try {
-            withContext(Dispatchers.IO) {
-                firestore.collection("users")
-                    .document(userId)
-                    .collection("recently_viewed")
-                    .document(productId)
-                    .set(mapOf(
-                        "timestamp" to com.google.firebase.Timestamp.now()
-                    ))
-
-                Log.d(TAG, "Recorded product view for user $userId, product $productId")
-            }
-        } catch (e: Exception) {
-            Log.e(TAG, "Error recording product view", e)
-        }
-    }
+//    suspend fun recordProductView(userId: String, productId: String) {
+//        // In a real app, you'd store this in a user's recently viewed collection
+//        try {
+//            withContext(Dispatchers.IO) {
+//                firestore.collection("users")
+//                    .document(userId)
+//                    .collection("recently_viewed")
+//                    .document(productId)
+//                    .set(mapOf(
+//                        "timestamp" to com.google.firebase.Timestamp.now()
+//                    ))
+//
+//                Log.d(tag, "Recorded product view for user $userId, product $productId")
+//            }
+//        } catch (e: Exception) {
+//            Log.e(tag, "Error recording product view", e)
+//        }
+//    }
 
     // Function to check if a product is in the user's wishlist
     suspend fun isInWishlist(productId: String): Boolean {
@@ -464,13 +464,13 @@ class JewelryRepository(
             // Check the cache first if it exists
             if (wishlistCache.containsKey(productId)) {
                 val cachedStatus = wishlistCache[productId] == true
-                Log.d(TAG, "Found product $productId in wishlist cache: $cachedStatus")
+                Log.d(tag, "Found product $productId in wishlist cache: $cachedStatus")
                 return cachedStatus
             }
 
             // If not in cache, check from Firestore
             if (userId.isBlank()) {
-                Log.d(TAG, "User ID is blank, cannot check wishlist status")
+                Log.d(tag, "User ID is blank, cannot check wishlist status")
                 return false
             }
 
@@ -488,15 +488,15 @@ class JewelryRepository(
             // Update the cache
             wishlistCache[productId] = exists
 
-            Log.d(TAG, "Checked Firestore for product $productId in wishlist: $exists")
+            Log.d(tag, "Checked Firestore for product $productId in wishlist: $exists")
             return exists
         } catch (e: Exception) {
-            Log.e(TAG, "Error checking if product is in wishlist", e)
+            Log.e(tag, "Error checking if product is in wishlist", e)
             return false
         }
     }
 
-    suspend fun getProductDetails(productId: String): Flow<Product> = flow {
+     fun getProductDetails(productId: String): Flow<Product> = flow {
         try {
             // Make sure wishlist cache is up to date in the background
             val refreshCacheJob = withContext(Dispatchers.Default) {
@@ -530,10 +530,10 @@ class JewelryRepository(
                     name = documentSnapshot.getString("name") ?: "",
                     price = documentSnapshot.getDouble("price") ?: 0.0,
                     currency = documentSnapshot.getString("currency") ?: "Rs",
-                    category_id = documentSnapshot.getString("category_id") ?: "",
+                    categoryId = documentSnapshot.getString("category_id") ?: "",
                     imageUrl = imageUrl,
-                    material_id = documentSnapshot.getString("material_id"),
-                    material_type = documentSnapshot.getString("material_type"),
+                    materialId = documentSnapshot.getString("material_id"),
+                    materialType = documentSnapshot.getString("material_type"),
                     stone = documentSnapshot.getString("stone") ?: "",
                     clarity = documentSnapshot.getString("clarity") ?: "",
                     cut = documentSnapshot.getString("cut") ?: "",
@@ -545,12 +545,12 @@ class JewelryRepository(
                 throw Exception("Product not found")
             }
         } catch (e: Exception) {
-            Log.e(TAG, "Error fetching product details", e)
+            Log.e(tag, "Error fetching product details", e)
             throw e
         }
     }
 
-    suspend fun getProductsByCategory(categoryId: String, excludeProductId: String? = null): Flow<List<Product>> = flow {
+     fun getProductsByCategory(categoryId: String, excludeProductId: String? = null): Flow<List<Product>> = flow {
         try {
             // Refresh wishlist cache in the background
             val refreshCacheJob = withContext(Dispatchers.Default) {
@@ -599,7 +599,7 @@ class JewelryRepository(
                                 name = doc.getString("name") ?: "",
                                 price = doc.getDouble("price") ?: 0.0,
                                 currency = doc.getString("currency") ?: "Rs",
-                                category_id = doc.getString("category_id") ?: "",
+                                categoryId = doc.getString("category_id") ?: "",
                                 imageUrl = imageUrl,
                                 material = doc.getString("material") ?: "",
                                 stone = doc.getString("stone") ?: "",
@@ -611,13 +611,13 @@ class JewelryRepository(
                     }.awaitAll()
                 }
 
-                Log.d(TAG, "Fetched ${products.size} products for category $categoryId")
+                Log.d(tag, "Fetched ${products.size} products for category $categoryId")
                 emit(products)
             } else {
                 emit(emptyList())
             }
         } catch (e: Exception) {
-            Log.e(TAG, "Error fetching products by category", e)
+            Log.e(tag, "Error fetching products by category", e)
             emit(emptyList())
         }
     }

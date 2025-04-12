@@ -21,7 +21,6 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
@@ -33,13 +32,6 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.navigation.NavController
 import com.example.jewelleryapp.R
-
-import com.google.android.gms.auth.api.signin.GoogleSignIn
-import com.google.android.gms.auth.api.signin.GoogleSignInOptions
-import com.google.android.gms.common.api.ApiException
-import com.google.firebase.auth.GoogleAuthProvider
-import androidx.activity.compose.rememberLauncherForActivityResult
-import androidx.activity.result.contract.ActivityResultContracts
 import com.example.jewelleryapp.screen.loginScreen.BrandHeader
 import com.example.jewelleryapp.screen.loginScreen.GoldenShade
 
@@ -53,7 +45,6 @@ fun RegisterScreen(viewModel: RegisterViewModel, navController: NavController) {
     var isConfirmPasswordVisible by remember { mutableStateOf(false) }
     val registerState by viewModel.registerState.collectAsState()
     val scaffoldState = rememberScaffoldState()
-    val context = LocalContext.current
     val focusManager = LocalFocusManager.current
 
     // Password validation error states
