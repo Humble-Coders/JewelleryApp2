@@ -51,29 +51,57 @@ class HomeViewModel(private val repository: JewelryRepository) : ViewModel() {
         loadData()
     }
 
+    // In HomeViewModel.kt - Fix the loadData function
     fun loadData() {
         _isLoading.value = true
         _error.value = null
 
         viewModelScope.launch {
             try {
+                // Create a list to hold any errors that occur
+                val errors = mutableListOf<String>()
+
                 // Launch all data loading operations in parallel using coroutineScope
                 coroutineScope {
                     // Create separate async jobs for each data type
                     val categoriesJob = async(Dispatchers.Default) {
-                        repository.getCategories().first()
+                        try {
+                            repository.getCategories().first()
+                        } catch (e: Exception) {
+                            Log.e(TAG, "Error loading categories", e)
+                            errors.add("Categories: ${e.message}")
+                            emptyList()
+                        }
                     }
 
                     val featuredProductsJob = async(Dispatchers.Default) {
-                        repository.getFeaturedProducts().first()
+                        try {
+                            repository.getFeaturedProducts().first()
+                        } catch (e: Exception) {
+                            Log.e(TAG, "Error loading featured products", e)
+                            errors.add("Featured Products: ${e.message}")
+                            emptyList()
+                        }
                     }
 
                     val collectionsJob = async(Dispatchers.Default) {
-                        repository.getThemedCollections().first()
+                        try {
+                            repository.getThemedCollections().first()
+                        } catch (e: Exception) {
+                            Log.e(TAG, "Error loading collections", e)
+                            errors.add("Collections: ${e.message}")
+                            emptyList()
+                        }
                     }
 
                     val carouselItemsJob = async(Dispatchers.Default) {
-                        repository.getCarouselItems().first()
+                        try {
+                            repository.getCarouselItems().first()
+                        } catch (e: Exception) {
+                            Log.e(TAG, "Error loading carousel items", e)
+                            errors.add("Carousel Items: ${e.message}")
+                            emptyList()
+                        }
                     }
 
                     // Wait for all jobs to complete and update UI state
@@ -87,6 +115,19 @@ class HomeViewModel(private val repository: JewelryRepository) : ViewModel() {
                     _featuredProducts.value = featuredProducts
                     _collections.value = collections
                     _carouselItems.value = carouselItems
+                }
+
+                // If there are any errors, set the error message
+                if (errors.isNotEmpty()) {
+                    // Only show the error if we couldn't load anything at all
+                    if (_categories.value.isEmpty() &&
+                        _featuredProducts.value.isEmpty() &&
+                        _collections.value.isEmpty() &&
+                        _carouselItems.value.isEmpty()) {
+                        _error.value = "Failed to load data. Please check your connection."
+                    }
+                } else {
+                    _error.value = null
                 }
 
                 _isLoading.value = false

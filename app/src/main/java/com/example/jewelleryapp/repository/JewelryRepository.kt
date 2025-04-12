@@ -13,6 +13,7 @@ import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.coroutineScope
+import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.withContext
 import java.lang.Exception
 
@@ -247,6 +248,7 @@ class JewelryRepository(
         }
     }
 
+    // Fix for getCategories function
     suspend fun getCategories(): Flow<List<Category>> = flow {
         try {
             val snapshot = withContext(Dispatchers.IO) {
@@ -276,10 +278,90 @@ class JewelryRepository(
             emit(categories)
         } catch (e: Exception) {
             Log.e(TAG, "Error fetching categories", e)
-            emit(emptyList<Category>())
+            // Don't emit inside catch block - use catch operator instead
         }
+    }.catch { e ->
+        Log.e(TAG, "Error in categories flow", e)
+        emit(emptyList<Category>())
     }
 
+    // Fix for getThemedCollections function
+    suspend fun getThemedCollections(): Flow<List<Collection>> = flow {
+        try {
+            val snapshot = withContext(Dispatchers.IO) {
+                firestore.collection("themed_collections")
+                    .orderBy("order")
+                    .get()
+                    .await()
+            }
+
+            // Process collections in parallel
+            val collections = coroutineScope {
+                snapshot.documents.map { doc ->
+                    async(Dispatchers.Default) {
+                        // Direct HTTPS URL - no conversion needed
+                        val imageUrl = doc.getString("imageUrl") ?: ""
+
+                        Collection(
+                            id = doc.id,
+                            name = doc.getString("name") ?: "",
+                            imageUrl = imageUrl,
+                            description = doc.getString("description") ?: ""
+                        )
+                    }
+                }.awaitAll()
+            }
+
+            Log.d(TAG, "Fetched ${collections.size} themed collections")
+            emit(collections)
+        } catch (e: Exception) {
+            Log.e(TAG, "Error fetching themed collections", e)
+            // Don't emit inside catch block - use catch operator instead
+        }
+    }.catch { e ->
+        Log.e(TAG, "Error in themed collections flow", e)
+        emit(emptyList<Collection>())
+    }
+
+    // Fix for getCarouselItems function
+    suspend fun getCarouselItems(): Flow<List<CarouselItem>> = flow {
+        try {
+            val snapshot = withContext(Dispatchers.IO) {
+                firestore.collection("carousel_items")
+                    .get()
+                    .await()
+            }
+
+            // Process carousel items in parallel
+            val carouselItems = coroutineScope {
+                snapshot.documents.map { doc ->
+                    async(Dispatchers.Default) {
+                        // Direct HTTPS URL - no conversion needed
+                        val imageUrl = doc.getString("imageUrl") ?: ""
+
+                        CarouselItem(
+                            id = doc.id,
+                            imageUrl = imageUrl,
+                            title = doc.getString("title") ?: "",
+                            subtitle = doc.getString("subtitle") ?: "",
+                            buttonText = doc.getString("buttonText") ?: ""
+                        )
+                    }
+                }.awaitAll()
+            }
+
+            Log.d(TAG, "Fetched ${carouselItems.size} carousel items")
+            emit(carouselItems)
+        } catch (e: Exception) {
+            Log.e(TAG, "Error fetching carousel items", e)
+            // Don't emit inside catch block - use catch operator instead
+        }
+    }.catch { e ->
+        Log.e(TAG, "Error in carousel items flow", e)
+        emit(emptyList<CarouselItem>())
+    }
+
+    // Fix for getFeaturedProducts function
     suspend fun getFeaturedProducts(): Flow<List<Product>> = flow {
         try {
             // Make sure the wishlist cache is up to date in the background
@@ -349,76 +431,11 @@ class JewelryRepository(
             emit(products)
         } catch (e: Exception) {
             Log.e(TAG, "Error fetching featured products", e)
-            emit(emptyList<Product>())
+            // Don't emit inside catch block - use catch operator instead
         }
-    }
-
-    suspend fun getThemedCollections(): Flow<List<Collection>> = flow {
-        try {
-            val snapshot = withContext(Dispatchers.IO) {
-                firestore.collection("themed_collections")
-                    .orderBy("order")
-                    .get()
-                    .await()
-            }
-
-            // Process collections in parallel
-            val collections = coroutineScope {
-                snapshot.documents.map { doc ->
-                    async(Dispatchers.Default) {
-                        // Direct HTTPS URL - no conversion needed
-                        val imageUrl = doc.getString("imageUrl") ?: ""
-
-                        Collection(
-                            id = doc.id,
-                            name = doc.getString("name") ?: "",
-                            imageUrl = imageUrl,
-                            description = doc.getString("description") ?: ""
-                        )
-                    }
-                }.awaitAll()
-            }
-
-            Log.d(TAG, "Fetched ${collections.size} themed collections")
-            emit(collections)
-        } catch (e: Exception) {
-            Log.e(TAG, "Error fetching themed collections", e)
-            emit(emptyList<Collection>())
-        }
-    }
-
-    suspend fun getCarouselItems(): Flow<List<CarouselItem>> = flow {
-        try {
-            val snapshot = withContext(Dispatchers.IO) {
-                firestore.collection("carousel_items")
-                    .get()
-                    .await()
-            }
-
-            // Process carousel items in parallel
-            val carouselItems = coroutineScope {
-                snapshot.documents.map { doc ->
-                    async(Dispatchers.Default) {
-                        // Direct HTTPS URL - no conversion needed
-                        val imageUrl = doc.getString("imageUrl") ?: ""
-
-                        CarouselItem(
-                            id = doc.id,
-                            imageUrl = imageUrl,
-                            title = doc.getString("title") ?: "",
-                            subtitle = doc.getString("subtitle") ?: "",
-                            buttonText = doc.getString("buttonText") ?: ""
-                        )
-                    }
-                }.awaitAll()
-            }
-
-            Log.d(TAG, "Fetched ${carouselItems.size} carousel items")
-            emit(carouselItems)
-        } catch (e: Exception) {
-            Log.e(TAG, "Error fetching carousel items", e)
-            emit(emptyList<CarouselItem>())
-        }
+    }.catch { e ->
+        Log.e(TAG, "Error in featured products flow", e)
+        emit(emptyList<Product>())
     }
 
     // This would be called when a user views a product
