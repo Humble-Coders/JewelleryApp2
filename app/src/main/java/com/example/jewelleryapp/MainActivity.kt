@@ -6,21 +6,17 @@ import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.compose.foundation.background
-import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.material3.Surface
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
-import androidx.navigation.NavController
 import androidx.navigation.NavType
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
 import com.example.jewelleryapp.repository.FirebaseAuthRepository
-import com.example.jewelleryapp.repository.FirebaseStorageHelper
 import com.example.jewelleryapp.repository.JewelryRepository
 import com.example.jewelleryapp.screen.categoriesScreen.CategoriesViewModel
 import com.example.jewelleryapp.screen.categoriesScreen.CategoryScreenView
@@ -55,14 +51,12 @@ class MainActivity : ComponentActivity() {
         // Initialize Firestore
         val firestore = FirebaseFirestore.getInstance()
 
-        val storageHelper = FirebaseStorageHelper()
-
         // Initialize Repositories
         val authRepository = FirebaseAuthRepository(firebaseAuth)
         // Get current user ID for repository (or empty string if not logged in)
         val userId = firebaseAuth.currentUser?.uid ?: ""
         Log.d("MainActivity", "User ID: $userId")
-        val jewelryRepository = JewelryRepository(userId, firestore, storageHelper)
+        val jewelryRepository = JewelryRepository(userId, firestore)
 
         // Initialize ViewModels
         loginViewModel = LoginViewModel(authRepository)

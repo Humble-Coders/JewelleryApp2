@@ -6,6 +6,9 @@ import coil.ImageLoaderFactory
 import coil.disk.DiskCache
 import coil.memory.MemoryCache
 import coil.util.DebugLogger
+import kotlinx.coroutines.Dispatchers
+import okhttp3.OkHttpClient
+import java.util.concurrent.TimeUnit
 
 class JewelryApplication : Application(), ImageLoaderFactory {
     override fun onCreate() {
@@ -14,6 +17,14 @@ class JewelryApplication : Application(), ImageLoaderFactory {
     }
 
     override fun newImageLoader(): ImageLoader {
+        // Create an optimized OkHttpClient for Coil
+        val okHttpClient = OkHttpClient.Builder()
+            .connectTimeout(30, TimeUnit.SECONDS) // Increased timeout for slower connections
+            .readTimeout(30, TimeUnit.SECONDS)
+            .writeTimeout(30, TimeUnit.SECONDS)
+            .retryOnConnectionFailure(true) // Retry automatically on connection issues
+            .build()
+
         return ImageLoader.Builder(this)
             .diskCache {
                 DiskCache.Builder()
@@ -26,8 +37,13 @@ class JewelryApplication : Application(), ImageLoaderFactory {
                     .maxSizePercent(0.25) // Use 25% of app memory
                     .build()
             }
+            .okHttpClient(okHttpClient) // Use the optimized HTTP client
+            .fetcherDispatcher(Dispatchers.IO) // Use IO dispatcher for fetching
+            .decoderDispatcher(Dispatchers.Default) // Use Default dispatcher for decoding
+            .callFactory(okHttpClient) // Use same client for all calls
             .crossfade(true) // Enable crossfade animation between images
             .respectCacheHeaders(false) // Ignore cache headers from network
+            .allowRgb565(true) // Use smaller image format when possible for better performance
             .build()
     }
 }

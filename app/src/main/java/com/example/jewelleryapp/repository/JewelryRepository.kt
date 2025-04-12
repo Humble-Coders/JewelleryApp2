@@ -1,32 +1,30 @@
 package com.example.jewelleryapp.repository
 
 import android.util.Log
-import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.FirebaseFirestore
 import com.example.jewelleryapp.model.Category
 import com.example.jewelleryapp.model.Collection
 import com.example.jewelleryapp.model.Product
 import com.example.jewelleryapp.model.CarouselItem
-import com.google.firebase.firestore.DocumentSnapshot
 import kotlinx.coroutines.tasks.await
 import kotlinx.coroutines.flow.Flow
-import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.flow
+import kotlinx.coroutines.async
+import kotlinx.coroutines.awaitAll
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.coroutineScope
+import kotlinx.coroutines.withContext
 import java.lang.Exception
 
 class JewelryRepository(
-    private val userId: String, // Add this parameter
-    private val firestore: FirebaseFirestore,
-    private val storageHelper: FirebaseStorageHelper
-) {
+    private val userId: String,
+    private val firestore: FirebaseFirestore) {
     private val TAG = "JewelryRepository"
 
     // Cache for wishlist status to avoid excessive Firestore calls
     private val wishlistCache = mutableMapOf<String, Boolean>()
 
-    // Function to add test wishlist items if none exist
-
-    // Function to update wishlist cache from Firestore
+    // Function to update wishlist cache from Firestore - Optimized with async
     suspend fun refreshWishlistCache() {
         try {
             Log.d(TAG, "Refreshing wishlist cache for user: $userId")
@@ -40,15 +38,17 @@ class JewelryRepository(
             wishlistCache.clear()
 
             // Get all wishlist items
-            val snapshot = firestore.collection("users")
-                .document(userId)
-                .collection("wishlist")
-                .get()
-                .await()
+            withContext(Dispatchers.IO) {
+                val snapshot = firestore.collection("users")
+                    .document(userId)
+                    .collection("wishlist")
+                    .get()
+                    .await()
 
-            // Update cache with all items
-            snapshot.documents.forEach { doc ->
-                wishlistCache[doc.id] = true
+                // Update cache with all items - fast batch update
+                snapshot.documents.forEach { doc ->
+                    wishlistCache[doc.id] = true
+                }
             }
 
             Log.d(TAG, "Refreshed wishlist cache with ${wishlistCache.size} items")
@@ -58,19 +58,23 @@ class JewelryRepository(
         }
     }
 
-    // Make sure the getWishlistItems method has proper logging and error handling
+    // Optimized with async
     suspend fun getWishlistItems(): Flow<List<Product>> = flow {
         try {
             Log.d(TAG, "Fetching wishlist items for user: $userId")
 
-            // Refresh the cache first
-            refreshWishlistCache()
+            // Refresh the cache in the background
+            val refreshJob = withContext(Dispatchers.Default) {
+                async { refreshWishlistCache() }
+            }
 
-            val snapshot = firestore.collection("users")
-                .document(userId)
-                .collection("wishlist")
-                .get()
-                .await()
+            val snapshot = withContext(Dispatchers.IO) {
+                firestore.collection("users")
+                    .document(userId)
+                    .collection("wishlist")
+                    .get()
+                    .await()
+            }
 
             val productIds = snapshot.documents.map { it.id }
             Log.d(TAG, "Found ${productIds.size} items in wishlist: $productIds")
@@ -81,13 +85,10 @@ class JewelryRepository(
                 return@flow
             }
 
+            refreshJob.await() // Ensure cache is refreshed before proceeding
+
             val products = fetchProductsByIds(productIds)
             Log.d(TAG, "Successfully fetched ${products.size} products for wishlist")
-
-            // Add more detailed logging for debug
-            products.forEach { product ->
-                Log.d(TAG, "Wishlist product: ${product.id}, ${product.name}, ${product.imageUrl}")
-            }
 
             // Mark all products as favorites since they're in the wishlist
             val productsWithFavoriteFlag = products.map { it.copy(isFavorite = true) }
@@ -105,16 +106,18 @@ class JewelryRepository(
                 return
             }
 
-            firestore.collection("users")
-                .document(userId)
-                .collection("wishlist")
-                .document(productId)
-                .delete()
-                .await()
+            withContext(Dispatchers.IO) {
+                firestore.collection("users")
+                    .document(userId)
+                    .collection("wishlist")
+                    .document(productId)
+                    .delete()
+                    .await()
 
-            // Update cache
-            wishlistCache[productId] = false
-            Log.d(TAG, "Successfully removed product $productId from wishlist")
+                // Update cache
+                wishlistCache[productId] = false
+                Log.d(TAG, "Successfully removed product $productId from wishlist")
+            }
         } catch (e: Exception) {
             Log.e(TAG, "Error removing product from wishlist", e)
             throw e
@@ -128,19 +131,21 @@ class JewelryRepository(
                 return
             }
 
-            firestore.collection("users")
-                .document(userId)
-                .collection("wishlist")
-                .document(productId)
-                .set(mapOf(
-                    "addedAt" to System.currentTimeMillis(),
-                    "productId" to productId
-                ))
-                .await()
+            withContext(Dispatchers.IO) {
+                firestore.collection("users")
+                    .document(userId)
+                    .collection("wishlist")
+                    .document(productId)
+                    .set(mapOf(
+                        "addedAt" to System.currentTimeMillis(),
+                        "productId" to productId
+                    ))
+                    .await()
 
-            // Update cache
-            wishlistCache[productId] = true
-            Log.d(TAG, "Successfully added product $productId to wishlist")
+                // Update cache
+                wishlistCache[productId] = true
+                Log.d(TAG, "Successfully added product $productId to wishlist")
+            }
         } catch (e: Exception) {
             Log.e(TAG, "Error adding product to wishlist", e)
             throw e
@@ -150,10 +155,12 @@ class JewelryRepository(
     suspend fun getCategoryProducts(categoryId: String): Flow<List<Product>> = flow {
         try {
             // Get product IDs from category_products collection
-            val categoryDoc = firestore.collection("category_products")
-                .document("category_${categoryId.lowercase()}")
-                .get()
-                .await()
+            val categoryDoc = withContext(Dispatchers.IO) {
+                firestore.collection("category_products")
+                    .document("category_${categoryId.lowercase()}")
+                    .get()
+                    .await()
+            }
 
             val productIds = (categoryDoc.get("product_ids") as? List<*>)?.map { it.toString() } ?: emptyList()
 
@@ -170,47 +177,51 @@ class JewelryRepository(
         }
     }
 
-    private suspend fun fetchProductsByIds(productIds: List<String>): List<Product> {
-        val products = mutableListOf<Product>()
-
+    private suspend fun fetchProductsByIds(productIds: List<String>): List<Product> = coroutineScope {
         try {
             Log.d(TAG, "Fetching products for IDs: $productIds")
-            // Fetch products in batches of 10 (Firestore limitation)
-            productIds.chunked(10).forEach { batch ->
-                Log.d(TAG, "Fetching batch of products: $batch")
-                // Get each product document directly by its ID
-                val batchProducts = batch.mapNotNull { productId ->
-                    try {
-                        val doc = firestore.collection("products").document(productId).get().await()
-                        if (!doc.exists()) {
-                            Log.e(TAG, "Product document $productId does not exist")
-                            null
-                        } else {
-                            doc
+
+            // Process in batches of 10 (Firestore limitation) but fetch asynchronously
+            val productBatches = productIds.chunked(10).map { batch ->
+                async(Dispatchers.IO) {
+                    Log.d(TAG, "Fetching batch of products: $batch")
+
+                    // Process each product document in parallel within the batch
+                    val docDeferred = batch.map { productId ->
+                        async(Dispatchers.IO) {
+                            try {
+                                val doc = firestore.collection("products").document(productId).get().await()
+                                if (!doc.exists()) {
+                                    Log.e(TAG, "Product document $productId does not exist")
+                                    null
+                                } else {
+                                    doc
+                                }
+                            } catch (e: Exception) {
+                                Log.e(TAG, "Error fetching product $productId", e)
+                                null
+                            }
                         }
-                    } catch (e: Exception) {
-                        Log.e(TAG, "Error fetching product $productId", e)
-                        null
                     }
-                }.map { doc ->
-                    // Get the image URL from the images array
+
+                    // Await all document fetches in this batch
+                    docDeferred.awaitAll().filterNotNull()
+                }
+            }
+
+            // Wait for all batches to complete
+            val allDocuments = productBatches.awaitAll().flatten()
+
+            // Process image URLs in parallel
+            val products = allDocuments.map { doc ->
+                async(Dispatchers.Default) {
+                    // Get the image URL from the images array - direct HTTPS URLs
                     val images = doc.get("images") as? List<*>
                     val imageUrl = when {
                         images.isNullOrEmpty() -> ""
                         images[0] is String -> images[0] as String
                         else -> ""
                     }
-                    Log.d(TAG, "Raw image URL for product ${doc.id}: $imageUrl")
-
-                    // Convert to HTTPS URL if it's a valid image path
-                    val httpsImageUrl = if (imageUrl.isNotEmpty()) {
-                        storageHelper.getDownloadUrl(imageUrl)
-                    } else {
-                        ""
-                    }
-                    Log.d(TAG, "Converted image URL for product ${doc.id}: $httpsImageUrl")
-
-                    Log.d(TAG, "Processing product: ${doc.id}, name: ${doc.getString("name")}, type: ${doc.getString("type")}")
 
                     // Check wishlist status from cache
                     val isFavorite = wishlistCache[doc.id] == true
@@ -220,40 +231,47 @@ class JewelryRepository(
                         name = doc.getString("name") ?: "",
                         price = doc.getDouble("price") ?: 0.0,
                         currency = "Rs",
-                        imageUrl = httpsImageUrl,
+                        imageUrl = imageUrl, // Direct HTTPS URL
                         isFavorite = isFavorite,
                         category = doc.getString("type") ?: ""
                     )
                 }
-                products.addAll(batchProducts)
-                Log.d(TAG, "Added ${batchProducts.size} products from batch")
-            }
+            }.awaitAll()
+
             Log.d(TAG, "Successfully fetched ${products.size} products")
+            return@coroutineScope products
+
         } catch (e: Exception) {
             Log.e(TAG, "Error fetching products by IDs: $productIds", e)
             throw e  // Re-throw to handle in ViewModel
         }
-
-        return products
     }
 
     suspend fun getCategories(): Flow<List<Category>> = flow {
         try {
-            val snapshot = firestore.collection("categories")
-                .orderBy("order")
-                .get()
-                .await()
-
-            val categories = snapshot.documents.map { doc ->
-                val imageUrl = doc.getString("image_url") ?: ""
-                val httpsImageUrl = storageHelper.getDownloadUrl(imageUrl)
-
-                Category(
-                    id = doc.id,
-                    name = doc.getString("name") ?: "",
-                    imageUrl = httpsImageUrl
-                )
+            val snapshot = withContext(Dispatchers.IO) {
+                firestore.collection("categories")
+                    .orderBy("order")
+                    .get()
+                    .await()
             }
+
+            // Process categories in parallel
+            val categories = coroutineScope {
+                snapshot.documents.map { doc ->
+                    async(Dispatchers.Default) {
+                        // Direct HTTPS URLs - no conversion needed
+                        val imageUrl = doc.getString("image_url") ?: ""
+
+                        Category(
+                            id = doc.id,
+                            name = doc.getString("name") ?: "",
+                            imageUrl = imageUrl
+                        )
+                    }
+                }.awaitAll()
+            }
+
             Log.d(TAG, "Fetched ${categories.size} categories")
             emit(categories)
         } catch (e: Exception) {
@@ -264,14 +282,18 @@ class JewelryRepository(
 
     suspend fun getFeaturedProducts(): Flow<List<Product>> = flow {
         try {
-            // Make sure the wishlist cache is up to date
-            refreshWishlistCache()
+            // Make sure the wishlist cache is up to date in the background
+            val refreshCacheJob = withContext(Dispatchers.Default) {
+                async { refreshWishlistCache() }
+            }
 
             // First get the list of featured product IDs
-            val featuredListDoc = firestore.collection("featured_products")
-                .document("featured_list")
-                .get()
-                .await()
+            val featuredListDoc = withContext(Dispatchers.IO) {
+                firestore.collection("featured_products")
+                    .document("featured_list")
+                    .get()
+                    .await()
+            }
 
             val productIds = featuredListDoc.get("product_ids") as? List<*>
 
@@ -283,42 +305,44 @@ class JewelryRepository(
 
             Log.d(TAG, "Found ${productIds.size} featured product IDs")
 
-            // Then fetch the actual products
-            val products = mutableListOf<Product>()
+            // Wait for cache refresh to complete
+            refreshCacheJob.await()
 
-            // Firebase allows a maximum of 10 items in a whereIn query
-            // So we need to batch our requests if we have more than 10 product IDs
-            val batches = productIds.chunked(10)
+            // Fetch products asynchronously in batches
+            val products = coroutineScope {
+                // Firebase allows a maximum of 10 items in a whereIn query
+                // Process batches in parallel
+                val batchResults = productIds.chunked(10).map { batch ->
+                    async(Dispatchers.IO) {
+                        val snapshot = firestore.collection("products")
+                            .whereIn("id", batch)
+                            .get()
+                            .await()
 
-            for (batch in batches) {
-                val snapshot = firestore.collection("products")
-                    .whereIn("id", batch)
-                    .get()
-                    .await()
+                        snapshot.documents
+                    }
+                }.awaitAll().flatten()
 
-                val batchProducts = snapshot.documents.map { doc ->
-                    // Get the original image URL
-                    val gsImageUrl = ((doc.get("images") as? List<*>)?.firstOrNull() ?: "").toString()
+                // Process each document in parallel
+                batchResults.map { doc ->
+                    async(Dispatchers.Default) {
+                        // Direct HTTPS URL - no conversion needed
+                        val imageUrl = ((doc.get("images") as? List<*>)?.firstOrNull() ?: "").toString()
 
-                    // Convert to HTTPS URL
-                    val httpsImageUrl = storageHelper.getDownloadUrl(gsImageUrl)
+                        // Check wishlist status from cache
+                        val productId = doc.getString("id") ?: doc.id
+                        val isFavorite = wishlistCache[productId] == true
 
-                    Log.d(TAG, "Product ${doc.getString("name")}: Converting $gsImageUrl to $httpsImageUrl")
-
-                    // Check wishlist status from cache
-                    val productId = doc.getString("id") ?: doc.id
-                    val isFavorite = wishlistCache[productId] == true
-
-                    Product(
-                        id = productId,
-                        name = doc.getString("name") ?: "",
-                        price = doc.getDouble("price") ?: 0.0,
-                        currency = "Rs", // Using Rs as default currency
-                        imageUrl = httpsImageUrl,
-                        isFavorite = isFavorite
-                    )
-                }
-                products.addAll(batchProducts)
+                        Product(
+                            id = productId,
+                            name = doc.getString("name") ?: "",
+                            price = doc.getDouble("price") ?: 0.0,
+                            currency = "Rs", // Using Rs as default currency
+                            imageUrl = imageUrl,
+                            isFavorite = isFavorite
+                        )
+                    }
+                }.awaitAll()
             }
 
             Log.d(TAG, "Fetched ${products.size} featured products")
@@ -331,25 +355,30 @@ class JewelryRepository(
 
     suspend fun getThemedCollections(): Flow<List<Collection>> = flow {
         try {
-            val snapshot = firestore.collection("themed_collections")
-                .orderBy("order")
-                .get()
-                .await()
-
-            val collections = snapshot.documents.map { doc ->
-                // Get the original image URL
-                val gsImageUrl = doc.getString("imageUrl") ?: ""
-
-                // Convert to HTTPS URL
-                val httpsImageUrl = storageHelper.getDownloadUrl(gsImageUrl)
-
-                Collection(
-                    id = doc.id,
-                    name = doc.getString("name") ?: "",
-                    imageUrl = httpsImageUrl,
-                    description = doc.getString("description") ?: ""
-                )
+            val snapshot = withContext(Dispatchers.IO) {
+                firestore.collection("themed_collections")
+                    .orderBy("order")
+                    .get()
+                    .await()
             }
+
+            // Process collections in parallel
+            val collections = coroutineScope {
+                snapshot.documents.map { doc ->
+                    async(Dispatchers.Default) {
+                        // Direct HTTPS URL - no conversion needed
+                        val imageUrl = doc.getString("imageUrl") ?: ""
+
+                        Collection(
+                            id = doc.id,
+                            name = doc.getString("name") ?: "",
+                            imageUrl = imageUrl,
+                            description = doc.getString("description") ?: ""
+                        )
+                    }
+                }.awaitAll()
+            }
+
             Log.d(TAG, "Fetched ${collections.size} themed collections")
             emit(collections)
         } catch (e: Exception) {
@@ -360,25 +389,30 @@ class JewelryRepository(
 
     suspend fun getCarouselItems(): Flow<List<CarouselItem>> = flow {
         try {
-            val snapshot = firestore.collection("carousel_items")
-                .get()
-                .await()
-
-            val carouselItems = snapshot.documents.map { doc ->
-                // Get the original image URL
-                val gsImageUrl = doc.getString("imageUrl") ?: ""
-
-                // Convert to HTTPS URL
-                val httpsImageUrl = storageHelper.getDownloadUrl(gsImageUrl)
-
-                CarouselItem(
-                    id = doc.id,
-                    imageUrl = httpsImageUrl,
-                    title = doc.getString("title") ?: "",
-                    subtitle = doc.getString("subtitle") ?: "",
-                    buttonText = doc.getString("buttonText") ?: ""
-                )
+            val snapshot = withContext(Dispatchers.IO) {
+                firestore.collection("carousel_items")
+                    .get()
+                    .await()
             }
+
+            // Process carousel items in parallel
+            val carouselItems = coroutineScope {
+                snapshot.documents.map { doc ->
+                    async(Dispatchers.Default) {
+                        // Direct HTTPS URL - no conversion needed
+                        val imageUrl = doc.getString("imageUrl") ?: ""
+
+                        CarouselItem(
+                            id = doc.id,
+                            imageUrl = imageUrl,
+                            title = doc.getString("title") ?: "",
+                            subtitle = doc.getString("subtitle") ?: "",
+                            buttonText = doc.getString("buttonText") ?: ""
+                        )
+                    }
+                }.awaitAll()
+            }
+
             Log.d(TAG, "Fetched ${carouselItems.size} carousel items")
             emit(carouselItems)
         } catch (e: Exception) {
@@ -391,15 +425,17 @@ class JewelryRepository(
     suspend fun recordProductView(userId: String, productId: String) {
         // In a real app, you'd store this in a user's recently viewed collection
         try {
-            firestore.collection("users")
-                .document(userId)
-                .collection("recently_viewed")
-                .document(productId)
-                .set(mapOf(
-                    "timestamp" to com.google.firebase.Timestamp.now()
-                ))
+            withContext(Dispatchers.IO) {
+                firestore.collection("users")
+                    .document(userId)
+                    .collection("recently_viewed")
+                    .document(productId)
+                    .set(mapOf(
+                        "timestamp" to com.google.firebase.Timestamp.now()
+                    ))
 
-            Log.d(TAG, "Recorded product view for user $userId, product $productId")
+                Log.d(TAG, "Recorded product view for user $userId, product $productId")
+            }
         } catch (e: Exception) {
             Log.e(TAG, "Error recording product view", e)
         }
@@ -421,14 +457,16 @@ class JewelryRepository(
                 return false
             }
 
-            val doc = firestore.collection("users")
-                .document(userId)
-                .collection("wishlist")
-                .document(productId)
-                .get()
-                .await()
+            val exists = withContext(Dispatchers.IO) {
+                val doc = firestore.collection("users")
+                    .document(userId)
+                    .collection("wishlist")
+                    .document(productId)
+                    .get()
+                    .await()
 
-            val exists = doc.exists()
+                doc.exists()
+            }
 
             // Update the cache
             wishlistCache[productId] = exists
@@ -443,21 +481,29 @@ class JewelryRepository(
 
     suspend fun getProductDetails(productId: String): Flow<Product> = flow {
         try {
-            // Make sure wishlist cache is up to date
-            if (wishlistCache.isEmpty()) {
-                refreshWishlistCache()
+            // Make sure wishlist cache is up to date in the background
+            val refreshCacheJob = withContext(Dispatchers.Default) {
+                async {
+                    if (wishlistCache.isEmpty()) {
+                        refreshWishlistCache()
+                    }
+                }
             }
 
-            val documentSnapshot = firestore.collection("products")
-                .document(productId)
-                .get()
-                .await()
+            val documentSnapshot = withContext(Dispatchers.IO) {
+                firestore.collection("products")
+                    .document(productId)
+                    .get()
+                    .await()
+            }
 
             if (documentSnapshot.exists()) {
-                // Get the first image URL from the images array
+                // Ensure cache refresh completes
+                refreshCacheJob.await()
+
+                // Get the first image URL from the images array - direct HTTPS URLs
                 val imageUrls = documentSnapshot.get("images") as? List<*>
-                val firstImageUrl = imageUrls?.firstOrNull()?.toString() ?: ""
-                val httpsImageUrl = storageHelper.getDownloadUrl(firstImageUrl)
+                val imageUrl = imageUrls?.firstOrNull()?.toString() ?: ""
 
                 // Check wishlist status
                 val isInWishlist = wishlistCache[productId] == true
@@ -468,7 +514,7 @@ class JewelryRepository(
                     price = documentSnapshot.getDouble("price") ?: 0.0,
                     currency = documentSnapshot.getString("currency") ?: "Rs",
                     category_id = documentSnapshot.getString("category_id") ?: "",
-                    imageUrl = httpsImageUrl,
+                    imageUrl = imageUrl,
                     material_id = documentSnapshot.getString("material_id"),
                     material_type = documentSnapshot.getString("material_type"),
                     stone = documentSnapshot.getString("stone") ?: "",
@@ -489,48 +535,64 @@ class JewelryRepository(
 
     suspend fun getProductsByCategory(categoryId: String, excludeProductId: String? = null): Flow<List<Product>> = flow {
         try {
-            // Refresh wishlist cache first
-            refreshWishlistCache()
+            // Refresh wishlist cache in the background
+            val refreshCacheJob = withContext(Dispatchers.Default) {
+                async { refreshWishlistCache() }
+            }
 
             // Step 1: Get product IDs from category_products
-            val categorySnapshot = firestore.collection("category_products")
-                .document(categoryId)
-                .get()
-                .await()
+            val categorySnapshot = withContext(Dispatchers.IO) {
+                firestore.collection("category_products")
+                    .document(categoryId)
+                    .get()
+                    .await()
+            }
 
             val productIds = categorySnapshot.get("product_ids") as? List<String> ?: emptyList()
 
-            // Step 2: Query products using whereIn (max 10)
+            // Wait for cache refresh to complete
+            refreshCacheJob.await()
+
+            // Step 2: Query products asynchronously using whereIn (max 10)
             if (productIds.isNotEmpty()) {
-                val snapshot = firestore.collection("products")
-                    .whereIn("id", productIds.take(10)) // Firestore limit
-                    .get()
-                    .await()
+                val products = coroutineScope {
+                    val batchResults = productIds.take(10).chunked(5).map { batch ->
+                        async(Dispatchers.IO) {
+                            val snapshot = firestore.collection("products")
+                                .whereIn("id", batch)
+                                .get()
+                                .await()
 
-                val products = snapshot.documents
-                    .filter { it.id != excludeProductId } // Exclude the current product if needed
-                    .map { doc ->
-                        val imageUrls = doc.get("images") as? List<*>
-                        val firstImageUrl = imageUrls?.firstOrNull()?.toString() ?: ""
-                        val httpsImageUrl = storageHelper.getDownloadUrl(firstImageUrl)
+                            snapshot.documents
+                                .filter { it.id != excludeProductId }
+                        }
+                    }.awaitAll().flatten()
 
-                        // Check wishlist status from cache
-                        val isInWishlist = wishlistCache[doc.id] == true
+                    // Process each document in parallel
+                    batchResults.map { doc ->
+                        async(Dispatchers.Default) {
+                            val imageUrls = doc.get("images") as? List<*>
+                            val imageUrl = imageUrls?.firstOrNull()?.toString() ?: ""
 
-                        Product(
-                            id = doc.id,
-                            name = doc.getString("name") ?: "",
-                            price = doc.getDouble("price") ?: 0.0,
-                            currency = doc.getString("currency") ?: "Rs",
-                            category_id = doc.getString("category_id") ?: "",
-                            imageUrl = httpsImageUrl,
-                            material = doc.getString("material") ?: "",
-                            stone = doc.getString("stone") ?: "",
-                            clarity = doc.getString("clarity") ?: "",
-                            cut = doc.getString("cut") ?: "",
-                            isFavorite = isInWishlist
-                        )
-                    }
+                            // Check wishlist status from cache
+                            val isInWishlist = wishlistCache[doc.id] == true
+
+                            Product(
+                                id = doc.id,
+                                name = doc.getString("name") ?: "",
+                                price = doc.getDouble("price") ?: 0.0,
+                                currency = doc.getString("currency") ?: "Rs",
+                                category_id = doc.getString("category_id") ?: "",
+                                imageUrl = imageUrl,
+                                material = doc.getString("material") ?: "",
+                                stone = doc.getString("stone") ?: "",
+                                clarity = doc.getString("clarity") ?: "",
+                                cut = doc.getString("cut") ?: "",
+                                isFavorite = isInWishlist
+                            )
+                        }
+                    }.awaitAll()
+                }
 
                 Log.d(TAG, "Fetched ${products.size} products for category $categoryId")
                 emit(products)
@@ -541,4 +603,5 @@ class JewelryRepository(
             Log.e(TAG, "Error fetching products by category", e)
             emit(emptyList())
         }
-    }}
+    }
+}

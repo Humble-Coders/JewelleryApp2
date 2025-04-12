@@ -9,7 +9,12 @@ import com.example.jewelleryapp.repository.JewelryRepository
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.async
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.coroutineScope
+import kotlinx.coroutines.awaitAll
 
 class ItemDetailViewModel(
     private val repository: JewelryRepository
@@ -36,15 +41,29 @@ class ItemDetailViewModel(
                 _isLoading.value = true
                 _error.value = null
 
-                // Load product details using Flow
-                repository.getProductDetails(productId).collect { productDetails ->
+                // Load product details and check wishlist status in parallel
+                coroutineScope {
+                    // Create async job for product details
+                    val productDetailsJob = async(Dispatchers.Default) {
+                        repository.getProductDetails(productId).first()
+                    }
+
+                    // Create async job for wishlist status check
+                    val wishlistStatusJob = async(Dispatchers.Default) {
+                        repository.isInWishlist(productId)
+                    }
+
+                    // Wait for both operations to complete
+                    val productDetails = productDetailsJob.await()
+                    val isInWishlist = wishlistStatusJob.await()
+
+                    // Update UI state with the results
                     _product.value = productDetails
+                    _isInWishlist.value = isInWishlist
+
                     Log.d(TAG, "Loaded product with material_id: ${productDetails.material_id}, material_type: ${productDetails.material_type}")
+                    Log.d(TAG, "Product $productId wishlist status: $isInWishlist")
                 }
-
-                // Check wishlist status
-                checkWishlistStatus(productId)
-
             } catch (e: Exception) {
                 _error.value = e.message ?: "An error occurred while loading the product"
                 Log.e(TAG, "Error loading product details", e)
@@ -155,27 +174,36 @@ class ItemDetailViewModel(
                 // Log before fetching
                 Log.d(TAG, "Loading similar products for category: ${currentProduct.category_id}")
 
-                // Collect the flow from the repository
-                repository.getProductsByCategory(
-                    categoryId = currentProduct.category_id,
-                    excludeProductId = currentProduct.id
-                ).collect { similarProductsList ->
-                    // Check wishlist status for similar products
-                    val productsWithWishlistStatus = similarProductsList.map { product ->
-                        try {
-                            val isInWishlist = repository.isInWishlist(product.id)
-                            product.copy(isFavorite = isInWishlist)
-                        } catch (e: Exception) {
-                            Log.e(TAG, "Error checking wishlist status for similar product ${product.id}", e)
-                            product
-                        }
+                // Collect similar products and check wishlist status in parallel
+                coroutineScope {
+                    val similarProductsJob = async(Dispatchers.Default) {
+                        repository.getProductsByCategory(
+                            categoryId = currentProduct.category_id,
+                            excludeProductId = currentProduct.id
+                        ).first()
                     }
+
+                    // Wait for similar products to be loaded
+                    val similarProductsList = similarProductsJob.await()
+
+                    // Check wishlist status for each product in parallel
+                    val productsWithWishlistStatus = similarProductsList.map { product ->
+                        async(Dispatchers.Default) {
+                            try {
+                                val isInWishlist = repository.isInWishlist(product.id)
+                                product.copy(isFavorite = isInWishlist)
+                            } catch (e: Exception) {
+                                Log.e(TAG, "Error checking wishlist status for similar product ${product.id}", e)
+                                product
+                            }
+                        }
+                    }.awaitAll()
 
                     // Update the similar products state
                     _similarProducts.value = productsWithWishlistStatus
 
                     // Log after fetching
-                    Log.d(TAG, "Loaded ${similarProductsList.size} similar products")
+                    Log.d(TAG, "Loaded ${productsWithWishlistStatus.size} similar products")
                 }
             } catch (e: Exception) {
                 Log.e(TAG, "Error loading similar products", e)

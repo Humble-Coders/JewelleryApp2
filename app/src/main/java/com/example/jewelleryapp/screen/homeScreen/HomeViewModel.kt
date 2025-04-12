@@ -12,6 +12,13 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.async
+import kotlinx.coroutines.awaitAll
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.coroutineScope
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.joinAll
+import kotlinx.coroutines.flow.first
 
 class HomeViewModel(private val repository: JewelryRepository) : ViewModel() {
     private val TAG = "HomeViewModel"
@@ -50,25 +57,36 @@ class HomeViewModel(private val repository: JewelryRepository) : ViewModel() {
 
         viewModelScope.launch {
             try {
-                // Load categories
-                repository.getCategories().collect { categories ->
+                // Launch all data loading operations in parallel using coroutineScope
+                coroutineScope {
+                    // Create separate async jobs for each data type
+                    val categoriesJob = async(Dispatchers.Default) {
+                        repository.getCategories().first()
+                    }
+
+                    val featuredProductsJob = async(Dispatchers.Default) {
+                        repository.getFeaturedProducts().first()
+                    }
+
+                    val collectionsJob = async(Dispatchers.Default) {
+                        repository.getThemedCollections().first()
+                    }
+
+                    val carouselItemsJob = async(Dispatchers.Default) {
+                        repository.getCarouselItems().first()
+                    }
+
+                    // Wait for all jobs to complete and update UI state
+                    val categories = categoriesJob.await()
+                    val featuredProducts = featuredProductsJob.await()
+                    val collections = collectionsJob.await()
+                    val carouselItems = carouselItemsJob.await()
+
+                    // Update all UI states at once
                     _categories.value = categories
-                }
-
-                // Load featured products
-                repository.getFeaturedProducts().collect { products ->
-                    // Update wishlist status for all products
-                    updateProductsWithWishlistStatus(products)
-                }
-
-                // Load themed collections
-                repository.getThemedCollections().collect { collections ->
+                    _featuredProducts.value = featuredProducts
                     _collections.value = collections
-                }
-
-                // Load carousel items
-                repository.getCarouselItems().collect { items ->
-                    _carouselItems.value = items
+                    _carouselItems.value = carouselItems
                 }
 
                 _isLoading.value = false
@@ -96,18 +114,27 @@ class HomeViewModel(private val repository: JewelryRepository) : ViewModel() {
         }
     }
 
-    // New function to update all products with current wishlist status
+    // New optimized function to update all products with current wishlist status in parallel
     private suspend fun updateProductsWithWishlistStatus(products: List<Product>) {
         try {
-            val productsWithWishlistStatus = products.map { product ->
-                try {
-                    val isInWishlist = repository.isInWishlist(product.id)
-                    product.copy(isFavorite = isInWishlist)
-                } catch (e: Exception) {
-                    Log.e(TAG, "Error checking wishlist status for product ${product.id}", e)
-                    product
-                }
+            val productsWithWishlistStatus = coroutineScope {
+                products.map { product ->
+                    async(Dispatchers.Default) {
+                        try {
+                            val isInWishlist = repository.isInWishlist(product.id)
+                            product.copy(isFavorite = isInWishlist)
+                        } catch (e: Exception) {
+                            Log.e(
+                                TAG,
+                                "Error checking wishlist status for product ${product.id}",
+                                e
+                            )
+                            product
+                        }
+                    }
+                }.awaitAll()
             }
+
             _featuredProducts.value = productsWithWishlistStatus
             Log.d(TAG, "Updated wishlist status for ${products.size} products")
         } catch (e: Exception) {
@@ -164,7 +191,7 @@ class HomeViewModel(private val repository: JewelryRepository) : ViewModel() {
                         repository.addToWishlist(productId)
                     }
 
-                    // Update UI state
+                    // Update UI state immediately for responsive feedback
                     updateProductFavoriteStatus(productId, !isCurrentlyFavorite)
 
                     Log.d(TAG, "Toggled favorite for product $productId to ${!isCurrentlyFavorite}")

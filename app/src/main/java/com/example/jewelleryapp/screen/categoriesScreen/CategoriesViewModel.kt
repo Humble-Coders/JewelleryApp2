@@ -5,6 +5,9 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.async
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.coroutineScope
 import com.example.jewelleryapp.model.Category
 import com.example.jewelleryapp.model.Collection
 import com.example.jewelleryapp.repository.JewelryRepository
@@ -20,8 +23,39 @@ class CategoriesViewModel(private val repository: JewelryRepository) : ViewModel
     val isLoading: StateFlow<Boolean> = _isLoading
 
     init {
-        loadCategories()
-        loadCollections()
+        // Load both categories and collections in parallel
+        loadCategoriesAndCollections()
+    }
+
+    private fun loadCategoriesAndCollections() {
+        viewModelScope.launch {
+            _isLoading.value = true
+
+            try {
+                // Load both data sources in parallel using coroutineScope
+                coroutineScope {
+                    val categoriesDeferred = async(Dispatchers.Default) {
+                        repository.getCategories().first()
+                    }
+
+                    val collectionsDeferred = async(Dispatchers.Default) {
+                        repository.getThemedCollections().first()
+                    }
+
+                    // Await both results
+                    val categoriesResult = categoriesDeferred.await()
+                    val collectionsResult = collectionsDeferred.await()
+
+                    // Update UI state with results
+                    _categories.value = categoriesResult
+                    _collections.value = collectionsResult
+                }
+            } catch (e: Exception) {
+                // Handle errors
+            } finally {
+                _isLoading.value = false
+            }
+        }
     }
 
     private fun loadCategories() {
@@ -40,5 +74,10 @@ class CategoriesViewModel(private val repository: JewelryRepository) : ViewModel
                 _collections.value = collections
             }
         }
+    }
+
+    // Public method to manually refresh data
+    fun refreshData() {
+        loadCategoriesAndCollections()
     }
 }
