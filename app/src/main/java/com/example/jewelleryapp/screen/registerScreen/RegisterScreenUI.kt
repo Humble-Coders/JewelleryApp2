@@ -46,12 +46,16 @@ fun RegisterScreen(viewModel: RegisterViewModel, navController: NavController) {
     val registerState by viewModel.registerState.collectAsState()
     val scaffoldState = rememberScaffoldState()
     val focusManager = LocalFocusManager.current
+    var phone by remember { mutableStateOf("") } // Add this
+
 
     // Password validation error states
     var passwordError by remember { mutableStateOf<String?>(null) }
     var confirmPasswordError by remember { mutableStateOf<String?>(null) }
     var emailError by remember { mutableStateOf<String?>(null) }
     var nameError by remember { mutableStateOf<String?>(null) }
+    var phoneError by remember { mutableStateOf<String?>(null) } // Add this
+
 
     // Handle registration state changes
     LaunchedEffect(registerState) {
@@ -126,7 +130,51 @@ fun RegisterScreen(viewModel: RegisterViewModel, navController: NavController) {
                     },
                     error = emailError
                 )
+                Spacer(modifier = Modifier.height(10.dp))
 
+                // Phone input (optional)
+                Column(modifier = Modifier.fillMaxWidth()) {
+                    Text(
+                        text = "Phone Number (Optional)",
+                        fontSize = 14.sp,
+                        color = Color.Black,
+                        modifier = Modifier.padding(bottom = 8.dp)
+                    )
+
+                    OutlinedTextField(
+                        value = phone,
+                        onValueChange = {
+                            phone = it
+                            // Basic phone validation (optional)
+                            phoneError = if (it.isNotEmpty() && !isValidPhone(it)) {
+                                "Please enter a valid phone number"
+                            } else {
+                                null
+                            }
+                        },
+                        placeholder = { Text("Enter your phone number") },
+                        singleLine = true,
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(56.dp),
+                        keyboardOptions = KeyboardOptions(
+                            keyboardType = KeyboardType.Phone,
+                            imeAction = ImeAction.Next
+                        ),
+                        shape = RoundedCornerShape(8.dp),
+                        colors = getTextFieldColors(),
+                        isError = phoneError != null
+                    )
+
+                    if (phoneError != null) {
+                        Text(
+                            text = phoneError!!,
+                            color = MaterialTheme.colors.error,
+                            style = MaterialTheme.typography.caption,
+                            modifier = Modifier.padding(start = 4.dp, top = 4.dp)
+                        )
+                    }
+                }
                 Spacer(modifier = Modifier.height(10.dp))
 
                 PasswordInput(
@@ -204,12 +252,18 @@ fun RegisterScreen(viewModel: RegisterViewModel, navController: NavController) {
                         } else {
                             null
                         }
+                        phoneError = if (phone.isNotEmpty() && !isValidPhone(phone)) {
+                            "Please enter a valid phone number"
+                        } else {
+                            null
+                        }
+
 
                         // Proceed if all validations pass
-                        if (nameError == null && emailError == null &&
+                        if (nameError == null && emailError == null && phoneError == null &&
                             passwordError == null && confirmPasswordError == null) {
                             focusManager.clearFocus()
-                            viewModel.registerWithEmailAndPassword(fullName, email, password)
+                            viewModel.registerWithEmailAndPassword(fullName, email, password, phone)
                         }
                     }
                 )
@@ -236,7 +290,10 @@ fun RegisterScreen(viewModel: RegisterViewModel, navController: NavController) {
         }
     }
 }
-
+private fun isValidPhone(phone: String): Boolean {
+    // Basic phone validation - you can make this more sophisticated for your needs
+    return phone.length >= 10 && phone.all { it.isDigit() || it == '+' || it == ' ' || it == '-' || it == '(' || it == ')' }
+}
 @Composable
 private fun CreateAccountHeader() {
     Text(

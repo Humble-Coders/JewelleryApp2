@@ -6,6 +6,7 @@ import com.example.jewelleryapp.model.Category
 import com.example.jewelleryapp.model.Collection
 import com.example.jewelleryapp.model.Product
 import com.example.jewelleryapp.model.CarouselItem
+import com.google.firebase.auth.FirebaseAuth
 import kotlinx.coroutines.tasks.await
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.flow
@@ -18,8 +19,10 @@ import kotlinx.coroutines.withContext
 import java.lang.Exception
 
 class JewelryRepository(
-    private val userId: String,
-    private val firestore: FirebaseFirestore) {
+    private var userId: String,
+    private val firestore: FirebaseFirestore,
+    private val auth: FirebaseAuth
+) {
     private val tag = "JewelryRepository"
 
     // Cache for wishlist status to avoid excessive Firestore calls
@@ -62,6 +65,12 @@ class JewelryRepository(
     // Optimized with async
      fun getWishlistItems(): Flow<List<Product>> = flow {
         try {
+
+            if (!hasValidUser()) {
+                Log.e(tag, "Cannot fetch wishlist items: No valid user")
+                emit(emptyList())
+                return@flow
+            }
             Log.d(tag, "Fetching wishlist items for user: $userId")
 
             // Refresh the cache in the background
@@ -102,6 +111,8 @@ class JewelryRepository(
 
     suspend fun removeFromWishlist(productId: String) {
         try {
+
+
             if (userId.isBlank()) {
                 Log.e(tag, "Cannot remove from wishlist: User ID is blank")
                 return
@@ -620,5 +631,35 @@ class JewelryRepository(
             Log.e(tag, "Error fetching products by category", e)
             emit(emptyList())
         }
+    }
+
+
+    // Add a function to update user ID if it changes
+    fun updateUserId(newUserId: String) {
+        userId = newUserId
+        // Clear cache when user ID changes
+        wishlistCache.clear()
+    }
+
+    // Add a function to check if the repository has a valid user
+    private fun hasValidUser(): Boolean {
+        // Check current userId first
+        if (userId.isNotBlank()) {
+            return true
+        }
+
+        // If userId is blank, try to get it from auth
+        val currentUser = auth.currentUser
+        if (currentUser != null) {
+            userId = currentUser.uid
+            return true
+        }
+
+        return false
+    }
+
+    fun signOut() {
+        // Sign out from Firebase
+        auth.signOut()
     }
 }

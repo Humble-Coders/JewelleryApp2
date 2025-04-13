@@ -41,12 +41,16 @@ class MainActivity : ComponentActivity() {
     private lateinit var categoryViewModel: CategoriesViewModel
     private lateinit var itemDetailViewModel: ItemDetailViewModel
     private lateinit var wishlistViewModel: WishlistViewModel
+    private lateinit var authStateListener: FirebaseAuth.AuthStateListener
+    private lateinit var firebaseAuth: FirebaseAuth
+
+
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 
         // Initialize Firebase Auth
-        val firebaseAuth = FirebaseAuth.getInstance()
+         firebaseAuth = FirebaseAuth.getInstance()
 
         // Initialize Firestore
         val firestore = FirebaseFirestore.getInstance()
@@ -56,7 +60,28 @@ class MainActivity : ComponentActivity() {
         // Get current user ID for repository (or empty string if not logged in)
         val userId = firebaseAuth.currentUser?.uid ?: ""
         Log.d("MainActivity", "User ID: $userId")
-        val jewelryRepository = JewelryRepository(userId, firestore)
+        val jewelryRepository = JewelryRepository(userId, firestore,firebaseAuth)
+
+
+        authStateListener = FirebaseAuth.AuthStateListener { auth ->
+            val user = auth.currentUser
+            val newUserId = user?.uid ?: ""
+
+            // Update repository with new user ID when auth state changes
+            if (newUserId != userId) {
+                Log.d("MainActivity", "Auth changed, updating user ID to: $newUserId")
+                jewelryRepository.updateUserId(newUserId)
+
+                // If repositories were already passed to ViewModels, we need to refresh them
+                if (::wishlistViewModel.isInitialized) {
+                    wishlistViewModel.refreshWishlistItems()
+                }
+                if (::homeViewModel.isInitialized) {
+                    homeViewModel.refreshData()
+                }
+                // Refresh other ViewModels as needed
+            }
+        }
 
         // Initialize ViewModels
         loginViewModel = LoginViewModel(authRepository)
@@ -83,6 +108,19 @@ class MainActivity : ComponentActivity() {
                 }
             }
         }
+    }
+
+
+    override fun onStart() {
+        super.onStart()
+        // Add auth state listener when activity starts
+        firebaseAuth.addAuthStateListener(authStateListener)
+    }
+
+    override fun onStop() {
+        super.onStop()
+        // Remove auth state listener when activity stops
+        firebaseAuth.removeAuthStateListener(authStateListener)
     }
 }
 

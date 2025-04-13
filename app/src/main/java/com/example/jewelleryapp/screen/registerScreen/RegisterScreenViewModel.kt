@@ -15,22 +15,16 @@ class RegisterViewModel(private val repository: FirebaseAuthRepository) : ViewMo
     private val _registerState = MutableStateFlow<RegisterState>(RegisterState.Idle)
     val registerState: StateFlow<RegisterState> = _registerState.asStateFlow()
 
-    fun registerWithEmailAndPassword(fullName: String, email: String, password: String) {
+    // RegisterViewModel.kt - Update this method
+    fun registerWithEmailAndPassword(fullName: String, email: String, password: String, phone: String = "") {
         _registerState.value = RegisterState.Loading
 
         viewModelScope.launch {
-            val result = repository.createUserWithEmailAndPassword(email, password)
+            val result = repository.createUserWithEmailAndPassword(email, password, fullName, phone)
 
             result.fold(
                 onSuccess = {
-                    // Update user profile with full name
-                    val profileResult = repository.updateUserProfile(fullName)
-                    if (profileResult.isSuccess) {
-                        _registerState.value = RegisterState.Success
-                    } else {
-                        // User was created but profile update failed
-                        _registerState.value = RegisterState.Success
-                    }
+                    _registerState.value = RegisterState.Success
                 },
                 onFailure = {
                     _registerState.value = RegisterState.Error(it.message ?: "Registration failed")
@@ -38,7 +32,6 @@ class RegisterViewModel(private val repository: FirebaseAuthRepository) : ViewMo
             )
         }
     }
-
 
 
     fun resetState() {
