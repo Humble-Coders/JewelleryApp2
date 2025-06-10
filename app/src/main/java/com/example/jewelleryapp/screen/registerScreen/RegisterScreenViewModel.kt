@@ -20,7 +20,7 @@ class RegisterViewModel(private val repository: FirebaseAuthRepository) : ViewMo
         _registerState.value = RegisterState.Loading
 
         viewModelScope.launch {
-            val result = repository.createUserWithEmailAndPassword(email, password, fullName, phone)
+            val result = repository.createUserWithEmailAndPassword(fullName, email, password, phone)
 
             result.fold(
                 onSuccess = {

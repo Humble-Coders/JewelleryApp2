@@ -57,7 +57,7 @@ class FirebaseAuthRepository(private val firebaseAuth: FirebaseAuth) {
                 Log.d("AuthRepository", "User created successfully with UID: $userId")
 
                 // Check if a temporary user document exists with encoded email as ID
-                val encodedEmail = encodeEmailForDocId(trimmedEmail)
+                val encodedEmail = trimmedEmail
 
                 val tempUserDoc = try {
                     FirebaseFirestore.getInstance()
@@ -141,29 +141,14 @@ class FirebaseAuthRepository(private val firebaseAuth: FirebaseAuth) {
 
     // Modified isValidEmail function with trimming
     private fun isValidEmail(email: String): Boolean {
-        // Remove any whitespace
+        // Trim the email to remove leading/trailing whitespace
         val trimmedEmail = email.trim()
 
-        // A very basic check - must have @, a dot after @, and non-empty parts
-        if (trimmedEmail.isEmpty()) return false
-        if (!trimmedEmail.contains("@")) return false
-
-        val parts = trimmedEmail.split("@")
-        if (parts.size != 2) return false
-        if (parts[0].isEmpty() || parts[1].isEmpty()) return false
-        if (!parts[1].contains(".")) return false
-
-        return true
+        // Use Android's pattern matcher for email validation
+        return android.util.Patterns.EMAIL_ADDRESS.matcher(trimmedEmail).matches()
     }
     // Add the same utility functions as in the desktop app
-    private fun encodeEmailForDocId(email: String): String {
-//        return email.trim().replace(".", "_dot_")
-//            .replace("@", "_at_")
-//            .replace("+", "_plus_")
-//            .replace(" ", "_space_")
 
-        return email
-    }
 
      // Optional: Add this if you want to update user profile with full name
     suspend fun updateUserProfile(displayName: String): Result<Unit> {
