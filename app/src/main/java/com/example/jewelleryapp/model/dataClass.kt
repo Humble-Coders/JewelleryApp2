@@ -12,7 +12,7 @@ data class Product(
     val id: String,
     val name: String,
     val price: Double,
-    val currency: String = "Rs",
+    val currency: String = "INR",
     val imageUrl: String,
     val isFavorite: Boolean = false,
     val material: String = "",

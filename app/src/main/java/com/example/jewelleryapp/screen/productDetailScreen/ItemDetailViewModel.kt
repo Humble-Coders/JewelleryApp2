@@ -1,4 +1,4 @@
-package com.example.jewelleryapp.screen.itemdetailScreen
+package com.example.jewelleryapp.screen.productDetailScreen
 
 import android.content.ContentValues.TAG
 import android.util.Log
@@ -35,11 +35,47 @@ class ItemDetailViewModel(
     private val _isInWishlist = MutableStateFlow(false)
     val isInWishlist: StateFlow<Boolean> = _isInWishlist.asStateFlow()
 
+    private val _isSimilarProductsLoading = MutableStateFlow(false)
+    val isSimilarProductsLoading: StateFlow<Boolean> = _isSimilarProductsLoading.asStateFlow()
+
+
+    fun toggleSimilarProductWishlist(productId: String) {
+        viewModelScope.launch {
+            try {
+                val similarProduct = _similarProducts.value.find { it.id == productId }
+                if (similarProduct != null) {
+                    val currentWishlistStatus = similarProduct.isFavorite
+
+                    if (currentWishlistStatus) {
+                        repository.removeFromWishlist(productId)
+                    } else {
+                        repository.addToWishlist(productId)
+                    }
+
+                    // Update similar products list immediately for responsive UI
+                    _similarProducts.value = _similarProducts.value.map {
+                        if (it.id == productId) it.copy(isFavorite = !currentWishlistStatus) else it
+                    }
+
+                    Log.d(TAG, "Toggled wishlist for similar product $productId to ${!currentWishlistStatus}")
+                }
+            } catch (e: Exception) {
+                Log.e(TAG, "Error toggling wishlist for similar product", e)
+            }
+        }
+    }
+
+
     fun loadProduct(productId: String) {
         viewModelScope.launch {
             try {
                 _isLoading.value = true
                 _error.value = null
+
+                if (productId.isBlank()) {
+                    _error.value = "Invalid product ID"
+                    return@launch
+                }
 
                 // Load product details and check wishlist status in parallel
                 coroutineScope {
@@ -107,48 +143,6 @@ class ItemDetailViewModel(
         }
     }
 
-    // Add this method to ItemDetailViewModel.kt
-    fun toggleSimilarProductWishlist(productId: String) {
-        viewModelScope.launch {
-            try {
-                // Find the product in the similar products list
-                val similarProduct = _similarProducts.value.find { it.id == productId }
-                if (similarProduct != null) {
-                    val currentWishlistStatus = similarProduct.isFavorite
-
-                    _isLoading.value = true
-
-                    if (currentWishlistStatus) {
-                        // If currently in wishlist, remove it
-                        repository.removeFromWishlist(productId)
-
-                        // Update similar products list with new wishlist status
-                        updateSimilarProductWishlistStatus(productId, false)
-                        Log.d(TAG, "Successfully removed similar product $productId from wishlist")
-                    } else {
-                        // If not in wishlist, add it
-                        repository.addToWishlist(productId)
-
-                        // Update similar products list with new wishlist status
-                        updateSimilarProductWishlistStatus(productId, true)
-                        Log.d(TAG, "Successfully added similar product $productId to wishlist")
-                    }
-
-                    // If the toggled product is the current product, update its status too
-                    if (productId == _product.value?.id) {
-                        _isInWishlist.value = !currentWishlistStatus
-                    }
-                } else {
-                    Log.e(TAG, "Similar product $productId not found in similar products list")
-                }
-            } catch (e: Exception) {
-                Log.e(TAG, "Error toggling wishlist for similar product", e)
-                _error.value = e.message ?: "An error occurred while updating wishlist"
-            } finally {
-                _isLoading.value = false
-            }
-        }
-    }
 
     private fun updateSimilarProductWishlistStatus(productId: String, isFavorite: Boolean) {
         _similarProducts.value = _similarProducts.value.map {
@@ -156,47 +150,33 @@ class ItemDetailViewModel(
         }
     }
 
+
+
     fun loadSimilarProducts() {
         val currentProduct = product.value ?: return
         viewModelScope.launch {
             try {
-                // Log before fetching
-                Log.d(TAG, "Loading similar products for category: ${currentProduct.categoryId}")
+                _isSimilarProductsLoading.value = true
 
-                // Collect similar products and check wishlist status in parallel
-                coroutineScope {
-                    val similarProductsJob = async(Dispatchers.Default) {
-                        repository.getProductsByCategory(
-                            categoryId = currentProduct.categoryId,
-                            excludeProductId = currentProduct.id
-                        ).first()
-                    }
-
-                    // Wait for similar products to be loaded
-                    val similarProductsList = similarProductsJob.await()
-
-                    // Check wishlist status for each product in parallel
-                    val productsWithWishlistStatus = similarProductsList.map { product ->
-                        async(Dispatchers.Default) {
-                            try {
-                                val isInWishlist = repository.isInWishlist(product.id)
-                                product.copy(isFavorite = isInWishlist)
-                            } catch (e: Exception) {
-                                Log.e(TAG, "Error checking wishlist status for similar product ${product.id}", e)
-                                product
-                            }
-                        }
-                    }.awaitAll()
-
-                    // Update the similar products state
-                    _similarProducts.value = productsWithWishlistStatus
-
-                    // Log after fetching
-                    Log.d(TAG, "Loaded ${productsWithWishlistStatus.size} similar products")
+                if (currentProduct.categoryId.isBlank()) {
+                    _similarProducts.value = emptyList()
+                    return@launch
                 }
+
+                val similarProductsList = repository.getProductsByCategory(
+                    categoryId = currentProduct.categoryId,
+                    excludeProductId = currentProduct.id,
+                    limit = 10  // Only get 10 products
+                ).first()
+
+                _similarProducts.value = similarProductsList
+                Log.d(TAG, "✅ Loaded ${similarProductsList.size} similar products")
+
             } catch (e: Exception) {
                 Log.e(TAG, "Error loading similar products", e)
                 _similarProducts.value = emptyList()
+            } finally {
+                _isSimilarProductsLoading.value = false
             }
         }
     }

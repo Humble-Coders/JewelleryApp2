@@ -42,11 +42,58 @@ class HomeViewModel(private val repository: JewelryRepository) : ViewModel() {
     private val _error = MutableStateFlow<String?>(null)
     val error: StateFlow<String?> = _error.asStateFlow()
 
+    private val _isSearchActive = MutableStateFlow(false)
+    val isSearchActive: StateFlow<Boolean> = _isSearchActive.asStateFlow()
+
+    private val _searchQuery = MutableStateFlow("")
+    val searchQuery: StateFlow<String> = _searchQuery.asStateFlow()
+
+    private val _filteredCategories = MutableStateFlow<List<Category>>(emptyList())
+    val filteredCategories: StateFlow<List<Category>> = _filteredCategories.asStateFlow()
+
+
+
     // Initialize by loading all data
     init {
         Log.d("HomeViewModel", "HomeViewModel instance created: ${System.currentTimeMillis()}")
         loadData()
     }
+
+
+    fun toggleSearch() {
+        _isSearchActive.value = !_isSearchActive.value
+        if (!_isSearchActive.value) {
+            _searchQuery.value = ""
+            _filteredCategories.value = emptyList()
+        } else {
+            // Show first 5 categories initially
+            _filteredCategories.value = _categories.value.take(5)
+        }
+    }
+
+    fun onSearchQueryChange(query: String) {
+        _searchQuery.value = query
+
+        if (query.isBlank()) {
+            // Show first 5 categories when query is empty
+            _filteredCategories.value = _categories.value.take(5)
+        } else {
+            // Split query into words and search
+            val queryWords = query.split(" ").map { it.trim().lowercase() }
+
+            _filteredCategories.value = _categories.value.filter { category ->
+                val categoryWords = category.name.split(" ").map { it.lowercase() }
+
+                // Check if any query word matches any category word
+                queryWords.any { queryWord ->
+                    categoryWords.any { categoryWord ->
+                        categoryWord.contains(queryWord)
+                    }
+                }
+            }
+        }
+    }
+
 
     // In HomeViewModel.kt - Fix the loadData function
     fun loadData() {

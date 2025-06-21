@@ -53,17 +53,23 @@ import com.example.jewelleryapp.model.Category as CategoryModel
 import com.example.jewelleryapp.model.Collection as CollectionModel
 import com.example.jewelleryapp.model.Product as ProductModel
 import kotlinx.coroutines.launch
+import androidx.compose.animation.*
+import androidx.compose.animation.core.tween
+import androidx.compose.foundation.text.KeyboardActions
+import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.OutlinedTextFieldDefaults
+import androidx.compose.runtime.collectAsState
+import androidx.compose.ui.platform.LocalFocusManager
+import androidx.compose.ui.text.input.ImeAction
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
+import androidx.compose.material.icons.filled.ChevronRight
+import androidx.compose.material.icons.filled.Close
 
-// Function to format price with currency
-fun formatPrice(price: Double, currency: String): String {
-    return when (currency) {
-        "USD" -> "$${price.toInt()}"
-        "EUR" -> "€${price.toInt()}"
-        else -> "${price.toInt()} $currency"
-    }
-}
 
-// Main screen composable
+
+
 @Composable
 fun HomeScreen(
     viewModel: HomeViewModel,
@@ -72,13 +78,18 @@ fun HomeScreen(
     onCollectionClick: (String) -> Unit = {},
     navController: NavController
 ) {
-    // Collect state flows
+    // Collect existing state flows
     val categories by viewModel.categories.collectAsState()
     val featuredProducts by viewModel.featuredProducts.collectAsState()
     val collections by viewModel.collections.collectAsState()
     val carouselItems by viewModel.carouselItems.collectAsState()
     val isLoading by viewModel.isLoading.collectAsState()
     val error by viewModel.error.collectAsState()
+
+    // Add these new state collections
+    val isSearchActive by viewModel.isSearchActive.collectAsState()
+    val searchQuery by viewModel.searchQuery.collectAsState()
+    val filteredCategories by viewModel.filteredCategories.collectAsState()
 
     val scrollState = rememberScrollState()
     val drawerState = rememberDrawerState(initialValue = DrawerValue.Closed)
@@ -95,87 +106,112 @@ fun HomeScreen(
         }
     ) {
         Scaffold(
-            topBar = { TopAppbar("Gagan Jewellers", onMenuClick = { scope.launch { drawerState.open() } })},
+            topBar = {
+                TopAppbar(
+                    title = "Gagan Jewellers",
+                    onMenuClick = { scope.launch { drawerState.open() } },
+                    isSearchActive = isSearchActive,
+                    searchQuery = searchQuery,
+                    onSearchToggle = { viewModel.toggleSearch() },
+                    onSearchQueryChange = { viewModel.onSearchQueryChange(it) }
+                )
+            },
             bottomBar = { BottomNavigationBar(navController = navController) }
         ) { paddingValues ->
-            if (isLoading) {
-                Box(
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .padding(paddingValues),
-                    contentAlignment = Alignment.Center
-                ) {
-                    CircularProgressIndicator(color = Color(0xFFB78628))
-                }
-            } else if (error != null) {
-                Box(
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .padding(paddingValues),
-                    contentAlignment = Alignment.Center
-                ) {
-                    Column(
-                        horizontalAlignment = Alignment.CenterHorizontally,
-                        verticalArrangement = Arrangement.Center
+            Box(modifier = Modifier.fillMaxSize()) {
+                // Main content
+                if (isLoading) {
+                    Box(
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .padding(paddingValues),
+                        contentAlignment = Alignment.Center
                     ) {
-                        Text(
-                            text = "Something went wrong",
-                            color = Color.Red,
-                            style = MaterialTheme.typography.titleMedium
-                        )
-                        Spacer(modifier = Modifier.height(8.dp))
-                        Button(
-                            onClick = { viewModel.refreshData() },
-                            colors = ButtonDefaults.buttonColors(
-                                containerColor = Color(0xFFB78628)
-                            )
+                        CircularProgressIndicator(color = Color(0xFFB78628))
+                    }
+                } else if (error != null) {
+                    Box(
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .padding(paddingValues),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Column(
+                            horizontalAlignment = Alignment.CenterHorizontally,
+                            verticalArrangement = Arrangement.Center
                         ) {
-                            Text("Try Again")
+                            Text(
+                                text = "Something went wrong",
+                                color = Color.Red,
+                                style = MaterialTheme.typography.titleMedium
+                            )
+                            Spacer(modifier = Modifier.height(8.dp))
+                            Button(
+                                onClick = { viewModel.refreshData() },
+                                colors = ButtonDefaults.buttonColors(
+                                    containerColor = Color(0xFFB78628)
+                                )
+                            ) {
+                                Text("Try Again")
+                            }
                         }
                     }
+                } else {
+                    Column(
+                        modifier = Modifier
+                            .padding(paddingValues)
+                            .verticalScroll(scrollState)
+                    ) {
+                        ImageCarousel(carouselItems)
+                        CategoryRow(categories, onCategoryClick = { categoryId ->
+                            Log.d("HomeScreen", "Category clicked: $categoryId")
+                            val categoryName = categories.find { it.id == categoryId }?.name ?: "Products"
+                            navController.navigate("categoryProducts/$categoryId/$categoryName")
+                        })
+                        FeaturedProductsSection(featuredProducts, viewModel, onProductClick)
+                        ThemedCollectionsSection(collections, onCollectionClick)
+                    }
                 }
-            } else {
-                Column(
-                    modifier = Modifier
-                        .padding(paddingValues)
-                        .verticalScroll(scrollState)
-                ) {
-                    ImageCarousel(carouselItems)
-// In HomeScreen composable, update this line:
-                    CategoryRow(categories, onCategoryClick = { categoryId ->
-                        Log.d("HomeScreen", "Category clicked: $categoryId")
-                        Log.d("HomeScreen", "Navigating to categoryProducts/$categoryId")
 
-                        // Find the category name
+                // Search results overlay
+                CategorySearchResults(
+                    categories = filteredCategories,
+                    isVisible = isSearchActive,
+                    onCategoryClick = { categoryId ->
+                        // Close search and navigate to category
+                        viewModel.toggleSearch()
                         val categoryName = categories.find { it.id == categoryId }?.name ?: "Products"
-                        Log.d("HomeScreen", "Category name : $categoryName")
                         navController.navigate("categoryProducts/$categoryId/$categoryName")
-                    })
-
-                    FeaturedProductsSection(featuredProducts, viewModel,onProductClick)
-                    ThemedCollectionsSection(collections, onCollectionClick)
-                }
+                    },
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(paddingValues)
+                )
             }
         }
     }
 }
 
-// Top app bar with search and cart
-// Top app bar with search and cart, with optional back button
 @Composable
 fun TopAppbar(
     title: String,
     onMenuClick: () -> Unit = {},
-    onBackClick: (() -> Unit)? = null // Optional back button handler
+    onBackClick: (() -> Unit)? = null,
+    // Add these parameters
+    isSearchActive: Boolean = false,
+    searchQuery: String = "",
+    onSearchToggle: () -> Unit = {},
+    onSearchQueryChange: (String) -> Unit = {}
 ) {
-    val amberColor = Color(0xFFB78628) // Approximate amber/gold color
+    val amberColor = Color(0xFFB78628)
+    val focusManager = LocalFocusManager.current
 
     Column(
         modifier = Modifier
             .fillMaxWidth()
             .background(Color.White)
             .border(0.5.dp, Color.LightGray)
-            .windowInsetsPadding(WindowInsets.statusBars) // Ensures it appears below the notch
+            .windowInsetsPadding(WindowInsets.statusBars)
     ) {
         Row(
             modifier = Modifier
@@ -185,7 +221,6 @@ fun TopAppbar(
             verticalAlignment = Alignment.CenterVertically
         ) {
             if (onBackClick != null) {
-                // Show back button if onBackClick is provided
                 IconButton(onClick = onBackClick) {
                     Icon(
                         imageVector = Icons.AutoMirrored.Filled.ArrowBack,
@@ -194,7 +229,6 @@ fun TopAppbar(
                     )
                 }
             } else {
-                // Otherwise show menu button
                 IconButton(onClick = onMenuClick) {
                     Icon(
                         imageVector = Icons.Default.Menu,
@@ -204,20 +238,27 @@ fun TopAppbar(
                 }
             }
 
-            Text(
-                text = title,
-                color = amberColor,
-                fontWeight = FontWeight.Medium
-            )
+            // Animate title visibility
+            AnimatedVisibility(
+                visible = !isSearchActive,
+                enter = fadeIn(animationSpec = tween(300)),
+                exit = fadeOut(animationSpec = tween(300))
+            ) {
+                Text(
+                    text = title,
+                    color = amberColor,
+                    fontWeight = FontWeight.Medium
+                )
+            }
 
             Row(
                 horizontalArrangement = Arrangement.spacedBy(8.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                IconButton(onClick = { }) {
+                IconButton(onClick = onSearchToggle) {
                     Icon(
-                        imageVector = Icons.Default.Search,
-                        contentDescription = "Search",
+                        imageVector = if (isSearchActive) Icons.Default.Close else Icons.Default.Search,
+                        contentDescription = if (isSearchActive) "Close Search" else "Search",
                         tint = amberColor
                     )
                 }
@@ -231,8 +272,158 @@ fun TopAppbar(
                 }
             }
         }
+
+        // Animated search field
+        AnimatedVisibility(
+            visible = isSearchActive,
+            enter = slideInVertically(
+                initialOffsetY = { -it },
+                animationSpec = tween(300)
+            ) + expandVertically(animationSpec = tween(300)),
+            exit = slideOutVertically(
+                targetOffsetY = { -it },
+                animationSpec = tween(300)
+            ) + shrinkVertically(animationSpec = tween(300))
+        ) {
+            OutlinedTextField(
+                value = searchQuery,
+                onValueChange = onSearchQueryChange,
+                placeholder = {
+                    Text(
+                        "Search categories...",
+                        color = Color.Gray
+                    )
+                },
+                singleLine = true,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 16.dp, vertical = 8.dp),
+                keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
+                keyboardActions = KeyboardActions(
+                    onSearch = { focusManager.clearFocus() }
+                ),
+                colors = OutlinedTextFieldDefaults.colors(
+                    focusedBorderColor = amberColor,
+                    unfocusedBorderColor = Color.LightGray,
+                    cursorColor = amberColor
+                ),
+                shape = RoundedCornerShape(12.dp)
+            )
+        }
     }
 }
+
+// 3. Create CategorySearchResults composable in HomeScreen.kt
+
+@Composable
+fun CategorySearchResults(
+    categories: List<Category>,
+    isVisible: Boolean,
+    onCategoryClick: (String) -> Unit,
+    modifier: Modifier = Modifier
+) {
+    AnimatedVisibility(
+        visible = isVisible,
+        enter = slideInVertically(
+            initialOffsetY = { -it },
+            animationSpec = tween(300)
+        ) + fadeIn(animationSpec = tween(300)),
+        exit = slideOutVertically(
+            targetOffsetY = { -it },
+            animationSpec = tween(300)
+        ) + fadeOut(animationSpec = tween(300)),
+        modifier = modifier
+    ) {
+        LazyColumn(
+            modifier = Modifier
+                .fillMaxWidth()
+                .background(Color.White)
+                .padding(horizontal = 16.dp),
+            verticalArrangement = Arrangement.spacedBy(8.dp),
+            contentPadding = PaddingValues(vertical = 8.dp)
+        ) {
+            items(categories) { category ->
+                CategorySearchItem(
+                    category = category,
+                    onClick = { onCategoryClick(category.id) }
+                )
+            }
+
+            if (categories.isEmpty()) {
+                item {
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(vertical = 24.dp),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Text(
+                            text = "No categories found",
+                            color = Color.Gray,
+                            fontSize = 14.sp
+                        )
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+fun CategorySearchItem(
+    category: Category,
+    onClick: () -> Unit
+) {
+    Card(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable { onClick() },
+        shape = RoundedCornerShape(8.dp),
+        colors = CardDefaults.cardColors(containerColor = Color.White),
+        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(12.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(12.dp)
+        ) {
+            AsyncImage(
+                model = ImageRequest.Builder(LocalContext.current)
+                    .data(category.imageUrl)
+                    .crossfade(true)
+                    .build(),
+                contentDescription = category.name,
+                modifier = Modifier
+                    .size(40.dp)
+                    .clip(CircleShape),
+                contentScale = ContentScale.Crop,
+                placeholder = painterResource(id = R.drawable.necklace_homescreen)
+            )
+
+            Text(
+                text = category.name,
+                fontSize = 16.sp,
+                fontWeight = FontWeight.Medium,
+                color = Color.Black,
+                modifier = Modifier.weight(1f)
+            )
+
+            Icon(
+                imageVector = Icons.Default.ChevronRight,
+                contentDescription = "Go to category",
+                tint = Color(0xFFB78628),
+                modifier = Modifier.size(20.dp)
+            )
+        }
+    }
+}
+
+// 4. Update HomeScreen composable
+
+
+
 
 @Composable
 fun ImageCarousel(items: List<CarouselItemModel>) {
@@ -872,4 +1063,15 @@ fun SectionHeader(text: String) {
         fontSize = 14.sp,
         modifier = Modifier.padding(top = 16.dp, bottom = 8.dp)
     )
+}
+
+
+// Function to format price with currency
+fun formatPrice(price: Double, currency: String): String {
+    return when (currency) {
+        "USD" -> "$${price.toInt()}"
+        "EUR" -> "€${price.toInt()}"
+        "INR" -> "₹${price.toInt()}"
+        else -> "${price.toInt()} $currency"
+    }
 }

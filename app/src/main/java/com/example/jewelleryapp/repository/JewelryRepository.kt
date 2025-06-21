@@ -551,48 +551,46 @@ class JewelryRepository(
         }
     }
 
-     fun getProductsByCategory(categoryId: String, excludeProductId: String? = null): Flow<List<Product>> = flow {
-        try {
-            // Refresh wishlist cache in the background
-            val refreshCacheJob = withContext(Dispatchers.Default) {
-                async { refreshWishlistCache() }
-            }
 
-            // Step 1: Get product IDs from category_products
-            val categorySnapshot = withContext(Dispatchers.IO) {
-                firestore.collection("category_products")
-                    .document(categoryId)
-                    .get()
-                    .await()
-            }
 
-            val productIds = categorySnapshot.get("product_ids") as? List<String> ?: emptyList()
+    fun getProductsByCategory(
+        categoryId: String,
+        excludeProductId: String? = null,
+        limit: Int = 10
+    ): Flow<List<Product>> = flow {
 
-            // Wait for cache refresh to complete
-            refreshCacheJob.await()
+        // Step 1: Get product IDs (same as before)
+        val categorySnapshot = withContext(Dispatchers.IO) {
+            firestore.collection("category_products")
+                .document(categoryId)
+                .get()
+                .await()
+        }
 
-            // Step 2: Query products asynchronously using whereIn (max 10)
-            if (productIds.isNotEmpty()) {
-                val products = coroutineScope {
-                    val batchResults = productIds.take(10).chunked(5).map { batch ->
-                        async(Dispatchers.IO) {
-                            val snapshot = firestore.collection("products")
-                                .whereIn("id", batch)
-                                .get()
-                                .await()
+        val productIds = (categorySnapshot.get("product_ids") as? List<*>)
+            ?.map { it.toString() }
+            ?.filter { it != excludeProductId }  // Filter out current product
+            ?.take(limit)  // Take only what we need
+            ?: emptyList()
 
-                            snapshot.documents
-                                .filter { it.id != excludeProductId }
-                        }
-                    }.awaitAll().flatten()
+        if (productIds.isEmpty()) {
+            emit(emptyList())
+            return@flow
+        }
 
-                    // Process each document in parallel
-                    batchResults.map { doc ->
-                        async(Dispatchers.Default) {
+        // Step 2: Fetch all products in parallel (FASTER)
+        val products = withContext(Dispatchers.IO) {
+            productIds.map { productId ->
+                async {
+                    try {
+                        val doc = firestore.collection("products")
+                            .document(productId)
+                            .get()
+                            .await()
+
+                        if (doc.exists()) {
                             val imageUrls = doc.get("images") as? List<*>
                             val imageUrl = imageUrls?.firstOrNull()?.toString() ?: ""
-
-                            // Check wishlist status from cache
                             val isInWishlist = wishlistCache[doc.id] == true
 
                             Product(
@@ -608,19 +606,21 @@ class JewelryRepository(
                                 cut = doc.getString("cut") ?: "",
                                 isFavorite = isInWishlist
                             )
+                        } else {
+                            null
                         }
-                    }.awaitAll()
+                    } catch (e: Exception) {
+                        Log.e(tag, "Error fetching product $productId: ${e.message}")
+                        null
+                    }
                 }
-
-                Log.d(tag, "Fetched ${products.size} products for category $categoryId")
-                emit(products)
-            } else {
-                emit(emptyList())
-            }
-        } catch (e: Exception) {
-            Log.e(tag, "Error fetching products by category", e)
-            emit(emptyList())
+            }.awaitAll().filterNotNull()
         }
+
+        emit(products)
+    }.catch { e ->
+        Log.e(tag, "Error fetching products by category", e)
+        emit(emptyList())
     }
 
 

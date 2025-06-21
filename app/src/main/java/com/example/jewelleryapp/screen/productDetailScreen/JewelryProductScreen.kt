@@ -1,5 +1,6 @@
-package com.example.jewelleryapp.screen.itemdetailScreen
+package com.example.jewelleryapp.screen.productDetailScreen
 
+import android.content.Context
 import android.util.Log
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.ExperimentalFoundationApi
@@ -62,6 +63,12 @@ import com.example.jewelleryapp.model.Product
 import com.example.jewelleryapp.screen.homeScreen.BottomNavigationBar
 import kotlinx.coroutines.launch
 import java.util.Locale
+import android.content.Intent
+import android.net.Uri
+import androidx.compose.material.icons.filled.Image
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.platform.LocalContext
+import com.example.jewelleryapp.DynamicLinkHelper
 
 // Defined colors as constants
 private val GoldColor = Color(0xFFC4A661)
@@ -86,16 +93,19 @@ fun JewelryProductScreen(
     viewModel: ItemDetailViewModel,
     navController: NavController,
     onBackClick: () -> Unit = {},
-    onShareClick: () -> Unit = {},
+    onShareClick: () -> Unit,
     onProductClick: (String) -> Unit = {}
 ) {
-    val product by viewModel.product.collectAsState()
     val isWishlisted by viewModel.isInWishlist.collectAsState()
     val isLoading by viewModel.isLoading.collectAsState()
     val error by viewModel.error.collectAsState()
     val scrollState = rememberScrollState()
     val coroutineScope = rememberCoroutineScope()
+    val product by viewModel.product.collectAsState()
+    val context = LocalContext.current
+
     val similarProducts by viewModel.similarProducts.collectAsState()
+    val isSimilarProductsLoading by viewModel.isSimilarProductsLoading.collectAsState()
 
     // Load product when screen opens
     LaunchedEffect(productId) {
@@ -119,7 +129,11 @@ fun JewelryProductScreen(
                 isWishlisted = isWishlisted,
                 onBackClick = onBackClick,
                 onWishlistClick = { viewModel.toggleWishlist() },
-                onShareClick = onShareClick
+                onShareClick = {
+                    product?.let { prod ->
+                        shareProduct(context, prod)
+                    }
+                }
             )
         },
         bottomBar = { BottomNavigationBar(navController) }
@@ -225,14 +239,14 @@ fun JewelryProductScreen(
                         Spacer(modifier = Modifier.height(16.dp))
 
                         // Similar products section - now only here, removed duplicate section
-                        if (similarProducts.isNotEmpty()) {
+                        if (similarProducts.isNotEmpty() || isSimilarProductsLoading) {
                             Spacer(modifier = Modifier.height(16.dp))
                             SimilarProducts(
                                 products = similarProducts,
+                                isLoading = isSimilarProductsLoading,  // ✅ Pass loading state
                                 onProductClick = onProductClick,
-                                onWishlistToggle = { similarProductId ->
-                                    // Toggle wishlist for similar products
-                                    viewModel.toggleSimilarProductWishlist(similarProductId)
+                                onWishlistToggle = { productId ->
+                                    viewModel.toggleSimilarProductWishlist(productId)  // ✅ Add wishlist toggle
                                 }
                             )
                         }
@@ -484,8 +498,9 @@ private fun ProductDescription(description: String) {
 @Composable
 private fun SimilarProducts(
     products: List<Product>,
+    isLoading: Boolean,  // ✅ Add loading parameter
     onProductClick: (String) -> Unit,
-    onWishlistToggle: (String) -> Unit // Add wishlist toggle callback
+    onWishlistToggle: (String) -> Unit
 ) {
     Text(
         text = "You may also like",
@@ -500,21 +515,86 @@ private fun SimilarProducts(
         horizontalArrangement = Arrangement.spacedBy(16.dp),
         contentPadding = PaddingValues(horizontal = 16.dp)
     ) {
-        items(products) { product ->
-            SimilarProductItem(
-                product = product,
-                onClick = { onProductClick(product.id) },
-                onWishlistToggle = { onWishlistToggle(it) }
+        if (isLoading) {
+            // ✅ Show placeholder items while loading
+            items(5) { index ->
+                SimilarProductPlaceholder()
+            }
+        } else {
+            items(products) { product ->
+                SimilarProductItem(
+                    product = product,
+                    onClick = { onProductClick(product.id) },
+                    onWishlistToggle = { onWishlistToggle(product.id) }
+                )
+            }
+        }
+    }
+}
+
+// ✅ Add placeholder composable
+@Composable
+private fun SimilarProductPlaceholder() {
+    Column(
+        modifier = Modifier
+            .width(140.dp)
+            .clip(RoundedCornerShape(8.dp))
+    ) {
+        // Placeholder image
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(140.dp)
+                .background(
+                    brush = Brush.linearGradient(
+                        colors = listOf(
+                            Color.LightGray.copy(alpha = 0.3f),
+                            Color.LightGray.copy(alpha = 0.1f),
+                            Color.LightGray.copy(alpha = 0.3f)
+                        )
+                    )
+                ),
+            contentAlignment = Alignment.Center
+        ) {
+            Icon(
+                imageVector = Icons.Default.Image,
+                contentDescription = "Loading",
+                tint = Color.Gray,
+                modifier = Modifier.size(32.dp)
+            )
+        }
+
+        // Placeholder text
+        Column(modifier = Modifier.padding(top = 4.dp, start = 4.dp, end = 4.dp)) {
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth(0.8f)
+                    .height(14.dp)
+                    .background(
+                        Color.LightGray.copy(alpha = 0.3f),
+                        RoundedCornerShape(4.dp)
+                    )
+            )
+            Spacer(modifier = Modifier.height(4.dp))
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth(0.6f)
+                    .height(12.dp)
+                    .background(
+                        Color.LightGray.copy(alpha = 0.3f),
+                        RoundedCornerShape(4.dp)
+                    )
             )
         }
     }
 }
 
+// ✅ Update SimilarProductItem with wishlist functionality
 @Composable
 private fun SimilarProductItem(
     product: Product,
     onClick: () -> Unit,
-    onWishlistToggle: (String) -> Unit = {} // Add wishlist toggle callback
+    onWishlistToggle: (String) -> Unit
 ) {
     Column(
         modifier = Modifier
@@ -526,27 +606,32 @@ private fun SimilarProductItem(
             modifier = Modifier
                 .fillMaxWidth()
                 .height(140.dp)
-                .background(Color.LightGray)
+                .background(Color.LightGray.copy(alpha = 0.1f))
         ) {
             AsyncImage(
                 model = product.imageUrl,
                 contentDescription = product.name,
                 modifier = Modifier.fillMaxSize(),
-                contentScale = ContentScale.Crop
+                contentScale = ContentScale.Crop,
+                placeholder = painterResource(id = R.drawable.diamondring_homescreen)
             )
 
-            // Add wishlist icon for similar products
+            // ✅ Wishlist button
             IconButton(
                 onClick = { onWishlistToggle(product.id) },
                 modifier = Modifier
                     .align(Alignment.TopEnd)
-                    .size(28.dp) // Smaller icon for similar products
+                    .size(32.dp)
+                    .background(
+                        Color.White.copy(alpha = 0.8f),
+                        CircleShape
+                    )
             ) {
                 Icon(
                     imageVector = if (product.isFavorite) Icons.Default.Favorite else Icons.Default.FavoriteBorder,
-                    contentDescription = "Wishlist",
-                    tint = if (product.isFavorite) Color.Red else Color.White,
-                    modifier = Modifier.size(16.dp) // Smaller icon
+                    contentDescription = if (product.isFavorite) "Remove from Wishlist" else "Add to Wishlist",
+                    tint = if (product.isFavorite) Color.Red else Color.Gray,
+                    modifier = Modifier.size(16.dp)
                 )
             }
         }
@@ -556,17 +641,39 @@ private fun SimilarProductItem(
             fontSize = 12.sp,
             fontWeight = FontWeight.Medium,
             maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
             modifier = Modifier.padding(top = 4.dp, start = 4.dp, end = 4.dp)
         )
 
         Text(
-            text = "${product.currency} ${product.price}",
+            text = "${product.currency} ${product.price.toInt()}",
             fontSize = 12.sp,
             fontWeight = FontWeight.Bold,
-            color = TextPriceColor,
+            color = Color(0xFFB78628),
             modifier = Modifier.padding(bottom = 4.dp, start = 4.dp, end = 4.dp)
         )
     }
 }
 
+private fun shareProduct(context: Context, product: Product) {
+    // GitHub Pages URL format
+    val githubUrl = "https://humble-coders.github.io/gagan-jewellers-links/?product=${product.id}&name=${Uri.encode(product.name)}&price=${product.currency} ${product.price}"
 
+    val shareText = """
+        🔥 Check out this stunning ${product.name}!
+        
+        💰 Price: ${product.currency} ${product.price}
+        
+        👆 Click to view: $githubUrl
+        
+        ✨ Gagan Jewellers - Premium Jewelry
+    """.trimIndent()
+
+    val shareIntent = Intent(Intent.ACTION_SEND).apply {
+        type = "text/plain"
+        putExtra(Intent.EXTRA_TEXT, shareText)
+        putExtra(Intent.EXTRA_SUBJECT, "Beautiful Jewelry from Gagan Jewellers")
+    }
+
+    context.startActivity(Intent.createChooser(shareIntent, "Share Product"))
+}

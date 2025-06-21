@@ -1,5 +1,7 @@
 package com.example.jewelleryapp
 
+import android.content.Intent
+import android.net.Uri
 import android.os.Bundle
 import android.util.Log
 import androidx.activity.ComponentActivity
@@ -12,6 +14,7 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.lifecycle.viewmodel.compose.viewModel
+import androidx.navigation.NavController
 import androidx.navigation.NavType
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
@@ -25,8 +28,8 @@ import com.example.jewelleryapp.screen.categoryProducts.CategoryProductsScreen
 import com.example.jewelleryapp.screen.categoryProducts.CategoryProductsViewModel
 import com.example.jewelleryapp.screen.homeScreen.HomeScreen
 import com.example.jewelleryapp.screen.homeScreen.HomeViewModel
-import com.example.jewelleryapp.screen.itemdetailScreen.ItemDetailViewModel
-import com.example.jewelleryapp.screen.itemdetailScreen.JewelryProductScreen
+import com.example.jewelleryapp.screen.productDetailScreen.ItemDetailViewModel
+import com.example.jewelleryapp.screen.productDetailScreen.JewelryProductScreen
 import com.example.jewelleryapp.screen.loginScreen.LoginScreen
 import com.example.jewelleryapp.screen.loginScreen.LoginViewModel
 import com.example.jewelleryapp.screen.registerScreen.RegisterScreen
@@ -34,7 +37,9 @@ import com.example.jewelleryapp.screen.registerScreen.RegisterViewModel
 import com.example.jewelleryapp.screen.wishlist.WishlistScreen
 import com.example.jewelleryapp.screen.wishlist.WishlistViewModel
 import com.example.jewelleryapp.ui.theme.JewelleryAppTheme
+import com.google.firebase.Firebase
 import com.google.firebase.auth.FirebaseAuth
+import com.google.firebase.dynamiclinks.dynamicLinks
 import com.google.firebase.firestore.FirebaseFirestore
 
 class MainActivity : ComponentActivity() {
@@ -112,11 +117,19 @@ class MainActivity : ComponentActivity() {
                         categoryViewModel,
                         itemDetailViewModel,
                         wishlistViewModel,
-                        jewelryRepository
-                    )
+                        jewelryRepository,
+                        activity = this  ,
+                        intent = intent)
                 }
             }
         }
+
+    }
+
+    override fun onNewIntent(intent: Intent?) {
+        super.onNewIntent(intent)
+        // Handle deep links when app is already running
+        setIntent(intent)
     }
 
 
@@ -141,9 +154,43 @@ fun AppNavigation(
     categoryViewModel: CategoriesViewModel,
     itemDetailViewModel: ItemDetailViewModel,
     wishlistViewModel: WishlistViewModel,
-    jewelryRepository: JewelryRepository
+    jewelryRepository: JewelryRepository,
+    activity: ComponentActivity,
+    intent: Intent?
+
 ) {
     val navController = rememberNavController()
+
+    LaunchedEffect(intent) {
+        intent?.data?.let { uri ->
+            when {
+                // GitHub Pages: https://yourusername.github.io/gagan-jewellers-links/?product=ID
+                uri.host == "humble-coders.github.io" -> {
+                    val productId = uri.getQueryParameter("product")
+                    if (!productId.isNullOrBlank()) {
+                        navController.navigate("itemDetail/$productId") {
+                            popUpTo("home")
+                        }
+                    }
+                }
+                // Custom scheme backup
+                uri.scheme == "gaganjewellers" -> {
+                    val productId = uri.lastPathSegment
+                    if (!productId.isNullOrBlank()) {
+                        navController.navigate("itemDetail/$productId") {
+                            popUpTo("home")
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    LaunchedEffect(activity.intent) {
+        activity.intent?.data?.let { uri ->
+            handleDeepLink(uri, navController)
+        }
+    }
 
     // Check if user is already logged in
     val startDestination = if (FirebaseAuth.getInstance().currentUser != null) {
@@ -259,7 +306,7 @@ fun AppNavigation(
                     navController.popBackStack()
                 },
                 onShareClick = {
-                    // Handle share functionality (will be implemented later)
+
                 },
                 onProductClick = { selectedProductId ->
                     // Navigate to the selected product's detail screen
@@ -303,6 +350,32 @@ fun AppNavigation(
             // For now, redirect to home since profile isn't implemented
             LaunchedEffect(Unit) {
                 navController.navigate("home")
+            }
+        }
+    }
+
+
+}
+
+private fun handleDeepLink(uri: Uri, navController: NavController) {
+    when {
+        // Handle Dynamic Links: https://gaganjewellers.page.link/xxx
+        uri.host == "gaganjewellers.page.link" -> {
+            // Extract product ID from query parameter
+            val productId = uri.getQueryParameter("productId")
+            if (!productId.isNullOrBlank()) {
+                navController.navigate("itemDetail/$productId") {
+                    popUpTo("home")
+                }
+            }
+        }
+        // Handle custom scheme: gaganjewellers://product/ID (backup)
+        uri.scheme == "gaganjewellers" -> {
+            val productId = uri.lastPathSegment
+            if (!productId.isNullOrBlank()) {
+                navController.navigate("itemDetail/$productId") {
+                    popUpTo("home")
+                }
             }
         }
     }
