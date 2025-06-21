@@ -880,6 +880,12 @@ fun BottomNavigationBar(navController: NavController) {
 @Composable
 fun DrawerContent(navController: NavController, onCloseDrawer: () -> Unit) {
     val amberColor = Color(0xFFB78628)
+    val context = LocalContext.current
+
+    // Get current user info
+    val currentUser = FirebaseAuth.getInstance().currentUser
+    val userName = currentUser?.displayName ?: "Guest"
+    val userPhotoUrl = currentUser?.photoUrl?.toString()
 
     Column(
         modifier = Modifier
@@ -892,29 +898,48 @@ fun DrawerContent(navController: NavController, onCloseDrawer: () -> Unit) {
                 modifier = Modifier
                     .size(50.dp)
                     .clip(CircleShape)
-                    .background(amberColor, CircleShape) // Gold Border
-                    .padding(3.dp) // Padding for border effect
+                    .background(amberColor, CircleShape)
+                    .padding(3.dp)
             ) {
-                Image(
-                    painter = painterResource(id = R.drawable.ic_launcher_background), // Replace with your image
-                    contentDescription = "Profile Picture",
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .clip(CircleShape),
-                    contentScale = ContentScale.Crop
-                )
+                if (userPhotoUrl != null) {
+                    AsyncImage(
+                        model = ImageRequest.Builder(context)
+                            .data(userPhotoUrl)
+                            .crossfade(true)
+                            .build(),
+                        contentDescription = "Profile Picture",
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .clip(CircleShape),
+                        contentScale = ContentScale.Crop,
+                        error = painterResource(id = R.drawable.ic_launcher_background)
+                    )
+                } else {
+                    Image(
+                        painter = painterResource(id = R.drawable.ic_launcher_background),
+                        contentDescription = "Default Profile Picture",
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .clip(CircleShape),
+                        contentScale = ContentScale.Crop
+                    )
+                }
             }
 
             Spacer(modifier = Modifier.width(12.dp))
 
             Text(
-                text = "Hi ___!",
+                text = "Hi $userName!",
                 fontWeight = FontWeight.Bold,
                 fontSize = 22.sp,
                 modifier = Modifier.padding(bottom = 8.dp),
-                color = Color.Black
+                color = Color.Black,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis
             )
         }
+
+        // Rest of your existing drawer content...
 
         Spacer(modifier = Modifier.height(16.dp))
 

@@ -70,6 +70,12 @@ fun ProfileScreen(
         uri?.let { viewModel.selectProfileImage(it) }
     }
 
+    // Add this LaunchedEffect in ProfileScreen composable, right after the existing LaunchedEffects
+    LaunchedEffect(Unit) {
+        // Load user profile when the screen is first displayed
+        viewModel.loadUserProfile()
+    }
+
     // Update form when profile loads
     LaunchedEffect(currentProfile) {
         currentProfile?.let { profile ->
@@ -87,6 +93,15 @@ fun ProfileScreen(
         }
     }
 
+    LaunchedEffect(profileState) {
+        // Only retry if explicitly in error state, avoid infinite loops
+        if (profileState is ProfileState.Error) {
+            // Add a small delay to prevent rapid retries
+            kotlinx.coroutines.delay(500)
+            viewModel.loadUserProfile()
+        }
+    }
+
     LaunchedEffect(deletionState) {
         when (deletionState) {
             is AccountDeletionState.Success -> {
@@ -100,7 +115,8 @@ fun ProfileScreen(
     }
 
     LaunchedEffect(isSigningOut) {
-        if (!isSigningOut && !viewModel.canEditProfile()) {
+        // Only respond to completed sign out events
+        if (isSigningOut == false && viewModel.wasSignOutRequested()) {
             onSignOut()
         }
     }
@@ -162,7 +178,11 @@ fun ProfileScreen(
                     onSaveImage = { viewModel.saveSelectedImage() },
                     onClearImage = { viewModel.clearSelectedImage() },
                     onRemoveLocalImage = { viewModel.removeLocalProfileImage() },
-                    onSignOut = { viewModel.signOut() },
+                    onSignOut = { viewModel.signOut()
+                        navController.navigate("login") {
+                            popUpTo(0) { inclusive = true }
+                        }
+                                },
                     onDeleteAccount = { showDeleteDialog = true },
                     getDisplayImagePath = { viewModel.getDisplayImagePath() },
                     isCurrentImageFromGoogle = { viewModel.isCurrentImageFromGoogle() },
@@ -329,7 +349,8 @@ private fun ProfileContent(
             AccountActionsSection(
                 isSigningOut = isSigningOut,
                 onSignOut = onSignOut,
-                onDeleteAccount = onDeleteAccount
+                onDeleteAccount = onDeleteAccount,
+                profile = profile
             )
         }
     }
@@ -618,7 +639,8 @@ private fun ProfileField(
 private fun AccountActionsSection(
     isSigningOut: Boolean,
     onSignOut: () -> Unit,
-    onDeleteAccount: () -> Unit
+    onDeleteAccount: () -> Unit,
+    profile: UserProfile // Add this parameter
 ) {
     Card(
         modifier = Modifier.fillMaxWidth(),
@@ -654,22 +676,25 @@ private fun AccountActionsSection(
                 Text("Sign Out")
             }
 
-            Spacer(modifier = Modifier.height(12.dp))
+            // Only show Delete Account button for email/password users
+            if (!profile.isGoogleSignIn) {
+                Spacer(modifier = Modifier.height(12.dp))
 
-            // Delete Account Button
-            OutlinedButton(
-                onClick = onDeleteAccount,
-                modifier = Modifier.fillMaxWidth(),
-                colors = ButtonDefaults.outlinedButtonColors(contentColor = Color.Red),
-                border = ButtonDefaults.outlinedButtonBorder.copy(width = 1.dp)
-            ) {
-                Icon(
-                    Icons.Default.Delete,
-                    contentDescription = null,
-                    modifier = Modifier.size(20.dp)
-                )
-                Spacer(modifier = Modifier.width(8.dp))
-                Text("Delete Account")
+                // Delete Account Button
+                OutlinedButton(
+                    onClick = onDeleteAccount,
+                    modifier = Modifier.fillMaxWidth(),
+                    colors = ButtonDefaults.outlinedButtonColors(contentColor = Color.Red),
+                    border = ButtonDefaults.outlinedButtonBorder.copy(width = 1.dp)
+                ) {
+                    Icon(
+                        Icons.Default.Delete,
+                        contentDescription = null,
+                        modifier = Modifier.size(20.dp)
+                    )
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text("Delete Account")
+                }
             }
         }
     }

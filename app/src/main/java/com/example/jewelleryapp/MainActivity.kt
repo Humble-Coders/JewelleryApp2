@@ -411,12 +411,7 @@ fun AppNavigation(
         }
 
         // Profile Screen placeholder - this would be implemented in the future
-        composable("profile") {
-            // For now, redirect to home since profile isn't implemented
-            LaunchedEffect(Unit) {
-                navController.navigate("home")
-            }
-        }
+
     }
 
 
