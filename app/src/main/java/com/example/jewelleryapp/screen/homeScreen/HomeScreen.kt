@@ -491,7 +491,7 @@ fun ProductItem(
                     Icon(
                         imageVector = if (product.isFavorite) Icons.Default.Favorite else Icons.Default.FavoriteBorder,
                         contentDescription = "Favorite",
-                        tint = if (product.isFavorite) Color.Red else Color.White
+                        tint = if (product.isFavorite) Color(0xFFD4A968) else Color(0xFFD4A968)
                     )
                 }
             }

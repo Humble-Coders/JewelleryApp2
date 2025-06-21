@@ -72,12 +72,6 @@ private val TextGrayColor = Color.Gray
 private val TextDescriptionColor = Color(0xFF4B5563)
 private val TextPriceColor = Color(0xFF333333)
 
-// Data models for similar products display
-//data class SimilarProductData(
-//    val imageId: Int,
-//    val title: String,
-//    val price: String
-//)
 
 data class ProductSpec(
     val iconId: Int,
@@ -575,44 +569,4 @@ private fun SimilarProductItem(
     }
 }
 
-//@Composable
-//private fun WishlistButton(onClick: () -> Unit) {
-//    Button(
-//        onClick = onClick,
-//        modifier = Modifier.fillMaxWidth(),
-//        colors = ButtonDefaults.buttonColors(containerColor = ButtonColor),
-//        border = BorderStroke(1.dp, Color.Black)
-//    ) {
-//        Text(
-//            text = "Add to Wishlist",
-//            color = Color.Black,
-//            modifier = Modifier.padding(vertical = 8.dp)
-//        )
-//    }
-//}
-
-//@Composable
-//fun WishlistStatusIndicator(
-//    isInWishlist: Boolean,
-//    onToggle: () -> Unit,
-//    modifier: Modifier = Modifier,
-//    iconSize: Dp = 24.dp,
-//    containerSize: Dp = 36.dp
-//) {
-//    Box(
-//        modifier = modifier
-//            .size(containerSize)
-//            .clip(CircleShape)
-//            .background(Color.White.copy(alpha = 0.7f))
-//            .clickable(onClick = onToggle),
-//        contentAlignment = Alignment.Center
-//    ) {
-//        Icon(
-//            imageVector = if (isInWishlist) Icons.Default.Favorite else Icons.Default.FavoriteBorder,
-//            contentDescription = if (isInWishlist) "Remove from Wishlist" else "Add to Wishlist",
-//            tint = if (isInWishlist) Color.Red else Color.Gray,
-//            modifier = Modifier.size(iconSize)
-//        )
-//    }
-//}
 

@@ -73,18 +73,7 @@ class ItemDetailViewModel(
         }
     }
 
-//    private fun checkWishlistStatus(productId: String) {
-//        viewModelScope.launch {
-//            try {
-//                val isInWishlistResult = repository.isInWishlist(productId)
-//                _isInWishlist.value = isInWishlistResult
-//                Log.d(TAG, "Product $productId wishlist status: $isInWishlistResult")
-//            } catch (e: Exception) {
-//                Log.e(TAG, "Error checking wishlist status", e)
-//                // Don't update the wishlist status on error
-//            }
-//        }
-//    }
+
 
     fun toggleWishlist() {
         viewModelScope.launch {

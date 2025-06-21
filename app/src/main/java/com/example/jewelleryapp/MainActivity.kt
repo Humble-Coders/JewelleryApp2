@@ -11,6 +11,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavType
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
@@ -201,35 +202,39 @@ fun AppNavigation(
 
 
 // Add this new composable route in your NavHost, after the existing "category/{categoryId}" route
-                composable(
-                    route = "categoryProducts/{categoryId}/{categoryName}",
-                    arguments = listOf(
-                        navArgument("categoryId") {
-                            type = NavType.StringType
-                            nullable = false
-                        },
-                        navArgument("categoryName") {
-                            type = NavType.StringType
-                            nullable = false
-                        }
-                    )
-                ) { backStackEntry ->
-                    val categoryId = backStackEntry.arguments?.getString("categoryId") ?: ""
-                    val categoryName = backStackEntry.arguments?.getString("categoryName") ?: ""
-
-                    // Create CategoryProductsViewModel with the categoryId
-                    val categoryProductsViewModel = CategoryProductsViewModel(
-                        repository = jewelryRepository,
-                        categoryId = categoryId
-                    )
-
-                    CategoryProductsScreen(
-                        categoryId = categoryId,
-                        categoryName = categoryName,
-                        viewModel = categoryProductsViewModel,
-                        navController = navController
-                    )
+        composable(
+            route = "categoryProducts/{categoryId}/{categoryName}",
+            arguments = listOf(
+                navArgument("categoryId") {
+                    type = NavType.StringType
+                    nullable = false
+                },
+                navArgument("categoryName") {
+                    type = NavType.StringType
+                    nullable = false
                 }
+            )
+        ) { backStackEntry ->
+            val categoryId = backStackEntry.arguments?.getString("categoryId") ?: ""
+            val categoryName = backStackEntry.arguments?.getString("categoryName") ?: ""
+
+            // Use viewModel() with key to ensure single instance per category
+            val categoryProductsViewModel: CategoryProductsViewModel = viewModel(
+                key = "categoryProducts_$categoryId"
+            ) {
+                CategoryProductsViewModel(
+                    repository = jewelryRepository,
+                    categoryId = categoryId
+                )
+            }
+
+            CategoryProductsScreen(
+                categoryId = categoryId,
+                categoryName = categoryName,
+                viewModel = categoryProductsViewModel,
+                navController = navController
+            )
+        }
 
         // Item Detail Screen
         composable(

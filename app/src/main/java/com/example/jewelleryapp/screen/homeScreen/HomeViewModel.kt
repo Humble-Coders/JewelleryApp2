@@ -44,11 +44,17 @@ class HomeViewModel(private val repository: JewelryRepository) : ViewModel() {
 
     // Initialize by loading all data
     init {
+        Log.d("HomeViewModel", "HomeViewModel instance created: ${System.currentTimeMillis()}")
         loadData()
     }
 
     // In HomeViewModel.kt - Fix the loadData function
     fun loadData() {
+        // In HomeViewModel.loadData()
+        Log.d("HomeViewModel", "=== LoadData Start ===")
+// ... after each job completes
+
+        Log.d("HomeViewModel", "Starting loadData - Firebase connection time: ${System.currentTimeMillis()}")
         _isLoading.value = true
         _error.value = null
 
@@ -70,6 +76,9 @@ class HomeViewModel(private val repository: JewelryRepository) : ViewModel() {
                         }
                     }
 
+                    Log.d("HomeViewModel", "Categories loaded: ${System.currentTimeMillis()}")
+
+
                     val featuredProductsJob = async(Dispatchers.Default) {
                         try {
                             repository.getFeaturedProducts().first()
@@ -79,6 +88,9 @@ class HomeViewModel(private val repository: JewelryRepository) : ViewModel() {
                             emptyList()
                         }
                     }
+
+                    Log.d("HomeViewModel", "FeaturedProducts loaded: ${System.currentTimeMillis()}")
+
 
                     val collectionsJob = async(Dispatchers.Default) {
                         try {
@@ -90,6 +102,9 @@ class HomeViewModel(private val repository: JewelryRepository) : ViewModel() {
                         }
                     }
 
+                    Log.d("HomeViewModel", "Collections loaded: ${System.currentTimeMillis()}")
+
+
                     val carouselItemsJob = async(Dispatchers.Default) {
                         try {
                             repository.getCarouselItems().first()
@@ -99,6 +114,9 @@ class HomeViewModel(private val repository: JewelryRepository) : ViewModel() {
                             emptyList()
                         }
                     }
+
+                    Log.d("HomeViewModel", "Carousel loaded: ${System.currentTimeMillis()}")
+
 
                     // Wait for all jobs to complete and update UI state
                     val categories = categoriesJob.await()
@@ -133,6 +151,9 @@ class HomeViewModel(private val repository: JewelryRepository) : ViewModel() {
                 _isLoading.value = false
             }
         }
+        Log.d("HomeViewModel", "=== LoadData Complete ===")
+        // In HomeViewModel.loadData()
+        Log.d("HomeViewModel", "Data loaded, starting UI update: ${System.currentTimeMillis()}")
     }
 
     // Function to refresh all data
@@ -140,44 +161,6 @@ class HomeViewModel(private val repository: JewelryRepository) : ViewModel() {
         loadData()
     }
 
-    // Called when a product is viewed
-//    fun recordProductView(userId: String, productId: String) {
-//        viewModelScope.launch {
-//            try {
-//                repository.recordProductView(userId, productId)
-//            } catch (e: Exception) {
-//                Log.e(TAG, "Error recording product view", e)
-//            }
-//        }
-//    }
-
-    // New optimized function to update all products with current wishlist status in parallel
-//    private suspend fun updateProductsWithWishlistStatus(products: List<Product>) {
-//        try {
-//            val productsWithWishlistStatus = coroutineScope {
-//                products.map { product ->
-//                    async(Dispatchers.Default) {
-//                        try {
-//                            val isInWishlist = repository.isInWishlist(product.id)
-//                            product.copy(isFavorite = isInWishlist)
-//                        } catch (e: Exception) {
-//                            Log.e(
-//                                TAG,
-//                                "Error checking wishlist status for product ${product.id}",
-//                                e
-//                            )
-//                            product
-//                        }
-//                    }
-//                }.awaitAll()
-//            }
-//
-//            _featuredProducts.value = productsWithWishlistStatus
-//            Log.d(TAG, "Updated wishlist status for ${products.size} products")
-//        } catch (e: Exception) {
-//            Log.e(TAG, "Error updating wishlist status for products", e)
-//        }
-//    }
 
     // Check if a product is in wishlist
     fun checkWishlistStatus(productId: String) {

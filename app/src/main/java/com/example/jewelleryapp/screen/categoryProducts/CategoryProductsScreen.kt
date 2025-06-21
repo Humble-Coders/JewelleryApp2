@@ -2,22 +2,59 @@ package com.example.jewelleryapp.screen.categoryProducts
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.grid.GridCells
+import androidx.compose.foundation.lazy.grid.GridItemSpan
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.foundation.lazy.grid.rememberLazyGridState
-import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.*
-import androidx.compose.material3.*
-import androidx.compose.runtime.*
+import androidx.compose.material.icons.filled.ArrowBack
+import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.Favorite
+import androidx.compose.material.icons.filled.FavoriteBorder
+import androidx.compose.material.icons.filled.FilterList
+import androidx.compose.material.icons.filled.Search
+import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.Card
+import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
+import androidx.compose.material3.OutlinedButton
+import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.OutlinedTextFieldDefaults
+import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Surface
+import androidx.compose.material3.Text
+import androidx.compose.material3.TopAppBar
+import androidx.compose.material3.TopAppBarDefaults
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
+import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
@@ -115,6 +152,8 @@ fun CategoryProductsScreen(
                     )
                 }
                 else -> {
+                    // Replace the entire LazyVerticalGrid section with this code
+
                     LazyVerticalGrid(
                         columns = GridCells.Fixed(2),
                         state = lazyGridState,
@@ -123,7 +162,10 @@ fun CategoryProductsScreen(
                         verticalArrangement = Arrangement.spacedBy(12.dp),
                         modifier = Modifier.fillMaxSize()
                     ) {
-                        items(state.displayedProducts) { product ->
+                        items(
+                            items = state.displayedProducts,
+                            key = { product -> product.id }
+                        ) { product ->
                             ProductCard(
                                 product = product,
                                 onProductClick = {
@@ -137,7 +179,7 @@ fun CategoryProductsScreen(
 
                         // Loading more indicator
                         if (state.isLoadingMore) {
-                            item {
+                            item(span = { GridItemSpan(2) }) {
                                 Box(
                                     modifier = Modifier
                                         .fillMaxWidth()
@@ -345,16 +387,19 @@ private fun ProductCard(
                     contentScale = ContentScale.Crop
                 )
 
+                // Wishlist button with proper styling
                 IconButton(
                     onClick = onFavoriteClick,
                     modifier = Modifier
                         .align(Alignment.TopEnd)
-                        .size(32.dp)
+                        .size(36.dp)
+                        .padding(4.dp)
                 ) {
                     Icon(
                         imageVector = if (product.isFavorite) Icons.Default.Favorite else Icons.Default.FavoriteBorder,
-                        contentDescription = "Favorite",
-                        tint = if (product.isFavorite) Color.Red else Color.White
+                        contentDescription = if (product.isFavorite) "Remove from Wishlist" else "Add to Wishlist",
+                        tint = if (product.isFavorite) Color(0xFFD4A968) else Color(0xFFD4A968),
+                        modifier = Modifier.size(20.dp)
                     )
                 }
             }

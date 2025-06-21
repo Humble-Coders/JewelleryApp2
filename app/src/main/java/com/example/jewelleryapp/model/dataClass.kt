@@ -41,10 +41,6 @@ data class CarouselItem(
     val buttonText: String
 )
 
-
-
-// Add these data classes to your existing dataClass.kt file
-
 data class CategoryProductsState(
     val allProducts: List<Product> = emptyList(),
     val displayedProducts: List<Product> = emptyList(),

@@ -115,60 +115,19 @@ class FirebaseAuthRepository(private val firebaseAuth: FirebaseAuth) {
             Result.failure(e)
         }
     }
-    // Add this to your class for testing
-    fun testEmailValidation(email: String): Boolean {
-        // Debug log the email
-        Log.d("EmailValidation", "Testing email: '$email'")
 
-        // Check if email is empty
-        if (email.isEmpty()) {
-            Log.d("EmailValidation", "Email is empty")
-            return false
-        }
 
-        // Trim the email and check again
-        val trimmedEmail = email.trim()
-        if (trimmedEmail != email) {
-            Log.d("EmailValidation", "Email had whitespace. Trimmed: '$trimmedEmail'")
-        }
-
-        // Test with patterns
-        val patternMatches = Patterns.EMAIL_ADDRESS.matcher(trimmedEmail).matches()
-        Log.d("EmailValidation", "Patterns.EMAIL_ADDRESS match result: $patternMatches")
-
-        return patternMatches
-    }
-
-    // Modified isValidEmail function with trimming
     private fun isValidEmail(email: String): Boolean {
-        // Trim the email to remove leading/trailing whitespace
         val trimmedEmail = email.trim()
 
-        // Use Android's pattern matcher for email validation
-        return android.util.Patterns.EMAIL_ADDRESS.matcher(trimmedEmail).matches()
+        return Patterns.EMAIL_ADDRESS.matcher(trimmedEmail).matches()
     }
-    // Add the same utility functions as in the desktop app
 
 
-     // Optional: Add this if you want to update user profile with full name
-    suspend fun updateUserProfile(displayName: String): Result<Unit> {
-        return try {
-            withContext(Dispatchers.IO) {
-                val profileUpdates = com.google.firebase.auth.UserProfileChangeRequest.Builder()
-                    .setDisplayName(displayName)
-                    .build()
-
-                firebaseAuth.currentUser?.updateProfile(profileUpdates)?.await()
-                Result.success(Unit)
-            }
-        } catch (e: Exception) {
-            Result.failure(e)
-        }
-    }
 
     fun getCurrentUser() = firebaseAuth.currentUser
 
-    //fun signOut() = firebaseAuth.signOut()
+    fun signOut() = firebaseAuth.signOut()
 
     fun isUserLoggedIn() = firebaseAuth.currentUser != null
 }

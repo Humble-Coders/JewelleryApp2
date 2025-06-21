@@ -15,7 +15,6 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.debounce
 import kotlinx.coroutines.flow.distinctUntilChanged
-import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.async
 import kotlinx.coroutines.coroutineScope
@@ -41,7 +40,6 @@ class CategoryProductsViewModel(
 
     // Cache for loaded products to avoid re-fetching
     private val loadedProducts = mutableListOf<Product>()
-    private var lastDocumentId: String? = null
 
     companion object {
         private const val PAGE_SIZE = 20
@@ -59,7 +57,6 @@ class CategoryProductsViewModel(
                 _state.value = _state.value.copy(isLoading = true, error = null)
 
                 coroutineScope {
-                    // Load available materials and initial products in parallel
                     val materialsJob = async(Dispatchers.Default) {
                         loadAvailableMaterials()
                     }
@@ -72,7 +69,6 @@ class CategoryProductsViewModel(
                         repository.getCategoryProductsCount(categoryId)
                     }
 
-                    // Wait for all operations
                     materialsJob.await()
                     productsJob.await()
                     val totalCount = totalCountJob.await()
@@ -98,43 +94,40 @@ class CategoryProductsViewModel(
             }
         } catch (e: Exception) {
             Log.e(tag, "Error loading available materials", e)
-            // Keep existing state on error
         }
     }
 
     private suspend fun loadProductsForPage(page: Int) {
         try {
-            val currentFilter = _filterSortState.value
-
             repository.getCategoryProductsPaginated(
                 categoryId = categoryId,
                 page = page,
                 pageSize = PAGE_SIZE,
-                materialFilter = currentFilter.selectedMaterial,
-                sortBy = currentFilter.sortOption.value
+                materialFilter = null, // Don't filter in repository
+                sortBy = null // Don't sort in repository
             ).collect { products ->
                 if (page == 0) {
-                    // First page - replace all products
                     loadedProducts.clear()
                     loadedProducts.addAll(products)
                     _state.value = _state.value.copy(
                         allProducts = loadedProducts.toList(),
-                        displayedProducts = loadedProducts.toList(),
                         currentPage = 0,
                         hasMorePages = products.size == PAGE_SIZE,
                         isLoading = false,
                         isLoadingMore = false
                     )
+                    // Apply current filters after loading
+                    applyFiltersAndSort()
                 } else {
-                    // Additional pages - append products
                     loadedProducts.addAll(products)
                     _state.value = _state.value.copy(
                         allProducts = loadedProducts.toList(),
-                        displayedProducts = loadedProducts.toList(),
                         currentPage = page,
                         hasMorePages = products.size == PAGE_SIZE,
                         isLoadingMore = false
                     )
+                    // Apply current filters after loading
+                    applyFiltersAndSort()
                 }
 
                 Log.d(tag, "Loaded ${products.size} products for page $page. Total: ${loadedProducts.size}")
@@ -151,35 +144,47 @@ class CategoryProductsViewModel(
     }
 
     private fun performSearch(query: String) {
-        viewModelScope.launch {
+        viewModelScope.launch(Dispatchers.Default) {
             try {
                 if (query.isBlank()) {
-                    // Show all loaded products when search is cleared
                     applyFiltersAndSort()
                     return@launch
                 }
 
-                Log.d(tag, "Performing search for: $query")
+                Log.d(tag, "Performing search for: '$query'")
 
-                repository.searchCategoryProducts(
-                    categoryId = categoryId,
-                    searchQuery = query,
-                    materialFilter = _filterSortState.value.selectedMaterial
-                ).collect { searchResults ->
-                    // Apply current sorting to search results
-                    val sortedResults = applySorting(searchResults, _filterSortState.value.sortOption)
+                val currentState = _state.value
+                val filterState = _filterSortState.value
 
-                    _state.value = _state.value.copy(
-                        displayedProducts = sortedResults,
-                        hasMorePages = false // No pagination for search results
-                    )
-
-                    Log.d(tag, "Search returned ${sortedResults.size} results")
+                // Search within the loaded products by name
+                val searchResults = currentState.allProducts.filter { product ->
+                    product.name.contains(query, ignoreCase = true)
                 }
+
+                Log.d(tag, "Search found ${searchResults.size} products matching '$query'")
+
+                // Apply material filter if selected
+                val filteredResults = if (filterState.selectedMaterial != null) {
+                    val expectedMaterialId = "material_${filterState.selectedMaterial!!.lowercase()}"
+                    searchResults.filter { product ->
+                        product.materialId?.equals(expectedMaterialId, ignoreCase = true) ?: false
+                    }
+                } else {
+                    searchResults
+                }
+
+                // Apply current sorting
+                val sortedResults = applySorting(filteredResults, filterState.sortOption)
+
+                _state.value = _state.value.copy(
+                    displayedProducts = sortedResults,
+                    hasMorePages = false // No pagination for search results
+                )
+
+                Log.d(tag, "Final search results: ${sortedResults.size} products after filtering and sorting")
 
             } catch (e: Exception) {
                 Log.e(tag, "Error performing search", e)
-                // Keep current state on search error
             }
         }
     }
@@ -187,14 +192,13 @@ class CategoryProductsViewModel(
     private fun setupSearchDebounce() {
         viewModelScope.launch {
             _searchQuery
-                .debounce(300) // Wait 300ms after user stops typing
+                .debounce(300)
                 .distinctUntilChanged()
                 .collect { query ->
                     performSearch(query)
                 }
         }
     }
-
 
     fun onSearchQueryChange(query: String) {
         _searchQuery.value = query
@@ -204,7 +208,6 @@ class CategoryProductsViewModel(
     fun toggleSearch() {
         _isSearchActive.value = !_isSearchActive.value
         if (!_isSearchActive.value) {
-            // Clear search when closing
             _searchQuery.value = ""
             _filterSortState.value = _filterSortState.value.copy(searchQuery = "")
         }
@@ -212,9 +215,11 @@ class CategoryProductsViewModel(
 
     fun loadMoreProducts() {
         if (_state.value.isLoadingMore || !_state.value.hasMorePages || _searchQuery.value.isNotBlank()) {
+            Log.d(tag, "Load more blocked - isLoadingMore: ${_state.value.isLoadingMore}, hasMorePages: ${_state.value.hasMorePages}, searchActive: ${_searchQuery.value.isNotBlank()}")
             return
         }
 
+        Log.d(tag, "Loading more products - current page: ${_state.value.currentPage}")
         viewModelScope.launch {
             _state.value = _state.value.copy(isLoadingMore = true)
             loadProductsForPage(_state.value.currentPage + 1)
@@ -226,10 +231,8 @@ class CategoryProductsViewModel(
             _filterSortState.value = _filterSortState.value.copy(selectedMaterial = materialFilter)
 
             if (_searchQuery.value.isNotBlank()) {
-                // Re-perform search with new filter
                 performSearch(_searchQuery.value)
             } else {
-                // Reload products with new filter
                 reloadProductsWithCurrentSettings()
             }
         }
@@ -240,10 +243,8 @@ class CategoryProductsViewModel(
             _filterSortState.value = _filterSortState.value.copy(sortOption = sortOption)
 
             if (_searchQuery.value.isNotBlank()) {
-                // Re-perform search with new sorting
                 performSearch(_searchQuery.value)
             } else {
-                // Apply sorting to current loaded products
                 applyFiltersAndSort()
             }
         }
@@ -253,16 +254,28 @@ class CategoryProductsViewModel(
         val currentState = _state.value
         val filterState = _filterSortState.value
 
-        // Apply material filter
+        // Debug: Log all product material_ids to understand the data
+        Log.d(tag, "=== Debug: All products and their material_ids ===")
+        currentState.allProducts.forEachIndexed { index, product ->
+            Log.d(tag, "Product $index: id=${product.id}, name=${product.name}, material_id=${product.materialId}")
+        }
+        Log.d(tag, "=== End Debug ===")
+
+        // Fixed material filter logic - convert user selection to material_id format
         val filteredProducts = if (filterState.selectedMaterial != null) {
+            val expectedMaterialId = "material_${filterState.selectedMaterial!!.lowercase()}"
             currentState.allProducts.filter { product ->
-                product.materialType?.equals(filterState.selectedMaterial, ignoreCase = true) == true
+                val matches = product.materialId?.equals(expectedMaterialId, ignoreCase = true) ?: false
+                Log.d(tag, "Product ${product.id}: material_id='${product.materialId}' vs expected='$expectedMaterialId' -> matches=$matches")
+                matches
             }
         } else {
             currentState.allProducts
         }
 
-        // Apply sorting
+        Log.d(tag, "Filtered ${currentState.allProducts.size} products to ${filteredProducts.size} using material filter: ${filterState.selectedMaterial}")
+        Log.d(tag, "Expected material_id format: material_${filterState.selectedMaterial?.lowercase()}")
+
         val sortedProducts = applySorting(filteredProducts, filterState.sortOption)
 
         _state.value = currentState.copy(displayedProducts = sortedProducts)
@@ -295,7 +308,6 @@ class CategoryProductsViewModel(
                     repository.addToWishlist(productId)
                 }
 
-                // Update the product in both lists
                 val updatedDisplayProducts = currentProducts.map {
                     if (it.id == productId) it.copy(isFavorite = !it.isFavorite) else it
                 }
@@ -308,7 +320,6 @@ class CategoryProductsViewModel(
                     allProducts = updatedAllProducts
                 )
 
-                // Update the cached list as well
                 val productIndex = loadedProducts.indexOfFirst { it.id == productId }
                 if (productIndex != -1) {
                     loadedProducts[productIndex] = loadedProducts[productIndex].copy(isFavorite = !product.isFavorite)
@@ -328,7 +339,4 @@ class CategoryProductsViewModel(
         }
     }
 
-    fun clearError() {
-        _state.value = _state.value.copy(error = null)
-    }
 }

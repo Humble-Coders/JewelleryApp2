@@ -239,6 +239,13 @@ class JewelryRepository(
                     // Check wishlist status from cache
                     val isFavorite = wishlistCache[doc.id] == true
 
+                    // Extract material_id properly from Firestore
+                    val materialId = doc.getString("material_id")
+                    val materialType = doc.getString("material_type")
+
+                    // Debug log to see what we're getting from Firestore
+                    Log.d(tag, "Product ${doc.id}: material_id from Firestore = '$materialId', material_type = '$materialType'")
+
                     Product(
                         id = doc.id,
                         name = doc.getString("name") ?: "",
@@ -246,7 +253,9 @@ class JewelryRepository(
                         currency = "Rs",
                         imageUrl = imageUrl, // Direct HTTPS URL
                         isFavorite = isFavorite,
-                        category = doc.getString("type") ?: ""
+                        category = doc.getString("type") ?: "",
+                        materialId = materialId, // Now properly extracted
+                        materialType = materialType // Now properly extracted
                     )
                 }
             }.awaitAll()
@@ -259,7 +268,6 @@ class JewelryRepository(
             throw e  // Re-throw to handle in ViewModel
         }
     }
-
     // Fix for getCategories function
      fun getCategories(): Flow<List<Category>> = flow {
         try {
@@ -450,25 +458,6 @@ class JewelryRepository(
         emit(emptyList<Product>())
     }
 
-    // This would be called when a user views a product
-//    suspend fun recordProductView(userId: String, productId: String) {
-//        // In a real app, you'd store this in a user's recently viewed collection
-//        try {
-//            withContext(Dispatchers.IO) {
-//                firestore.collection("users")
-//                    .document(userId)
-//                    .collection("recently_viewed")
-//                    .document(productId)
-//                    .set(mapOf(
-//                        "timestamp" to com.google.firebase.Timestamp.now()
-//                    ))
-//
-//                Log.d(tag, "Recorded product view for user $userId, product $productId")
-//            }
-//        } catch (e: Exception) {
-//            Log.e(tag, "Error recording product view", e)
-//        }
-//    }
 
     // Function to check if a product is in the user's wishlist
     suspend fun isInWishlist(productId: String): Boolean {
@@ -670,6 +659,9 @@ class JewelryRepository(
     /**
      * Get paginated products for a specific category with filtering and sorting
      */
+    /**
+     * Get paginated products for a specific category with filtering and sorting
+     */
     fun getCategoryProductsPaginated(
         categoryId: String,
         page: Int,
@@ -712,31 +704,15 @@ class JewelryRepository(
             // Fetch products in batches (Firestore limit is 10 for whereIn)
             val products = fetchProductsByIds(paginatedIds)
 
-            // Apply material filter if specified
-            val filteredProducts = if (materialFilter != null) {
-                products.filter { product ->
-                    product.materialType?.equals(materialFilter, ignoreCase = true) == true
-                }
-            } else {
-                products
-            }
-
-            // Apply sorting if specified
-            val sortedProducts = when (sortBy) {
-                "price_asc" -> filteredProducts.sortedBy { it.price }
-                "price_desc" -> filteredProducts.sortedByDescending { it.price }
-                else -> filteredProducts
-            }
-
-            Log.d(tag, "Returning ${sortedProducts.size} products for category $categoryId, page $page")
-            emit(sortedProducts)
+            // Don't apply filters here - let ViewModel handle filtering and sorting
+            Log.d(tag, "Returning ${products.size} products for category $categoryId, page $page")
+            emit(products)
 
         } catch (e: Exception) {
             Log.e(tag, "Error fetching paginated category products", e)
             emit(emptyList()) // Emit empty list instead of throwing
         }
     }
-
     /**
      * Get total count of products in a category (for pagination calculation)
      */
@@ -759,47 +735,6 @@ class JewelryRepository(
         }
     }
 
-    /**
-     * Search products within a category by name
-     */
-    fun searchCategoryProducts(
-        categoryId: String,
-        searchQuery: String,
-        materialFilter: String? = null
-    ): Flow<List<Product>> = flow {
-        try {
-            if (searchQuery.isBlank()) {
-                emit(emptyList())
-                return@flow
-            }
-
-            Log.d(tag, "Searching products in category $categoryId for query: $searchQuery")
-
-            // Get all products for the category first
-            val allProducts = getCategoryProducts(categoryId).first()
-
-            // Filter by search query (case insensitive)
-            val searchResults = allProducts.filter { product ->
-                product.name.contains(searchQuery, ignoreCase = true)
-            }
-
-            // Apply material filter if specified
-            val filteredResults = if (materialFilter != null) {
-                searchResults.filter { product ->
-                    product.materialType?.equals(materialFilter, ignoreCase = true) == true
-                }
-            } else {
-                searchResults
-            }
-
-            Log.d(tag, "Found ${filteredResults.size} search results")
-            emit(filteredResults)
-
-        } catch (e: Exception) {
-            Log.e(tag, "Error searching category products", e)
-            emit(emptyList()) // Emit empty list instead of throwing
-        }
-    }
 
     /**
      * Get available materials for filtering (from materials collection)
