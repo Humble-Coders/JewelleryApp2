@@ -78,6 +78,11 @@ dependencies {
     implementation(libs.play.services.auth)
     implementation(libs.androidx.material.icons.extended)
 
+
+    implementation(libs.androidx.credentials)
+    implementation(libs.androidx.credentials.play.services.auth)
+    implementation("com.google.android.libraries.identity.googleid:googleid:1.1.1")
+
     //Dependencies from denis course
     implementation(platform(libs.firebase.bom))
     implementation(libs.firebase.auth)
@@ -101,6 +106,9 @@ dependencies {
     implementation ("com.google.firebase:firebase-dynamic-links-ktx:22.1.0")
     implementation (libs.firebase.analytics.ktx)
 
+    implementation("androidx.datastore:datastore-preferences:1.1.7")
+
+
     testImplementation(libs.junit)
     androidTestImplementation(libs.androidx.junit)
     androidTestImplementation(libs.androidx.espresso.core)
@@ -108,4 +116,6 @@ dependencies {
     androidTestImplementation(libs.androidx.ui.test.junit4)
     debugImplementation(libs.androidx.ui.tooling)
     debugImplementation(libs.androidx.ui.test.manifest)
+
+
 }

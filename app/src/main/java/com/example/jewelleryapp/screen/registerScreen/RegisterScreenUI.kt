@@ -2,6 +2,9 @@ package com.example.jewelleryapp.screen.registerScreen
 
 // RegisterScreen.kt
 
+import android.content.Intent
+import android.util.Log
+import androidx.activity.result.ActivityResultLauncher
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
@@ -36,7 +39,10 @@ import com.example.jewelleryapp.screen.loginScreen.BrandHeader
 import com.example.jewelleryapp.screen.loginScreen.GoldenShade
 
 @Composable
-fun RegisterScreen(viewModel: RegisterViewModel, navController: NavController) {
+fun RegisterScreen(viewModel: RegisterViewModel
+                   , navController: NavController,
+                   googleSignInLauncher: ActivityResultLauncher<Intent> // Add this parameter
+) {
     var fullName by remember { mutableStateOf("") }
     var email by remember { mutableStateOf("") }
     var password by remember { mutableStateOf("") }
@@ -59,18 +65,25 @@ fun RegisterScreen(viewModel: RegisterViewModel, navController: NavController) {
 
     // Handle registration state changes
     LaunchedEffect(registerState) {
+        Log.d("RegisterScreen", "Register state changed to: $registerState")
+
         when (registerState) {
             is RegisterState.Success -> {
+                Log.d("RegisterScreen", "Navigation to home from register")
                 navController.navigate("home") {
                     popUpTo("login") { inclusive = true }
                 }
                 viewModel.resetState()
             }
             is RegisterState.Error -> {
+                Log.d("RegisterScreen", "Showing register error: ${(registerState as RegisterState.Error).message}")
                 scaffoldState.snackbarHostState.showSnackbar(
                     message = (registerState as RegisterState.Error).message
                 )
                 viewModel.resetState()
+            }
+            is RegisterState.GoogleSignInLoading -> {
+                Log.d("RegisterScreen", "Google Sign-In loading state active in register")
             }
             else -> {}
         }
@@ -271,9 +284,15 @@ fun RegisterScreen(viewModel: RegisterViewModel, navController: NavController) {
                 Spacer(modifier = Modifier.height(4.dp))
 
                 AlternativeSignUpOptions(
-                    isLoading = registerState is RegisterState.Loading,
+                    isLoading = registerState is RegisterState.Loading || registerState is RegisterState.GoogleSignInLoading,
+                    isGoogleLoading = registerState is RegisterState.GoogleSignInLoading,
                     onGoogleSignUpClick = {
-                        // Sign in with Google
+                        try {
+                            val signInIntent = viewModel.startGoogleSignIn()
+                            googleSignInLauncher.launch(signInIntent)
+                        } catch (e: Exception) {
+                            viewModel.cancelGoogleSignIn()
+                        }
                     }
                 )
 
@@ -505,6 +524,7 @@ private fun SignUpButton(
 @Composable
 private fun AlternativeSignUpOptions(
     isLoading: Boolean,
+    isGoogleLoading: Boolean, // Add this parameter
     onGoogleSignUpClick: () -> Unit
 ) {
     Spacer(modifier = Modifier.height(2.dp))
@@ -547,23 +567,34 @@ private fun AlternativeSignUpOptions(
         ),
         border = BorderStroke(1.dp, Color.LightGray),
         shape = RoundedCornerShape(8.dp),
-        enabled = !isLoading
+        enabled = !isLoading // Disable when any loading is happening
     ) {
         Row(
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.Center
         ) {
-            Image(
-                painter = painterResource(id = R.drawable.google_icon),
-                contentDescription = "Google Logo",
-                modifier = Modifier.size(24.dp)
-            )
-            Spacer(modifier = Modifier.width(8.dp))
-            Text(
-                text = "Continue with Google",
-                color = Color.Black,
-                fontSize = 16.sp
-            )
+            // Show loading indicator specifically for Google Sign-In
+            if (isGoogleLoading) {
+                CircularProgressIndicator(
+                    color = GoldenShade, // Use your existing golden color
+                    modifier = Modifier.size(20.dp),
+                    strokeWidth = 2.dp
+                )
+                Spacer(modifier = Modifier.width(8.dp))
+                Text("Signing in...", color = Color.Gray, fontSize = 16.sp)
+            } else {
+                Image(
+                    painter = painterResource(id = R.drawable.google_icon),
+                    contentDescription = "Google Logo",
+                    modifier = Modifier.size(24.dp)
+                )
+                Spacer(modifier = Modifier.width(8.dp))
+                Text(
+                    text = "Continue with Google",
+                    color = Color.Black,
+                    fontSize = 16.sp
+                )
+            }
         }
     }
 }

@@ -1,6 +1,7 @@
 // LoginScreen.kt (modified)
 package com.example.jewelleryapp.screen.loginScreen
 
+import androidx.activity.result.ActivityResultLauncher
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
@@ -28,11 +29,15 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.navigation.NavController
 import com.example.jewelleryapp.R
+import android.content.Intent
 
 
 val GoldenShade = Color(0xFFB8A164)
 @Composable
-fun LoginScreen(viewModel: LoginViewModel, navController: NavController) {
+fun LoginScreen(viewModel: LoginViewModel,
+                navController: NavController,
+                googleSignInLauncher: ActivityResultLauncher<Intent> // Add this parameter
+) {
     var email by remember { mutableStateOf("") }
     var password by remember { mutableStateOf("") }
     var isPasswordVisible by remember { mutableStateOf(false) }
@@ -50,6 +55,7 @@ fun LoginScreen(viewModel: LoginViewModel, navController: NavController) {
     }
 
     // Handle login state changes
+    // Update the existing LaunchedEffect for loginState
     LaunchedEffect(loginState) {
         when (loginState) {
             is LoginState.Success -> {
@@ -69,6 +75,10 @@ fun LoginScreen(viewModel: LoginViewModel, navController: NavController) {
                     message = "Password reset email sent. Check your inbox."
                 )
                 viewModel.resetState()
+            }
+            // Handle Google Sign-In loading state if needed
+            is LoginState.GoogleSignInLoading -> {
+                // Optional: You can show additional UI feedback here
             }
             else -> {}
         }
@@ -125,9 +135,16 @@ fun LoginScreen(viewModel: LoginViewModel, navController: NavController) {
             )
 
             AlternativeSignInOptions(
-                isLoading = loginState is LoginState.Loading,
+                isLoading = loginState is LoginState.Loading || loginState is LoginState.GoogleSignInLoading,
+                isGoogleLoading = loginState is LoginState.GoogleSignInLoading,
                 onGoogleSignInClick = {
-                   //sign in with google
+                    try {
+                        val signInIntent = viewModel.startGoogleSignIn()
+                        googleSignInLauncher.launch(signInIntent)
+                    } catch (e: Exception) {
+                        // Handle launcher error
+                        viewModel.cancelGoogleSignIn()
+                    }
                 }
             )
 
@@ -293,7 +310,11 @@ private fun SignInButton(isLoading: Boolean, onClick: () -> Unit) {
 }
 
 @Composable
-private fun AlternativeSignInOptions(isLoading: Boolean, onGoogleSignInClick: () -> Unit) {
+private fun AlternativeSignInOptions(
+    isLoading: Boolean,
+    isGoogleLoading: Boolean, // Add this parameter
+    onGoogleSignInClick: () -> Unit
+) {
     Spacer(modifier = Modifier.height(24.dp))
 
     Row(
@@ -315,16 +336,30 @@ private fun AlternativeSignInOptions(isLoading: Boolean, onGoogleSignInClick: ()
         colors = ButtonDefaults.outlinedButtonColors(backgroundColor = Color.White),
         border = BorderStroke(1.dp, Color.LightGray),
         shape = RoundedCornerShape(8.dp),
-        enabled = !isLoading
+        enabled = !isLoading // Disable when any loading is happening
     ) {
-        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.Center) {
-            Image(
-                painter = painterResource(id = R.drawable.google_icon),
-                contentDescription = "Google Logo",
-                modifier = Modifier.size(24.dp)
-            )
-            Spacer(modifier = Modifier.width(8.dp))
-            Text("Continue with Google", color = Color.Black, fontSize = 16.sp)
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.Center
+        ) {
+            // Show loading indicator specifically for Google Sign-In
+            if (isGoogleLoading) {
+                CircularProgressIndicator(
+                    color = Color(0xFFC4A661), // Match your golden theme
+                    modifier = Modifier.size(20.dp),
+                    strokeWidth = 2.dp
+                )
+                Spacer(modifier = Modifier.width(8.dp))
+                Text("Signing in...", color = Color.Gray, fontSize = 16.sp)
+            } else {
+                Image(
+                    painter = painterResource(id = R.drawable.google_icon),
+                    contentDescription = "Google Logo",
+                    modifier = Modifier.size(24.dp)
+                )
+                Spacer(modifier = Modifier.width(8.dp))
+                Text("Continue with Google", color = Color.Black, fontSize = 16.sp)
+            }
         }
     }
 }

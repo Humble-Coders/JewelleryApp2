@@ -1,5 +1,6 @@
 package com.example.jewelleryapp
 
+import android.app.Activity
 import android.content.Intent
 import android.net.Uri
 import android.os.Bundle
@@ -7,6 +8,8 @@ import android.util.Log
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
+import androidx.activity.result.ActivityResultLauncher
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
 import androidx.compose.material3.Surface
 import androidx.compose.runtime.Composable
@@ -22,6 +25,7 @@ import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
 import com.example.jewelleryapp.repository.FirebaseAuthRepository
 import com.example.jewelleryapp.repository.JewelryRepository
+import com.example.jewelleryapp.repository.ProfileRepository
 import com.example.jewelleryapp.screen.categoriesScreen.CategoriesViewModel
 import com.example.jewelleryapp.screen.categoriesScreen.CategoryScreenView
 import com.example.jewelleryapp.screen.categoryProducts.CategoryProductsScreen
@@ -32,14 +36,14 @@ import com.example.jewelleryapp.screen.productDetailScreen.ItemDetailViewModel
 import com.example.jewelleryapp.screen.productDetailScreen.JewelryProductScreen
 import com.example.jewelleryapp.screen.loginScreen.LoginScreen
 import com.example.jewelleryapp.screen.loginScreen.LoginViewModel
+import com.example.jewelleryapp.screen.profileScreen.ProfileScreen
+import com.example.jewelleryapp.screen.profileScreen.ProfileViewModel
 import com.example.jewelleryapp.screen.registerScreen.RegisterScreen
 import com.example.jewelleryapp.screen.registerScreen.RegisterViewModel
 import com.example.jewelleryapp.screen.wishlist.WishlistScreen
 import com.example.jewelleryapp.screen.wishlist.WishlistViewModel
 import com.example.jewelleryapp.ui.theme.JewelleryAppTheme
-import com.google.firebase.Firebase
 import com.google.firebase.auth.FirebaseAuth
-import com.google.firebase.dynamiclinks.dynamicLinks
 import com.google.firebase.firestore.FirebaseFirestore
 
 class MainActivity : ComponentActivity() {
@@ -52,13 +56,44 @@ class MainActivity : ComponentActivity() {
     private lateinit var authStateListener: FirebaseAuth.AuthStateListener
     private lateinit var firebaseAuth: FirebaseAuth
     private lateinit var categoryProductsViewModel: CategoryProductsViewModel // Add this line
-    private lateinit var jewelryRepository: JewelryRepository // Make this a class property
+    private lateinit var googleSignInLauncher: ActivityResultLauncher<Intent>
+    private lateinit var profileViewModel: ProfileViewModel
+
+
+
 
 
 
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+
+        // Update the launcher in MainActivity
+        // Update the launcher in MainActivity to handle both login and register
+        googleSignInLauncher = registerForActivityResult(
+            ActivityResultContracts.StartActivityForResult()
+        ) { result ->
+            Log.d("MainActivity", "Google Sign-In result: ${result.resultCode}")
+
+            when (result.resultCode) {
+                Activity.RESULT_OK -> {
+                    Log.d("MainActivity", "Google Sign-In OK, processing result")
+                    // Handle for both login and register ViewModels
+                    loginViewModel.handleGoogleSignInResult(result.data)
+                    registerViewModel.handleGoogleSignInResult(result.data)
+                }
+                Activity.RESULT_CANCELED -> {
+                    Log.d("MainActivity", "Google Sign-In cancelled by user")
+                    loginViewModel.cancelGoogleSignIn()
+                    registerViewModel.cancelGoogleSignIn()
+                }
+                else -> {
+                    Log.d("MainActivity", "Google Sign-In failed with code: ${result.resultCode}")
+                    loginViewModel.cancelGoogleSignIn()
+                    registerViewModel.cancelGoogleSignIn()
+                }
+            }
+        }
 
         // Initialize Firebase Auth
          firebaseAuth = FirebaseAuth.getInstance()
@@ -67,11 +102,14 @@ class MainActivity : ComponentActivity() {
         val firestore = FirebaseFirestore.getInstance()
 
         // Initialize Repositories
-        val authRepository = FirebaseAuthRepository(firebaseAuth)
+        val authRepository = FirebaseAuthRepository(firebaseAuth,this)
+        val profileRepository = ProfileRepository(firebaseAuth, firestore, this)
+
         // Get current user ID for repository (or empty string if not logged in)
         val userId = firebaseAuth.currentUser?.uid ?: ""
         Log.d("MainActivity", "User ID: $userId")
         val jewelryRepository = JewelryRepository(userId, firestore,firebaseAuth)
+
 
 
         authStateListener = FirebaseAuth.AuthStateListener { auth ->
@@ -102,6 +140,8 @@ class MainActivity : ComponentActivity() {
         itemDetailViewModel = ItemDetailViewModel(jewelryRepository)
         wishlistViewModel = WishlistViewModel(jewelryRepository)
         categoryProductsViewModel = CategoryProductsViewModel(jewelryRepository, "")
+        profileViewModel = ProfileViewModel(profileRepository, authRepository)
+
 
 
         enableEdgeToEdge()
@@ -119,7 +159,10 @@ class MainActivity : ComponentActivity() {
                         wishlistViewModel,
                         jewelryRepository,
                         activity = this  ,
-                        intent = intent)
+                        intent = intent,
+                        googleSignInLauncher = googleSignInLauncher ,// Pass the launcher
+                        profileViewModel
+                    )
                 }
             }
         }
@@ -156,7 +199,9 @@ fun AppNavigation(
     wishlistViewModel: WishlistViewModel,
     jewelryRepository: JewelryRepository,
     activity: ComponentActivity,
-    intent: Intent?
+    intent: Intent?,
+    googleSignInLauncher: ActivityResultLauncher<Intent>,
+    profileViewModel: ProfileViewModel // Add this parameter
 
 ) {
     val navController = rememberNavController()
@@ -202,12 +247,32 @@ fun AppNavigation(
     NavHost(navController = navController, startDestination = startDestination) {
         // Login Screen
         composable("login") {
-            LoginScreen(loginViewModel, navController)
+            LoginScreen(loginViewModel, navController,googleSignInLauncher = googleSignInLauncher)
         }
 
         // Register Screen
         composable("register") {
-            RegisterScreen(registerViewModel, navController)
+            RegisterScreen(registerViewModel, navController,googleSignInLauncher // Pass the launcher
+            )
+        }
+
+        composable("profile") {
+            ProfileScreen(
+                viewModel = profileViewModel,
+                navController = navController,
+                onSignOut = {
+                    // Navigate to login and clear back stack
+                    navController.navigate("login") {
+                        popUpTo(0) { inclusive = true }
+                    }
+                },
+                onAccountDeleted = {
+                    // Navigate to login and clear back stack
+                    navController.navigate("login") {
+                        popUpTo(0) { inclusive = true }
+                    }
+                }
+            )
         }
 
         // Home Screen

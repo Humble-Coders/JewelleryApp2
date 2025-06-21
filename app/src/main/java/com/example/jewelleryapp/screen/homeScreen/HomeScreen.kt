@@ -854,10 +854,21 @@ fun BottomNavigationBar(navController: NavController) {
                             "wishlist" -> navController.navigate("wishlist") {
                                 popUpTo("home")
                             }
-                            "profile" -> {
-                                // Profile is not implemented, so we don't navigate
-                                // You can add navigation once profile screen is added
+                            "profile" ->  {
+                                // In BottomNavigationBar, update the profile onClick
+
+                                Log.d("Navigation", "Profile clicked, current route: $currentRoute")
+                                try {
+                                    navController.navigate("profile") {
+                                        popUpTo("home")
+                                    }
+                                    Log.d("Navigation", "Profile navigation successful")
+                                } catch (e: Exception) {
+                                    Log.e("Navigation", "Profile navigation failed", e)
+                                }
                             }
+
+
                         }
                     }
                 }
@@ -916,7 +927,7 @@ fun DrawerContent(navController: NavController, onCloseDrawer: () -> Unit) {
             icon = Icons.Outlined.Person,
             text = "My Profile",
             onClick = {
-                // Navigate to profile when implemented
+                navController.navigate("profile")
                 onCloseDrawer()
             }
         )
