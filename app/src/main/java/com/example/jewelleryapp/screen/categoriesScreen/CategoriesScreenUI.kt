@@ -71,7 +71,8 @@ fun CategoryScreenView(viewModel: CategoriesViewModel,
                             listOfNotNull(
                                 pair.getOrNull(0),
                                 pair.getOrNull(1)
-                            )
+                            ),
+                            navController = navController // Pass navController
                         )
                         Spacer(modifier = Modifier.height(16.dp))
                     }
@@ -98,9 +99,10 @@ fun CategoryScreenView(viewModel: CategoriesViewModel,
     }
 }
 
+
 // Updated composables to use network images
 @Composable
-fun CategoryRowView(categories: List<Category>) {
+fun CategoryRowView(categories: List<Category>, navController: NavController) {
     Row(
         modifier = Modifier
             .fillMaxWidth()
@@ -112,12 +114,14 @@ fun CategoryRowView(categories: List<Category>) {
                 imageUrl = category.imageUrl,
                 title = category.name,
                 itemCount = "150+ Items", // You might want to get this from your data
-                onClick = {}
+                onClick = {
+                    // Navigate to category products screen
+                    navController.navigate("categoryProducts/${category.id}/${category.name}")
+                }
             )
         }
     }
 }
-
 @Composable
 fun CategoryCardView(
     imageUrl: String,

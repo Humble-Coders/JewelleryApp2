@@ -1,5 +1,6 @@
 package com.example.jewelleryapp.screen.homeScreen
 
+import android.util.Log
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -140,7 +141,17 @@ fun HomeScreen(
                         .verticalScroll(scrollState)
                 ) {
                     ImageCarousel(carouselItems)
-                    CategoryRow(categories, onCategoryClick)
+// In HomeScreen composable, update this line:
+                    CategoryRow(categories, onCategoryClick = { categoryId ->
+                        Log.d("HomeScreen", "Category clicked: $categoryId")
+                        Log.d("HomeScreen", "Navigating to categoryProducts/$categoryId")
+
+                        // Find the category name
+                        val categoryName = categories.find { it.id == categoryId }?.name ?: "Products"
+                        Log.d("HomeScreen", "Category name : $categoryName")
+                        navController.navigate("categoryProducts/$categoryId/$categoryName")
+                    })
+
                     FeaturedProductsSection(featuredProducts, viewModel,onProductClick)
                     ThemedCollectionsSection(collections, onCollectionClick)
                 }

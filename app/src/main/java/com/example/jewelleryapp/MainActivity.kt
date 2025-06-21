@@ -20,6 +20,8 @@ import com.example.jewelleryapp.repository.FirebaseAuthRepository
 import com.example.jewelleryapp.repository.JewelryRepository
 import com.example.jewelleryapp.screen.categoriesScreen.CategoriesViewModel
 import com.example.jewelleryapp.screen.categoriesScreen.CategoryScreenView
+import com.example.jewelleryapp.screen.categoryProducts.CategoryProductsScreen
+import com.example.jewelleryapp.screen.categoryProducts.CategoryProductsViewModel
 import com.example.jewelleryapp.screen.homeScreen.HomeScreen
 import com.example.jewelleryapp.screen.homeScreen.HomeViewModel
 import com.example.jewelleryapp.screen.itemdetailScreen.ItemDetailViewModel
@@ -43,6 +45,9 @@ class MainActivity : ComponentActivity() {
     private lateinit var wishlistViewModel: WishlistViewModel
     private lateinit var authStateListener: FirebaseAuth.AuthStateListener
     private lateinit var firebaseAuth: FirebaseAuth
+    private lateinit var categoryProductsViewModel: CategoryProductsViewModel // Add this line
+    private lateinit var jewelryRepository: JewelryRepository // Make this a class property
+
 
 
 
@@ -90,6 +95,8 @@ class MainActivity : ComponentActivity() {
         categoryViewModel = CategoriesViewModel(jewelryRepository)
         itemDetailViewModel = ItemDetailViewModel(jewelryRepository)
         wishlistViewModel = WishlistViewModel(jewelryRepository)
+        categoryProductsViewModel = CategoryProductsViewModel(jewelryRepository, "")
+
 
         enableEdgeToEdge()
         setContent {
@@ -103,7 +110,8 @@ class MainActivity : ComponentActivity() {
                         homeViewModel,
                         categoryViewModel,
                         itemDetailViewModel,
-                        wishlistViewModel
+                        wishlistViewModel,
+                        jewelryRepository
                     )
                 }
             }
@@ -131,7 +139,8 @@ fun AppNavigation(
     homeViewModel: HomeViewModel,
     categoryViewModel: CategoriesViewModel,
     itemDetailViewModel: ItemDetailViewModel,
-    wishlistViewModel: WishlistViewModel
+    wishlistViewModel: WishlistViewModel,
+    jewelryRepository: JewelryRepository
 ) {
     val navController = rememberNavController()
 
@@ -189,6 +198,38 @@ fun AppNavigation(
                 navController = navController // Pass navController for bottom navigation
             )
         }
+
+
+// Add this new composable route in your NavHost, after the existing "category/{categoryId}" route
+                composable(
+                    route = "categoryProducts/{categoryId}/{categoryName}",
+                    arguments = listOf(
+                        navArgument("categoryId") {
+                            type = NavType.StringType
+                            nullable = false
+                        },
+                        navArgument("categoryName") {
+                            type = NavType.StringType
+                            nullable = false
+                        }
+                    )
+                ) { backStackEntry ->
+                    val categoryId = backStackEntry.arguments?.getString("categoryId") ?: ""
+                    val categoryName = backStackEntry.arguments?.getString("categoryName") ?: ""
+
+                    // Create CategoryProductsViewModel with the categoryId
+                    val categoryProductsViewModel = CategoryProductsViewModel(
+                        repository = jewelryRepository,
+                        categoryId = categoryId
+                    )
+
+                    CategoryProductsScreen(
+                        categoryId = categoryId,
+                        categoryName = categoryName,
+                        viewModel = categoryProductsViewModel,
+                        navController = navController
+                    )
+                }
 
         // Item Detail Screen
         composable(

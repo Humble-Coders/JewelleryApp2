@@ -12,7 +12,20 @@
           "package_name": "com.example.jewelleryapp"
         }
       },
-      "oauth_client": [],
+      "oauth_client": [
+        {
+          "client_id": "836804403458-uckl2pkcsoiaipfhsclckmh6b3ie7pdp.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.example.jewelleryapp",
+            "certificate_hash": "52b8296ad3b7647a4a3d9722bc3bd4cab7d87104"
+          }
+        },
+        {
+          "client_id": "836804403458-elef27d8q4o8bbs05qoef776bhlogrfj.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
       "api_key": [
         {
           "current_key": "AIzaSyBkDwJrIaw7mIKm9U0fjLVGykJtl28104g"
@@ -20,7 +33,19 @@
       ],
       "services": {
         "appinvite_service": {
-          "other_platform_oauth_client": []
+          "other_platform_oauth_client": [
+            {
+              "client_id": "836804403458-elef27d8q4o8bbs05qoef776bhlogrfj.apps.googleusercontent.com",
+              "client_type": 3
+            },
+            {
+              "client_id": "836804403458-gbld8teerkv57473omav6l3pd0mirici.apps.googleusercontent.com",
+              "client_type": 2,
+              "ios_info": {
+                "bundle_id": "HumbleCoders.in.Gagan-Jewellers"
+              }
+            }
+          ]
         }
       }
     }

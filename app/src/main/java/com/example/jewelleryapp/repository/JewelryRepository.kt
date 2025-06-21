@@ -15,6 +15,7 @@ import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.flow.catch
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.withContext
 import java.lang.Exception
 
@@ -662,4 +663,166 @@ class JewelryRepository(
         // Sign out from Firebase
         auth.signOut()
     }
+
+
+    // Add these methods to your existing JewelryRepository class
+
+    /**
+     * Get paginated products for a specific category with filtering and sorting
+     */
+    fun getCategoryProductsPaginated(
+        categoryId: String,
+        page: Int,
+        pageSize: Int = 20,
+        materialFilter: String? = null, // "Gold", "Silver", or null for all
+        sortBy: String? = null // "price_asc", "price_desc", or null
+    ): Flow<List<Product>> = flow {
+        try {
+            Log.d(tag, "Fetching paginated products for category: $categoryId, page: $page")
+
+            // First get product IDs from category_products collection
+            val categoryDoc = withContext(Dispatchers.IO) {
+                firestore.collection("category_products")
+                    .document(categoryId.lowercase()) // Remove "category_" prefix here too
+                    .get()
+                    .await()
+            }
+
+            val allProductIds = (categoryDoc.get("product_ids") as? List<*>)?.map { it.toString() } ?: emptyList()
+
+            if (allProductIds.isEmpty()) {
+                emit(emptyList())
+                return@flow
+            }
+
+            Log.d(tag, "Found ${allProductIds.size} total products for category")
+
+            // Calculate pagination
+            val startIndex = page * pageSize
+            val endIndex = minOf(startIndex + pageSize, allProductIds.size)
+
+            if (startIndex >= allProductIds.size) {
+                emit(emptyList())
+                return@flow
+            }
+
+            val paginatedIds = allProductIds.subList(startIndex, endIndex)
+            Log.d(tag, "Fetching products for page $page: ${paginatedIds.size} items")
+
+            // Fetch products in batches (Firestore limit is 10 for whereIn)
+            val products = fetchProductsByIds(paginatedIds)
+
+            // Apply material filter if specified
+            val filteredProducts = if (materialFilter != null) {
+                products.filter { product ->
+                    product.materialType?.equals(materialFilter, ignoreCase = true) == true
+                }
+            } else {
+                products
+            }
+
+            // Apply sorting if specified
+            val sortedProducts = when (sortBy) {
+                "price_asc" -> filteredProducts.sortedBy { it.price }
+                "price_desc" -> filteredProducts.sortedByDescending { it.price }
+                else -> filteredProducts
+            }
+
+            Log.d(tag, "Returning ${sortedProducts.size} products for category $categoryId, page $page")
+            emit(sortedProducts)
+
+        } catch (e: Exception) {
+            Log.e(tag, "Error fetching paginated category products", e)
+            emit(emptyList()) // Emit empty list instead of throwing
+        }
+    }
+
+    /**
+     * Get total count of products in a category (for pagination calculation)
+     */
+    suspend fun getCategoryProductsCount(categoryId: String): Int {
+        return try {
+            val categoryDoc = withContext(Dispatchers.IO) {
+                firestore.collection("category_products")
+                    .document(categoryId.lowercase()) // Remove "category_" prefix here too
+                    .get()
+                    .await()
+            }
+
+            val productIds = (categoryDoc.get("product_ids") as? List<*>)?.size ?: 0
+            Log.d(tag, "Category $categoryId has $productIds total products")
+            productIds
+
+        } catch (e: Exception) {
+            Log.e(tag, "Error getting category products count", e)
+            0
+        }
+    }
+
+    /**
+     * Search products within a category by name
+     */
+    fun searchCategoryProducts(
+        categoryId: String,
+        searchQuery: String,
+        materialFilter: String? = null
+    ): Flow<List<Product>> = flow {
+        try {
+            if (searchQuery.isBlank()) {
+                emit(emptyList())
+                return@flow
+            }
+
+            Log.d(tag, "Searching products in category $categoryId for query: $searchQuery")
+
+            // Get all products for the category first
+            val allProducts = getCategoryProducts(categoryId).first()
+
+            // Filter by search query (case insensitive)
+            val searchResults = allProducts.filter { product ->
+                product.name.contains(searchQuery, ignoreCase = true)
+            }
+
+            // Apply material filter if specified
+            val filteredResults = if (materialFilter != null) {
+                searchResults.filter { product ->
+                    product.materialType?.equals(materialFilter, ignoreCase = true) == true
+                }
+            } else {
+                searchResults
+            }
+
+            Log.d(tag, "Found ${filteredResults.size} search results")
+            emit(filteredResults)
+
+        } catch (e: Exception) {
+            Log.e(tag, "Error searching category products", e)
+            emit(emptyList()) // Emit empty list instead of throwing
+        }
+    }
+
+    /**
+     * Get available materials for filtering (from materials collection)
+     */
+    fun getAvailableMaterials(): Flow<List<String>> = flow {
+        try {
+            val snapshot = withContext(Dispatchers.IO) {
+                firestore.collection("materials")
+                    .get()
+                    .await()
+            }
+
+            val materials = snapshot.documents.mapNotNull { doc ->
+                doc.getString("name")
+            }
+
+            Log.d(tag, "Available materials: $materials")
+            emit(materials)
+
+        } catch (e: Exception) {
+            Log.e(tag, "Error fetching available materials", e)
+            emit(emptyList()) // Emit empty list instead of throwing
+        }
+    }
+
 }

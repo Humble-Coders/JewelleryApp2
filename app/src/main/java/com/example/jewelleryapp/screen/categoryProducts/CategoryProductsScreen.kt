@@ -1,0 +1,459 @@
+package com.example.jewelleryapp.screen.categoryProducts
+
+import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.lazy.grid.GridCells
+import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
+import androidx.compose.foundation.lazy.grid.items
+import androidx.compose.foundation.lazy.grid.rememberLazyGridState
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.KeyboardActions
+import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.*
+import androidx.compose.material3.*
+import androidx.compose.runtime.*
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalFocusManager
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.ImeAction
+import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
+import androidx.navigation.NavController
+import coil.compose.AsyncImage
+import coil.request.ImageRequest
+import com.example.jewelleryapp.model.Product
+import com.example.jewelleryapp.model.SortOption
+import com.example.jewelleryapp.screen.homeScreen.BottomNavigationBar
+import com.example.jewelleryapp.screen.homeScreen.formatPrice
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun CategoryProductsScreen(
+    categoryId: String,
+    categoryName: String,
+    viewModel: CategoryProductsViewModel,
+    navController: NavController
+) {
+    val state by viewModel.state.collectAsState()
+    val filterSortState by viewModel.filterSortState.collectAsState()
+    val searchQuery by viewModel.searchQuery.collectAsState()
+    val isSearchActive by viewModel.isSearchActive.collectAsState()
+
+    var showFilterBottomSheet by remember { mutableStateOf(false) }
+    val lazyGridState = rememberLazyGridState()
+
+    // Load more when reaching end of list
+    LaunchedEffect(lazyGridState) {
+        snapshotFlow {
+            val layoutInfo = lazyGridState.layoutInfo
+            val totalItemsNumber = layoutInfo.totalItemsCount
+            val lastVisibleItemIndex = (layoutInfo.visibleItemsInfo.lastOrNull()?.index ?: 0) + 1
+
+            lastVisibleItemIndex > (totalItemsNumber - 5)
+        }.collect { shouldLoadMore ->
+            if (shouldLoadMore && state.hasMorePages && !state.isLoadingMore) {
+                viewModel.loadMoreProducts()
+            }
+        }
+    }
+
+    Scaffold(
+        topBar = {
+            CategoryTopBar(
+                categoryName = categoryName,
+                isSearchActive = isSearchActive,
+                searchQuery = searchQuery,
+                onBackClick = { navController.popBackStack() },
+                onSearchToggle = { viewModel.toggleSearch() },
+                onSearchQueryChange = { viewModel.onSearchQueryChange(it) }
+            )
+        },
+        bottomBar = { BottomNavigationBar(navController) }
+    ) { paddingValues ->
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(paddingValues)
+                .background(Color.White)
+        ) {
+            // Filter and Sort Bar
+            FilterSortBar(
+                filterSortState = filterSortState,
+                totalProducts = state.totalProducts,
+                onFilterSortClick = { showFilterBottomSheet = true }
+            )
+
+            // Products Grid
+            when {
+                state.isLoading && state.displayedProducts.isEmpty() -> {
+                    Box(
+                        modifier = Modifier.fillMaxSize(),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        CircularProgressIndicator(color = Color(0xFFB78628))
+                    }
+                }
+                state.error != null -> {
+                    ErrorView(
+                        error = state.error!!,
+                        onRetry = { viewModel.refreshProducts() }
+                    )
+                }
+                state.displayedProducts.isEmpty() -> {
+                    EmptyProductsView(
+                        isSearching = searchQuery.isNotBlank(),
+                        searchQuery = searchQuery
+                    )
+                }
+                else -> {
+                    LazyVerticalGrid(
+                        columns = GridCells.Fixed(2),
+                        state = lazyGridState,
+                        contentPadding = PaddingValues(16.dp),
+                        horizontalArrangement = Arrangement.spacedBy(12.dp),
+                        verticalArrangement = Arrangement.spacedBy(12.dp),
+                        modifier = Modifier.fillMaxSize()
+                    ) {
+                        items(state.displayedProducts) { product ->
+                            ProductCard(
+                                product = product,
+                                onProductClick = {
+                                    navController.navigate("itemDetail/${product.id}")
+                                },
+                                onFavoriteClick = {
+                                    viewModel.toggleFavorite(product.id)
+                                }
+                            )
+                        }
+
+                        // Loading more indicator
+                        if (state.isLoadingMore) {
+                            item {
+                                Box(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .padding(16.dp),
+                                    contentAlignment = Alignment.Center
+                                ) {
+                                    CircularProgressIndicator(
+                                        color = Color(0xFFB78628),
+                                        modifier = Modifier.size(24.dp)
+                                    )
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    // Filter Bottom Sheet
+    if (showFilterBottomSheet) {
+        FilterSortBottomSheet(
+            filterSortState = filterSortState,
+            onDismiss = { showFilterBottomSheet = false },
+            onApplyFilter = { material -> viewModel.applyFilter(material) },
+            onApplySort = { sortOption -> viewModel.applySorting(sortOption) }
+        )
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun CategoryTopBar(
+    categoryName: String,
+    isSearchActive: Boolean,
+    searchQuery: String,
+    onBackClick: () -> Unit,
+    onSearchToggle: () -> Unit,
+    onSearchQueryChange: (String) -> Unit
+) {
+    val focusManager = LocalFocusManager.current
+    val goldColor = Color(0xFFB78628)
+
+    TopAppBar(
+        title = {
+            if (isSearchActive) {
+                OutlinedTextField(
+                    value = searchQuery,
+                    onValueChange = onSearchQueryChange,
+                    placeholder = { Text("Search products...") },
+                    singleLine = true,
+                    modifier = Modifier.fillMaxWidth(),
+                    keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
+                    keyboardActions = KeyboardActions(
+                        onSearch = { focusManager.clearFocus() }
+                    ),
+                    colors = OutlinedTextFieldDefaults.colors(
+                        focusedBorderColor = goldColor,
+                        unfocusedBorderColor = Color.LightGray
+                    )
+                )
+            } else {
+                Text(
+                    text = categoryName,
+                    color = goldColor,
+                    fontWeight = FontWeight.Medium
+                )
+            }
+        },
+        navigationIcon = {
+            IconButton(onClick = onBackClick) {
+                Icon(
+                    imageVector = Icons.Default.ArrowBack,
+                    contentDescription = "Back",
+                    tint = goldColor
+                )
+            }
+        },
+        actions = {
+            IconButton(onClick = onSearchToggle) {
+                Icon(
+                    imageVector = if (isSearchActive) Icons.Default.Close else Icons.Default.Search,
+                    contentDescription = if (isSearchActive) "Close Search" else "Search",
+                    tint = goldColor
+                )
+            }
+        },
+        colors = TopAppBarDefaults.topAppBarColors(
+            containerColor = Color.White
+        )
+    )
+}
+
+@Composable
+private fun FilterSortBar(
+    filterSortState: com.example.jewelleryapp.model.FilterSortState,
+    totalProducts: Int,
+    onFilterSortClick: () -> Unit
+) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 16.dp, vertical = 8.dp),
+        horizontalArrangement = Arrangement.SpaceBetween,
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        // Active filters chips
+        Row(
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Text(
+                text = "$totalProducts items",
+                fontSize = 14.sp,
+                color = Color.Gray
+            )
+
+            if (filterSortState.selectedMaterial != null) {
+                FilterChip(
+                    text = filterSortState.selectedMaterial,
+                    onRemove = { /* Will be handled in bottom sheet */ }
+                )
+            }
+
+            if (filterSortState.sortOption != SortOption.NONE) {
+                FilterChip(
+                    text = filterSortState.sortOption.displayName,
+                    onRemove = { /* Will be handled in bottom sheet */ }
+                )
+            }
+        }
+
+        // Filter & Sort button
+        OutlinedButton(
+            onClick = onFilterSortClick,
+            modifier = Modifier.height(36.dp),
+            colors = ButtonDefaults.outlinedButtonColors(
+                contentColor = Color(0xFFB78628)
+            )
+        ) {
+            Icon(
+                imageVector = Icons.Default.FilterList,
+                contentDescription = "Filter & Sort",
+                modifier = Modifier.size(16.dp)
+            )
+            Spacer(modifier = Modifier.width(4.dp))
+            Text(
+                text = "Filter & Sort",
+                fontSize = 12.sp
+            )
+        }
+    }
+}
+
+@Composable
+private fun FilterChip(
+    text: String,
+    onRemove: () -> Unit
+) {
+    Surface(
+        shape = RoundedCornerShape(16.dp),
+        color = Color(0xFFB78628).copy(alpha = 0.1f),
+        modifier = Modifier.height(32.dp)
+    ) {
+        Row(
+            modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Text(
+                text = text,
+                fontSize = 12.sp,
+                color = Color(0xFFB78628)
+            )
+        }
+    }
+}
+
+@Composable
+private fun ProductCard(
+    product: Product,
+    onProductClick: () -> Unit,
+    onFavoriteClick: () -> Unit
+) {
+    Card(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable { onProductClick() },
+        shape = RoundedCornerShape(8.dp),
+        colors = CardDefaults.cardColors(containerColor = Color.White),
+        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+    ) {
+        Column {
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(150.dp)
+            ) {
+                AsyncImage(
+                    model = ImageRequest.Builder(LocalContext.current)
+                        .data(product.imageUrl)
+                        .crossfade(true)
+                        .build(),
+                    contentDescription = product.name,
+                    modifier = Modifier.fillMaxSize(),
+                    contentScale = ContentScale.Crop
+                )
+
+                IconButton(
+                    onClick = onFavoriteClick,
+                    modifier = Modifier
+                        .align(Alignment.TopEnd)
+                        .size(32.dp)
+                ) {
+                    Icon(
+                        imageVector = if (product.isFavorite) Icons.Default.Favorite else Icons.Default.FavoriteBorder,
+                        contentDescription = "Favorite",
+                        tint = if (product.isFavorite) Color.Red else Color.White
+                    )
+                }
+            }
+
+            Column(
+                modifier = Modifier.padding(12.dp)
+            ) {
+                Text(
+                    text = product.name,
+                    fontSize = 14.sp,
+                    fontWeight = FontWeight.Medium,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
+                )
+
+                Spacer(modifier = Modifier.height(4.dp))
+
+                Text(
+                    text = formatPrice(product.price, product.currency),
+                    fontSize = 14.sp,
+                    color = Color(0xFFB78628),
+                    fontWeight = FontWeight.Bold
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun ErrorView(
+    error: String,
+    onRetry: () -> Unit
+) {
+    Box(
+        modifier = Modifier.fillMaxSize(),
+        contentAlignment = Alignment.Center
+    ) {
+        Column(
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.Center
+        ) {
+            Text(
+                text = error,
+                color = Color.Red,
+                fontSize = 16.sp,
+                textAlign = androidx.compose.ui.text.style.TextAlign.Center
+            )
+            Spacer(modifier = Modifier.height(16.dp))
+            Button(
+                onClick = onRetry,
+                colors = ButtonDefaults.buttonColors(
+                    containerColor = Color(0xFFB78628)
+                )
+            ) {
+                Text("Try Again")
+            }
+        }
+    }
+}
+
+@Composable
+private fun EmptyProductsView(
+    isSearching: Boolean,
+    searchQuery: String
+) {
+    Box(
+        modifier = Modifier.fillMaxSize(),
+        contentAlignment = Alignment.Center
+    ) {
+        Column(
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.Center
+        ) {
+            if (isSearching) {
+                Text(
+                    text = "No products found for \"$searchQuery\"",
+                    fontSize = 16.sp,
+                    color = Color.Gray,
+                    textAlign = androidx.compose.ui.text.style.TextAlign.Center
+                )
+                Spacer(modifier = Modifier.height(8.dp))
+                Text(
+                    text = "Try searching with different keywords",
+                    fontSize = 14.sp,
+                    color = Color.Gray
+                )
+            } else {
+                Text(
+                    text = "No products available",
+                    fontSize = 16.sp,
+                    color = Color.Gray
+                )
+                Spacer(modifier = Modifier.height(8.dp))
+                Text(
+                    text = "Check back later for new arrivals",
+                    fontSize = 14.sp,
+                    color = Color.Gray
+                )
+            }
+        }
+    }
+}

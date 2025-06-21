@@ -40,3 +40,31 @@ data class CarouselItem(
     val subtitle: String,
     val buttonText: String
 )
+
+
+
+// Add these data classes to your existing dataClass.kt file
+
+data class CategoryProductsState(
+    val allProducts: List<Product> = emptyList(),
+    val displayedProducts: List<Product> = emptyList(),
+    val isLoading: Boolean = false,
+    val isLoadingMore: Boolean = false,
+    val error: String? = null,
+    val hasMorePages: Boolean = true,
+    val currentPage: Int = 0,
+    val totalProducts: Int = 0
+)
+
+data class FilterSortState(
+    val selectedMaterial: String? = null, // "Gold", "Silver", or null
+    val sortOption: SortOption = SortOption.NONE,
+    val searchQuery: String = "",
+    val availableMaterials: List<String> = emptyList()
+)
+
+enum class SortOption(val displayName: String, val value: String?) {
+    NONE("Default", null),
+    PRICE_LOW_TO_HIGH("Price: Low to High", "price_asc"),
+    PRICE_HIGH_TO_LOW("Price: High to Low", "price_desc")
+}
