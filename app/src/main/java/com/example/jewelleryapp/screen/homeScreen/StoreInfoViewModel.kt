@@ -1,4 +1,4 @@
-package com.example.jewelleryapp.screen.storeInfoScreen
+package com.example.jewelleryapp.screen.homeScreen
 
 import android.content.Context
 import android.content.Intent
@@ -13,6 +13,7 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
+import java.util.Calendar
 
 class StoreInfoViewModel(
     private val repository: JewelryRepository
@@ -48,15 +49,15 @@ class StoreInfoViewModel(
 
     fun getCurrentDayHours(): String? {
         val storeInfo = _storeInfo.value ?: return null
-        val currentDay = java.util.Calendar.getInstance().get(java.util.Calendar.DAY_OF_WEEK)
+        val currentDay = Calendar.getInstance().get(Calendar.DAY_OF_WEEK)
         val dayName = when (currentDay) {
-            java.util.Calendar.SUNDAY -> "sunday"
-            java.util.Calendar.MONDAY -> "monday"
-            java.util.Calendar.TUESDAY -> "tuesday"
-            java.util.Calendar.WEDNESDAY -> "wednesday"
-            java.util.Calendar.THURSDAY -> "thursday"
-            java.util.Calendar.FRIDAY -> "friday"
-            java.util.Calendar.SATURDAY -> "saturday"
+            Calendar.SUNDAY -> "sunday"
+            Calendar.MONDAY -> "monday"
+            Calendar.TUESDAY -> "tuesday"
+            Calendar.WEDNESDAY -> "wednesday"
+            Calendar.THURSDAY -> "thursday"
+            Calendar.FRIDAY -> "friday"
+            Calendar.SATURDAY -> "saturday"
             else -> ""
         }
         return storeInfo.storeHours[dayName]

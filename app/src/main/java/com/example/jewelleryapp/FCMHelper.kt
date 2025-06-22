@@ -60,10 +60,5 @@ object FCMHelper {
         }
     }
 
-    fun requestNotificationPermission() {
-        // For Android 13+ notification permission
-        if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.TIRAMISU) {
-            Log.d(TAG, "Android 13+ detected, notification permission should be requested in activity")
-        }
-    }
+
 }

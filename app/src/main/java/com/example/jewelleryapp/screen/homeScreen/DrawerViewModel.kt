@@ -1,4 +1,4 @@
-package com.example.jewelleryapp.screen.drawer
+package com.example.jewelleryapp.screen.homeScreen
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
@@ -79,8 +79,5 @@ class DrawerViewModel(private val repository: JewelryRepository) : ViewModel() {
         }
     }
 
-    fun collapseAll() {
-        _isMetalExpanded.value = false
-        _isCollectionsExpanded.value = false
-    }
+
 }

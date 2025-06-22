@@ -1,6 +1,5 @@
 package com.example.jewelleryapp
 
-import android.app.Activity
 import android.content.Intent
 import android.content.pm.PackageManager
 import android.net.Uri
@@ -33,7 +32,7 @@ import com.example.jewelleryapp.screen.categoriesScreen.CategoriesViewModel
 import com.example.jewelleryapp.screen.categoriesScreen.CategoryScreenView
 import com.example.jewelleryapp.screen.categoryProducts.CategoryProductsScreen
 import com.example.jewelleryapp.screen.categoryProducts.CategoryProductsViewModel
-import com.example.jewelleryapp.screen.drawer.DrawerViewModel
+import com.example.jewelleryapp.screen.homeScreen.DrawerViewModel
 import com.example.jewelleryapp.screen.homeScreen.HomeScreen
 import com.example.jewelleryapp.screen.homeScreen.HomeViewModel
 import com.example.jewelleryapp.screen.productDetailScreen.ItemDetailViewModel
@@ -44,8 +43,8 @@ import com.example.jewelleryapp.screen.profileScreen.ProfileScreen
 import com.example.jewelleryapp.screen.profileScreen.ProfileViewModel
 import com.example.jewelleryapp.screen.registerScreen.RegisterScreen
 import com.example.jewelleryapp.screen.registerScreen.RegisterViewModel
-import com.example.jewelleryapp.screen.storeInfoScreen.StoreInfoScreen
-import com.example.jewelleryapp.screen.storeInfoScreen.StoreInfoViewModel
+import com.example.jewelleryapp.screen.homeScreen.StoreInfoScreen
+import com.example.jewelleryapp.screen.homeScreen.StoreInfoViewModel
 import com.example.jewelleryapp.screen.wishlist.WishlistScreen
 import com.example.jewelleryapp.screen.wishlist.WishlistViewModel
 import com.example.jewelleryapp.ui.theme.JewelleryAppTheme
@@ -91,13 +90,13 @@ class MainActivity : ComponentActivity() {
             Log.d("MainActivity", "Google Sign-In result: ${result.resultCode}")
 
             when (result.resultCode) {
-                Activity.RESULT_OK -> {
+                RESULT_OK -> {
                     Log.d("MainActivity", "Google Sign-In OK, processing result")
                     // Handle for both login and register ViewModels
                     loginViewModel.handleGoogleSignInResult(result.data)
                     registerViewModel.handleGoogleSignInResult(result.data)
                 }
-                Activity.RESULT_CANCELED -> {
+                RESULT_CANCELED -> {
                     Log.d("MainActivity", "Google Sign-In cancelled by user")
                     loginViewModel.cancelGoogleSignIn()
                     registerViewModel.cancelGoogleSignIn()
@@ -350,10 +349,6 @@ fun AppNavigation(
 
         // All Products Screen (existing)
         composable("allProducts") {
-            val allProductsViewModel: AllProductsViewModel = viewModel() {
-                AllProductsViewModel(repository = jewelryRepository)
-            }
-
             AllProductsScreen(
                 viewModel = allProductsViewModel,
                 navController = navController

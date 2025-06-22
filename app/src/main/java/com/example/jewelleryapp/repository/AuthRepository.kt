@@ -211,23 +211,6 @@ class FirebaseAuthRepository(private val firebaseAuth: FirebaseAuth,
         }
     }
 
-    // Add this method for Google reauthentication if needed
-    suspend fun reauthenticateWithGoogle(account: GoogleSignInAccount): Result<Unit> {
-        return try {
-            val currentUser = firebaseAuth.currentUser
-                ?: return Result.failure(Exception("No authenticated user"))
-
-            withContext(Dispatchers.IO) {
-                val credential = GoogleAuthProvider.getCredential(account.idToken, null)
-                currentUser.reauthenticate(credential).await()
-                Log.d("AuthRepository", "Google reauthentication successful")
-                Result.success(Unit)
-            }
-        } catch (e: Exception) {
-            Log.e("AuthRepository", "Google reauthentication failed", e)
-            Result.failure(e)
-        }
-    }
 
     // Update signInWithGoogle method
     suspend fun signInWithGoogle(account: GoogleSignInAccount): Result<Unit> {

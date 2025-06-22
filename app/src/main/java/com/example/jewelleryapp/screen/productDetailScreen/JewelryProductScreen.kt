@@ -1,6 +1,8 @@
 package com.example.jewelleryapp.screen.productDetailScreen
 
 import android.content.Context
+import android.content.Intent
+import android.net.Uri
 import android.util.Log
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.ExperimentalFoundationApi
@@ -20,8 +22,6 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
-import androidx.compose.foundation.pager.HorizontalPager
-import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -30,6 +30,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Favorite
 import androidx.compose.material.icons.filled.FavoriteBorder
+import androidx.compose.material.icons.filled.Image
 import androidx.compose.material.icons.filled.Share
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
@@ -44,41 +45,33 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.window.Dialog
+import androidx.compose.ui.window.DialogProperties
 import androidx.navigation.NavController
 import coil.compose.AsyncImage
 import com.example.jewelleryapp.R
 import com.example.jewelleryapp.model.Product
 import com.example.jewelleryapp.screen.homeScreen.BottomNavigationBar
-import kotlinx.coroutines.launch
 import java.util.Locale
-import android.content.Intent
-import android.net.Uri
-import androidx.compose.material.icons.filled.Image
-import androidx.compose.ui.graphics.Brush
-import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.window.Dialog
-import androidx.compose.ui.window.DialogProperties
 
 // Defined colors as constants
 private val GoldColor = Color(0xFFC4A661)
-private val GoldColorTransparent = GoldColor.copy(alpha = 0.3f)
 private val ButtonColor = Color(0xFFC4A661)
-private val BackgroundColor = Color(0xFFAA8F8F)
 private val TextGrayColor = Color.Gray
 private val TextDescriptionColor = Color(0xFF4B5563)
-private val TextPriceColor = Color(0xFF333333)
 
 
 data class ProductSpec(
@@ -101,7 +94,6 @@ fun JewelryProductScreen(
     val isLoading by viewModel.isLoading.collectAsState()
     val error by viewModel.error.collectAsState()
     val scrollState = rememberScrollState()
-    val coroutineScope = rememberCoroutineScope()
     val product by viewModel.product.collectAsState()
     val context = LocalContext.current
 
@@ -203,8 +195,6 @@ fun JewelryProductScreen(
                 )
 
                 // Create a list of image URLs (currently single image from Firebase)
-                val imageList = if (prod.imageUrl.isNotBlank()) listOf(prod.imageUrl) else emptyList()
-                val pagerState = rememberPagerState(pageCount = { maxOf(imageList.size, 1) })
 
                 Column(
                     modifier = Modifier
@@ -359,53 +349,7 @@ private fun WishlistButton(
 
 
 
-@OptIn(ExperimentalFoundationApi::class)
-@Composable
-private fun ImageCarouselWithCoil(
-    imageUrls: List<String>,
-    pagerState: androidx.compose.foundation.pager.PagerState,
-    onDotClick: (Int) -> Unit
-) {
-    Box(
-        modifier = Modifier
-            .fillMaxWidth()
-            .height(300.dp)
-            .background(BackgroundColor)
-    ) {
-        HorizontalPager(
-            state = pagerState,
-            modifier = Modifier.fillMaxSize()
-        ) { page ->
-            AsyncImage(
-                model = imageUrls[page],
-                contentDescription = "Product Image ${page + 1}",
-                modifier = Modifier.fillMaxSize(),
-                contentScale = ContentScale.Crop
-            )
-        }
 
-        // Dots indicator
-        Row(
-            modifier = Modifier
-                .align(Alignment.BottomCenter)
-                .padding(bottom = 16.dp),
-            horizontalArrangement = Arrangement.Center
-        ) {
-            repeat(imageUrls.size) { index ->
-                Box(
-                    modifier = Modifier
-                        .padding(horizontal = 4.dp)
-                        .size(8.dp)
-                        .clip(CircleShape)
-                        .background(
-                            if (pagerState.currentPage == index) GoldColor else GoldColorTransparent
-                        )
-                        .clickable { onDotClick(index) }
-                )
-            }
-        }
-    }
-}
 
 @Composable
 private fun ProductHeader(

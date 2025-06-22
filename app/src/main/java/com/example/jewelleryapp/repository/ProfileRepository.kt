@@ -202,15 +202,13 @@ class ProfileRepository(
         }
     }
 
-    fun getCurrentUserId(): String? {
-        return firebaseAuth.currentUser?.uid
-    }
+
 
     fun isUserSignedIn(): Boolean {
         return firebaseAuth.currentUser != null
     }
 
-    suspend fun checkIfReauthenticationRequired(): Boolean {
+     fun checkIfReauthenticationRequired(): Boolean {
         return try {
             val currentUser = firebaseAuth.currentUser ?: return false
 

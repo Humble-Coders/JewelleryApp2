@@ -20,7 +20,6 @@ import androidx.compose.material.icons.filled.*
 import androidx.compose.material.icons.automirrored.outlined.ExitToApp
 import androidx.compose.material.icons.outlined.ChevronRight
 import androidx.compose.material.icons.outlined.Headset
-import androidx.compose.material.icons.outlined.History
 import androidx.compose.material.icons.outlined.LocationOn
 import androidx.compose.material.icons.outlined.Person
 import androidx.compose.material3.*
@@ -66,7 +65,6 @@ import androidx.compose.material.icons.filled.Close
 import androidx.compose.ui.graphics.Brush
 import com.example.jewelleryapp.model.UserProfile
 import com.example.jewelleryapp.repository.ProfileRepository
-import com.example.jewelleryapp.screen.drawer.DrawerViewModel
 import com.example.jewelleryapp.screen.profileScreen.ProfileViewModel
 import com.google.firebase.firestore.FirebaseFirestore
 import kotlinx.coroutines.tasks.await
@@ -207,7 +205,11 @@ fun HomeScreen(
                     isSearchActive = isSearchActive,
                     searchQuery = searchQuery,
                     onSearchToggle = { viewModel.toggleSearch() },
-                    onSearchQueryChange = { viewModel.onSearchQueryChange(it) }
+                    onSearchQueryChange = { viewModel.onSearchQueryChange(it) },
+                    onWishlistClick = {
+                        navController.navigate("wishlist")
+
+                    },
                 )
             },
             bottomBar = { BottomNavigationBar(navController = navController) }
@@ -458,11 +460,11 @@ fun DrawerContent(
             }
         )
 
-        DrawerItem(
-            icon = Icons.Outlined.History,
-            text = "Order History",
-            onClick = { onCloseDrawer() }
-        )
+//        DrawerItem(
+//            icon = Icons.Outlined.History,
+//            text = "Order History",
+//            onClick = { onCloseDrawer() }
+//        )
 
         Text(
             text = "Shop By",
@@ -712,7 +714,8 @@ fun TopAppbar(
     isSearchActive: Boolean = false,
     searchQuery: String = "",
     onSearchToggle: () -> Unit = {},
-    onSearchQueryChange: (String) -> Unit = {}
+    onSearchQueryChange: (String) -> Unit = {},
+    onWishlistClick: () -> Unit={}
 ) {
     val amberColor = Color(0xFFB78628)
     val focusManager = LocalFocusManager.current
@@ -774,7 +777,7 @@ fun TopAppbar(
                     )
                 }
 
-                IconButton(onClick = { }) {
+                IconButton(onClick = {onWishlistClick() }) {
                     Icon(
                         imageVector = Icons.Default.FavoriteBorder,
                         contentDescription = "Favorites",

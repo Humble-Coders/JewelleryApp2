@@ -1,5 +1,6 @@
 package com.example.jewelleryapp.screen.productDetailScreen
 
+import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -8,10 +9,12 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.pager.HorizontalPager
+import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.ArrowBackIos
-import androidx.compose.material.icons.filled.ArrowForwardIos
+import androidx.compose.material.icons.automirrored.filled.ArrowBackIos
+import androidx.compose.material.icons.automirrored.filled.ArrowForwardIos
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Fullscreen
 import androidx.compose.material3.Icon
@@ -31,10 +34,6 @@ import coil.compose.AsyncImage
 import coil.request.ImageRequest
 import net.engawapg.lib.zoomable.rememberZoomState
 import net.engawapg.lib.zoomable.snapBackZoomable
-import net.engawapg.lib.zoomable.zoomable
-import androidx.compose.foundation.ExperimentalFoundationApi
-import androidx.compose.foundation.pager.HorizontalPager
-import androidx.compose.foundation.pager.rememberPagerState
 
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
@@ -102,7 +101,7 @@ fun ZoomableImageViewer(
                     .zIndex(1f)
             ) {
                 Icon(
-                    Icons.Default.ArrowBackIos,
+                    Icons.AutoMirrored.Filled.ArrowBackIos,
                     contentDescription = "Previous Image",
                     tint = Color.White
                 )
@@ -122,7 +121,7 @@ fun ZoomableImageViewer(
                     .zIndex(1f)
             ) {
                 Icon(
-                    Icons.Default.ArrowForwardIos,
+                    Icons.AutoMirrored.Filled.ArrowForwardIos,
                     contentDescription = "Next Image",
                     tint = Color.White
                 )
@@ -277,7 +276,7 @@ fun FullScreenImageDialog(
                     .zIndex(1f)
             ) {
                 Icon(
-                    Icons.Default.ArrowBackIos,
+                    Icons.AutoMirrored.Filled.ArrowBackIos,
                     contentDescription = "Previous Image",
                     tint = Color.White,
                     modifier = Modifier.size(28.dp)
@@ -298,7 +297,7 @@ fun FullScreenImageDialog(
                     .zIndex(1f)
             ) {
                 Icon(
-                    Icons.Default.ArrowForwardIos,
+                    Icons.AutoMirrored.Filled.ArrowForwardIos,
                     contentDescription = "Next Image",
                     tint = Color.White,
                     modifier = Modifier.size(28.dp)

@@ -18,7 +18,6 @@ import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.flow.catch
-import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.withContext
 import java.lang.Exception
 
@@ -31,7 +30,6 @@ class JewelryRepository(
 
     // Cache for wishlist status to avoid excessive Firestore calls
     private val wishlistCache = mutableMapOf<String, Boolean>()
-    private val recentlyViewedCache = mutableListOf<String>()
 
 
     // Function to update wishlist cache from Firestore - Optimized with async
@@ -683,10 +681,7 @@ class JewelryRepository(
         return false
     }
 
-    fun signOut() {
-        // Sign out from Firebase
-        auth.signOut()
-    }
+
 
 
     // Add these methods to your existing JewelryRepository class
@@ -1036,33 +1031,6 @@ class JewelryRepository(
     /**
      * Clear all recently viewed products
      */
-    suspend fun clearRecentlyViewed() {
-        try {
-            if (userId.isBlank()) {
-                Log.e(tag, "Cannot clear recently viewed: User ID is blank")
-                return
-            }
-
-            withContext(Dispatchers.IO) {
-                val recentlyViewedRef = firestore.collection("users")
-                    .document(userId)
-                    .collection("recently_viewed")
-
-                val snapshot = recentlyViewedRef.get().await()
-
-                // Delete all documents in batch
-                val batch = firestore.batch()
-                snapshot.documents.forEach { doc ->
-                    batch.delete(doc.reference)
-                }
-                batch.commit().await()
-
-                Log.d(tag, "Successfully cleared all recently viewed products")
-            }
-        } catch (e: Exception) {
-            Log.e(tag, "Error clearing recently viewed products", e)
-        }
-    }
     /**
      * Get recently viewed products (ordered by most recent first)
      */

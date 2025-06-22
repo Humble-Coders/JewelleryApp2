@@ -374,16 +374,9 @@ class ProfileViewModel(
         _deletionState.value = AccountDeletionState.Idle
     }
 
-    fun refreshProfile() {
-        Log.d(tag, "Refreshing profile data")
-        isCurrentlyLoading = false // Reset loading flag
-        loadUserProfile()
-    }
 
-    // Helper method to check if user can edit profile
-    fun canEditProfile(): Boolean {
-        return profileRepository.isUserSignedIn()
-    }
+
+
 
     // Helper method to get display image (local or Google URL)
     fun getDisplayImagePath(): String {
@@ -434,7 +427,6 @@ class ProfileViewModel(
         }
     }
 
-    fun wasSignOutRequested(): Boolean = signOutRequested
 
     override fun onCleared() {
         super.onCleared()
