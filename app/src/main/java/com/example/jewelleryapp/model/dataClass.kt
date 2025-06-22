@@ -8,12 +8,14 @@ data class Category(
     val imageUrl: String
 )
 
+// In dataClass.kt - Update Product data class
 data class Product(
     val id: String,
     val name: String,
     val price: Double,
     val currency: String = "INR",
-    val imageUrl: String,
+    val imageUrl: String, // Keep for backward compatibility
+    val imageUrls: List<String> = emptyList(), // Add this new field
     val isFavorite: Boolean = false,
     val material: String = "",
     val stone: String = "",
@@ -21,7 +23,7 @@ data class Product(
     val cut: String = "",
     val categoryId: String = "",
     val materialId: String? = null,
-    val materialType : String? = null,
+    val materialType: String? = null,
     val description: String = "",
     val category: String = ""
 )

@@ -68,6 +68,8 @@ import android.net.Uri
 import androidx.compose.material.icons.filled.Image
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.window.Dialog
+import androidx.compose.ui.window.DialogProperties
 import com.example.jewelleryapp.DynamicLinkHelper
 
 // Defined colors as constants
@@ -107,6 +109,10 @@ fun JewelryProductScreen(
     val similarProducts by viewModel.similarProducts.collectAsState()
     val isSimilarProductsLoading by viewModel.isSimilarProductsLoading.collectAsState()
 
+    val imageUrls by viewModel.imageUrls.collectAsState()
+    val currentImageIndex by viewModel.currentImageIndex.collectAsState()
+    val isFullScreenMode by viewModel.isFullScreenMode.collectAsState()
+
     // Load product when screen opens
     LaunchedEffect(productId) {
         viewModel.loadProduct(productId)
@@ -119,6 +125,24 @@ fun JewelryProductScreen(
                 Log.d("JewelryProductScreen", "Loading similar products for category: ${it.categoryId}")
                 viewModel.loadSimilarProducts()
             }
+        }
+    }
+
+    if (isFullScreenMode) {
+        Dialog(
+            onDismissRequest = { viewModel.exitFullScreen() },
+            properties = DialogProperties(
+                dismissOnBackPress = true,
+                dismissOnClickOutside = false,
+                usePlatformDefaultWidth = false
+            )
+        ) {
+            FullScreenImageDialog(
+                imageUrls = imageUrls,
+                currentIndex = currentImageIndex,
+                onDismiss = { viewModel.exitFullScreen() },
+                onImageChange = { viewModel.navigateToImage(it) }
+            )
         }
     }
 
@@ -190,25 +214,25 @@ fun JewelryProductScreen(
                         .verticalScroll(scrollState)
                 ) {
                     // Image carousel with Firebase images or placeholder
-                    if (imageList.isNotEmpty()) {
-                        ImageCarouselWithCoil(
-                            imageUrls = imageList,
-                            pagerState = pagerState,
-                            onDotClick = { index ->
-                                coroutineScope.launch {
-                                    pagerState.animateScrollToPage(index)
-                                }
-                            }
+                    if (imageUrls.isNotEmpty()) {
+                        ZoomableImageViewer(
+                            imageUrls = imageUrls,
+                            currentIndex = currentImageIndex,
+                            onImageChange = { viewModel.navigateToImage(it) },
+                            onFullScreenToggle = { viewModel.toggleFullScreenMode() },
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .height(350.dp)
                         )
                     } else {
                         Box(
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .height(300.dp)
-                                .background(BackgroundColor),
+                                .height(350.dp)
+                                .background(Color.LightGray.copy(alpha = 0.3f)),
                             contentAlignment = Alignment.Center
                         ) {
-                            Text("No image available", color = Color.White)
+                            Text("No image available", color = Color.Gray)
                         }
                     }
 

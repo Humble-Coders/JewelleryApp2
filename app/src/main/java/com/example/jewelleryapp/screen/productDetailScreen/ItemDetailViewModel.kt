@@ -38,6 +38,34 @@ class ItemDetailViewModel(
     private val _isSimilarProductsLoading = MutableStateFlow(false)
     val isSimilarProductsLoading: StateFlow<Boolean> = _isSimilarProductsLoading.asStateFlow()
 
+    // In ItemDetailViewModel.kt - Add these new state flows after existing ones
+    private val _currentImageIndex = MutableStateFlow(0)
+    val currentImageIndex: StateFlow<Int> = _currentImageIndex.asStateFlow()
+
+    private val _isFullScreenMode = MutableStateFlow(false)
+    val isFullScreenMode: StateFlow<Boolean> = _isFullScreenMode.asStateFlow()
+
+    private val _imageUrls = MutableStateFlow<List<String>>(emptyList())
+    val imageUrls: StateFlow<List<String>> = _imageUrls.asStateFlow()
+
+    // In ItemDetailViewModel.kt - Add this new state flow
+    private val _resetZoomTrigger = MutableStateFlow(0)
+    val resetZoomTrigger: StateFlow<Int> = _resetZoomTrigger.asStateFlow()
+
+    // Add this method to trigger zoom reset
+    fun triggerZoomReset() {
+        _resetZoomTrigger.value += 1
+        Log.d(TAG, "Zoom reset triggered")
+    }
+
+
+    // In ItemDetailViewModel.kt - Add this method
+    fun resetImageZoom() {
+        // This will be called from the UI to reset zoom state
+        _currentImageIndex.value = 0
+        Log.d(TAG, "Resetting image zoom state")
+    }
+
 
     fun toggleSimilarProductWishlist(productId: String) {
         viewModelScope.launch {
@@ -66,6 +94,7 @@ class ItemDetailViewModel(
     }
 
 
+    // In ItemDetailViewModel.kt - Update loadProduct method to handle multiple images
     fun loadProduct(productId: String) {
         viewModelScope.launch {
             try {
@@ -77,27 +106,34 @@ class ItemDetailViewModel(
                     return@launch
                 }
 
-                // Load product details and check wishlist status in parallel
                 coroutineScope {
-                    // Create async job for product details
                     val productDetailsJob = async(Dispatchers.Default) {
                         repository.getProductDetails(productId).first()
                     }
 
-                    // Create async job for wishlist status check
                     val wishlistStatusJob = async(Dispatchers.Default) {
                         repository.isInWishlist(productId)
                     }
 
-                    // Wait for both operations to complete
                     val productDetails = productDetailsJob.await()
                     val isInWishlist = wishlistStatusJob.await()
 
-                    // Update UI state with the results
                     _product.value = productDetails
                     _isInWishlist.value = isInWishlist
 
-                    Log.d(TAG, "Loaded product with material_id: ${productDetails.materialId}, material_type: ${productDetails.materialType}")
+                    // Set up image URLs and reset current index
+                    val images = if (productDetails.imageUrls.isNotEmpty()) {
+                        productDetails.imageUrls
+                    } else if (productDetails.imageUrl.isNotBlank()) {
+                        listOf(productDetails.imageUrl)
+                    } else {
+                        emptyList()
+                    }
+
+                    _imageUrls.value = images
+                    _currentImageIndex.value = 0
+
+                    Log.d(TAG, "Loaded product with ${images.size} images")
                     Log.d(TAG, "Product $productId wishlist status: $isInWishlist")
                 }
             } catch (e: Exception) {
@@ -106,6 +142,52 @@ class ItemDetailViewModel(
             } finally {
                 _isLoading.value = false
             }
+        }
+    }
+
+    // In ItemDetailViewModel.kt - Add these new methods for image navigation and zoom
+    fun navigateToImage(index: Int) {
+        val imageCount = _imageUrls.value.size
+        if (index in 0 until imageCount) {
+            _currentImageIndex.value = index
+        }
+    }
+
+    fun navigateToNextImage() {
+        val imageCount = _imageUrls.value.size
+        if (imageCount > 1) {
+            _currentImageIndex.value = (_currentImageIndex.value + 1) % imageCount
+        }
+    }
+
+    fun navigateToPreviousImage() {
+        val imageCount = _imageUrls.value.size
+        if (imageCount > 1) {
+            val currentIndex = _currentImageIndex.value
+            _currentImageIndex.value = if (currentIndex == 0) imageCount - 1 else currentIndex - 1
+        }
+    }
+
+    fun toggleFullScreenMode() {
+        _isFullScreenMode.value = !_isFullScreenMode.value
+    }
+
+    fun exitFullScreen() {
+        _isFullScreenMode.value = false
+    }
+
+    fun getImageCount(): Int = _imageUrls.value.size
+
+    fun hasMultipleImages(): Boolean = _imageUrls.value.size > 1
+
+    // In ItemDetailViewModel.kt - Add method to get current image URL
+    fun getCurrentImageUrl(): String {
+        val images = _imageUrls.value
+        val currentIndex = _currentImageIndex.value
+        return if (images.isNotEmpty() && currentIndex < images.size) {
+            images[currentIndex]
+        } else {
+            ""
         }
     }
 

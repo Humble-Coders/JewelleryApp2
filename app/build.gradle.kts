@@ -108,6 +108,9 @@ dependencies {
 
     implementation("androidx.datastore:datastore-preferences:1.1.7")
 
+    // In build.gradle (Module: app) - Add these dependencies
+    implementation (libs.zoomable)
+    implementation ("net.engawapg.lib:zoomable:2.7.0")
 
     testImplementation(libs.junit)
     androidTestImplementation(libs.androidx.junit)

@@ -190,16 +190,15 @@ class JewelryRepository(
         }
     }
 
+    // In JewelryRepository.kt - Update fetchProductsByIds method
     private suspend fun fetchProductsByIds(productIds: List<String>): List<Product> = coroutineScope {
         try {
             Log.d(tag, "Fetching products for IDs: $productIds")
 
-            // Process in batches of 10 (Firestore limitation) but fetch asynchronously
             val productBatches = productIds.chunked(10).map { batch ->
                 async(Dispatchers.IO) {
                     Log.d(tag, "Fetching batch of products: $batch")
 
-                    // Process each product document in parallel within the batch
                     val docDeferred = batch.map { productId ->
                         async(Dispatchers.IO) {
                             try {
@@ -217,45 +216,38 @@ class JewelryRepository(
                         }
                     }
 
-                    // Await all document fetches in this batch
                     docDeferred.awaitAll().filterNotNull()
                 }
             }
 
-            // Wait for all batches to complete
             val allDocuments = productBatches.awaitAll().flatten()
 
-            // Process image URLs in parallel
             val products = allDocuments.map { doc ->
                 async(Dispatchers.Default) {
-                    // Get the image URL from the images array - direct HTTPS URLs
+                    // Get all images from the images array
                     val images = doc.get("images") as? List<*>
-                    val imageUrl = when {
-                        images.isNullOrEmpty() -> ""
-                        images[0] is String -> images[0] as String
-                        else -> ""
-                    }
+                    val imageUrls = images?.mapNotNull { it as? String }?.filter { it.isNotBlank() } ?: emptyList()
 
-                    // Check wishlist status from cache
+                    // Use first image as primary, but store all images
+                    val primaryImageUrl = imageUrls.firstOrNull() ?: ""
+
                     val isFavorite = wishlistCache[doc.id] == true
-
-                    // Extract material_id properly from Firestore
                     val materialId = doc.getString("material_id")
                     val materialType = doc.getString("material_type")
 
-                    // Debug log to see what we're getting from Firestore
-                    Log.d(tag, "Product ${doc.id}: material_id from Firestore = '$materialId', material_type = '$materialType'")
+                    Log.d(tag, "Product ${doc.id}: Found ${imageUrls.size} images")
 
                     Product(
                         id = doc.id,
                         name = doc.getString("name") ?: "",
                         price = doc.getDouble("price") ?: 0.0,
                         currency = "Rs",
-                        imageUrl = imageUrl, // Direct HTTPS URL
+                        imageUrl = primaryImageUrl, // Keep for backward compatibility
+                        imageUrls = imageUrls, // Add new field for all images
                         isFavorite = isFavorite,
                         category = doc.getString("type") ?: "",
-                        materialId = materialId, // Now properly extracted
-                        materialType = materialType // Now properly extracted
+                        materialId = materialId,
+                        materialType = materialType
                     )
                 }
             }.awaitAll()
@@ -265,9 +257,10 @@ class JewelryRepository(
 
         } catch (e: Exception) {
             Log.e(tag, "Error fetching products by IDs: $productIds", e)
-            throw e  // Re-throw to handle in ViewModel
+            throw e
         }
     }
+
     // Fix for getCategories function
      fun getCategories(): Flow<List<Category>> = flow {
         try {
@@ -497,9 +490,9 @@ class JewelryRepository(
         }
     }
 
-     fun getProductDetails(productId: String): Flow<Product> = flow {
+    // In JewelryRepository.kt - Update getProductDetails method
+    fun getProductDetails(productId: String): Flow<Product> = flow {
         try {
-            // Make sure wishlist cache is up to date in the background
             val refreshCacheJob = withContext(Dispatchers.Default) {
                 async {
                     if (wishlistCache.isEmpty()) {
@@ -516,15 +509,16 @@ class JewelryRepository(
             }
 
             if (documentSnapshot.exists()) {
-                // Ensure cache refresh completes
                 refreshCacheJob.await()
 
-                // Get the first image URL from the images array - direct HTTPS URLs
-                val imageUrls = documentSnapshot.get("images") as? List<*>
-                val imageUrl = imageUrls?.firstOrNull()?.toString() ?: ""
+                // Get all images from the images array
+                val images = documentSnapshot.get("images") as? List<*>
+                val imageUrls = images?.mapNotNull { it as? String }?.filter { it.isNotBlank() } ?: emptyList()
+                val primaryImageUrl = imageUrls.firstOrNull() ?: ""
 
-                // Check wishlist status
                 val isInWishlist = wishlistCache[productId] == true
+
+                Log.d(tag, "Product $productId: Found ${imageUrls.size} images")
 
                 val product = Product(
                     id = documentSnapshot.id,
@@ -532,7 +526,8 @@ class JewelryRepository(
                     price = documentSnapshot.getDouble("price") ?: 0.0,
                     currency = documentSnapshot.getString("currency") ?: "Rs",
                     categoryId = documentSnapshot.getString("category_id") ?: "",
-                    imageUrl = imageUrl,
+                    imageUrl = primaryImageUrl, // Keep for backward compatibility
+                    imageUrls = imageUrls, // Add new field for all images
                     materialId = documentSnapshot.getString("material_id"),
                     materialType = documentSnapshot.getString("material_type"),
                     stone = documentSnapshot.getString("stone") ?: "",
