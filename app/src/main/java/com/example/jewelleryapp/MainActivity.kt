@@ -258,7 +258,7 @@ fun AppNavigation(
 
         composable("profile") {
             ProfileScreen(
-                viewModel = profileViewModel,
+                viewModel = profileViewModel, // Use existing instance
                 navController = navController,
                 onSignOut = {
                     // Navigate to login and clear back stack
@@ -292,7 +292,15 @@ fun AppNavigation(
                 onCollectionClick = { collectionId ->
                     // Navigate to collection screen
                     navController.navigate("collection/$collectionId")
-                }
+                },
+                onLogout = {
+                    // Use ProfileViewModel's signOut method
+                    profileViewModel.signOut()
+                    navController.navigate("login") {
+                        popUpTo(0) { inclusive = true }
+                    }
+                },
+                profileViewModel = profileViewModel // Pass ProfileViewModel for profile actions
             )
         }
 

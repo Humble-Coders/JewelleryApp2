@@ -1,6 +1,7 @@
 package com.example.jewelleryapp.screen.profileScreen
 
 import android.net.Uri
+import android.util.Log
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.Image
@@ -70,9 +71,10 @@ fun ProfileScreen(
         uri?.let { viewModel.selectProfileImage(it) }
     }
 
-    // Add this LaunchedEffect in ProfileScreen composable, right after the existing LaunchedEffects
+    // Load profile when screen first appears - with delay for auth stability
     LaunchedEffect(Unit) {
-        // Load user profile when the screen is first displayed
+        Log.d("ProfileScreen", "Screen appeared, loading profile")
+        kotlinx.coroutines.delay(100) // Small delay for stability
         viewModel.loadUserProfile()
     }
 
@@ -93,15 +95,7 @@ fun ProfileScreen(
         }
     }
 
-    LaunchedEffect(profileState) {
-        // Only retry if explicitly in error state, avoid infinite loops
-        if (profileState is ProfileState.Error) {
-            // Add a small delay to prevent rapid retries
-            kotlinx.coroutines.delay(500)
-            viewModel.loadUserProfile()
-        }
-    }
-
+    // Handle deletion state - simplified
     LaunchedEffect(deletionState) {
         when (deletionState) {
             is AccountDeletionState.Success -> {
@@ -114,19 +108,17 @@ fun ProfileScreen(
         }
     }
 
-    LaunchedEffect(isSigningOut) {
-        // Only respond to completed sign out events
-        if (isSigningOut == false && viewModel.wasSignOutRequested()) {
-            onSignOut()
-        }
-    }
+    // Handle sign out - don't rely on isSigningOut state changes
+    // The navigation should be triggered from the sign out button directly
 
     Scaffold(
         topBar = {
             ProfileTopBar(
                 title = "My Profile",
                 isEditing = isEditing,
-                onBackClick = { navController.popBackStack() },
+                onBackClick = { navController.navigate("home") {
+                    popUpTo("home") { inclusive = true }
+                } },
                 onEditClick = { isEditing = true },
                 onSaveClick = {
                     viewModel.updateProfile(name, phone, dateOfBirth)
@@ -151,13 +143,23 @@ fun ProfileScreen(
                     modifier = Modifier.fillMaxSize(),
                     contentAlignment = Alignment.Center
                 ) {
-                    CircularProgressIndicator(color = GoldColor)
+                    Column(
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                        verticalArrangement = Arrangement.Center
+                    ) {
+                        CircularProgressIndicator(color = GoldColor)
+                        Spacer(modifier = Modifier.height(16.dp))
+                        Text("Loading profile...", color = Color.Gray)
+                    }
                 }
             }
             is ProfileState.Error -> {
                 ErrorView(
                     error = (profileState as ProfileState.Error).message,
-                    onRetry = { viewModel.loadUserProfile() }
+                    onRetry = {
+                        Log.d("ProfileScreen", "Retry button clicked")
+                        viewModel.loadUserProfile()
+                    }
                 )
             }
             is ProfileState.Success -> {
@@ -178,11 +180,12 @@ fun ProfileScreen(
                     onSaveImage = { viewModel.saveSelectedImage() },
                     onClearImage = { viewModel.clearSelectedImage() },
                     onRemoveLocalImage = { viewModel.removeLocalProfileImage() },
-                    onSignOut = { viewModel.signOut()
-                        navController.navigate("login") {
-                            popUpTo(0) { inclusive = true }
-                        }
-                                },
+                    onSignOut = {
+                        Log.d("ProfileScreen", "Sign out clicked")
+                        viewModel.signOut()
+                        // Navigate immediately without waiting for state
+                        onSignOut()
+                    },
                     onDeleteAccount = { showDeleteDialog = true },
                     getDisplayImagePath = { viewModel.getDisplayImagePath() },
                     isCurrentImageFromGoogle = { viewModel.isCurrentImageFromGoogle() },

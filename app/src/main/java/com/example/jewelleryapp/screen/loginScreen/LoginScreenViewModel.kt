@@ -48,9 +48,15 @@ class LoginViewModel(private val repository: FirebaseAuthRepository) : ViewModel
                     },
                     onFailure = { exception ->
                         Log.e("GoogleSignIn", "Google Sign-In failed: ${exception.message}", exception)
-                        _loginState.value = LoginState.Error(
-                            exception.message ?: "Google Sign-In failed"
-                        )
+
+                        // NEW: Handle specific error messages for email conflicts
+                        val errorMessage = when {
+                            exception.message?.contains("already registered with email and password") == true ->
+                                "This email is already registered. Please sign in using your email and password."
+                            else -> exception.message ?: "Google Sign-In failed"
+                        }
+
+                        _loginState.value = LoginState.Error(errorMessage)
                     }
                 )
             } catch (e: Exception) {

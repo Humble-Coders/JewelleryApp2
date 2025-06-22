@@ -19,6 +19,7 @@ import kotlinx.coroutines.async
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.withTimeout
+import kotlinx.coroutines.delay
 
 class ProfileViewModel(
     private val profileRepository: ProfileRepository,
@@ -56,73 +57,11 @@ class ProfileViewModel(
 
     // Add flag to prevent multiple loading attempts
     private var isCurrentlyLoading = false
+    private var signOutRequested = false
 
+    // Don't auto-load in init, let the composable trigger it
     init {
-        Log.d(tag, "ProfileViewModel initialized")
-        // Start loading immediately with better error handling
-        loadUserProfileWithRetry()
-    }
-
-    private fun loadUserProfileWithRetry(maxRetries: Int = 3) {
-        viewModelScope.launch {
-            var retryCount = 0
-            var lastError: Exception? = null
-
-            while (retryCount < maxRetries) {
-                try {
-                    Log.d(tag, "Loading profile attempt ${retryCount + 1}/$maxRetries")
-
-                    // Check auth state first
-                    if (!profileRepository.isUserSignedIn()) {
-                        // Wait a bit for auth to initialize
-                        kotlinx.coroutines.delay(500)
-
-                        if (!profileRepository.isUserSignedIn()) {
-                            Log.w(tag, "User not signed in after waiting")
-                            _profileState.value = ProfileState.Error("Please sign in to view profile")
-                            return@launch
-                        }
-                    }
-
-                    // Try to load profile with timeout
-                    val result = withTimeout(10000) { // 10 second timeout
-                        profileRepository.getCurrentUserProfile()
-                    }
-
-                    result.fold(
-                        onSuccess = { profile ->
-                            Log.d(tag, "Profile loaded successfully: ${profile.name}")
-                            _currentProfile.value = profile
-                            _profileState.value = ProfileState.Success(profile)
-                            isCurrentlyLoading = false
-                            return@launch // Success, exit retry loop
-                        },
-                        onFailure = { exception ->
-                            Log.e(tag, "Profile loading failed on attempt ${retryCount + 1}", exception)
-                            lastError = exception as Exception?
-                        }
-                    )
-                } catch (e: Exception) {
-                    Log.e(tag, "Unexpected error on attempt ${retryCount + 1}", e)
-                    lastError = e
-                }
-
-                retryCount++
-                if (retryCount < maxRetries) {
-                    // Wait before retrying (exponential backoff)
-                    val delay = (1000L * retryCount) // 1s, 2s, 3s
-                    Log.d(tag, "Retrying profile load in ${delay}ms")
-                    kotlinx.coroutines.delay(delay)
-                } else {
-                    // All retries failed
-                    Log.e(tag, "All profile loading attempts failed")
-                    _profileState.value = ProfileState.Error(
-                        lastError?.message ?: "Failed to load profile after $maxRetries attempts"
-                    )
-                    isCurrentlyLoading = false
-                }
-            }
-        }
+        Log.d(tag, "ProfileViewModel initialized - waiting for explicit load call")
     }
 
     fun loadUserProfile() {
@@ -137,29 +76,38 @@ class ProfileViewModel(
                 _profileState.value = ProfileState.Loading
                 Log.d(tag, "Loading user profile...")
 
+                // Clear any previous sign out state
+                signOutRequested = false
+
+                // Wait a bit for auth to stabilize after sign in
+                delay(300)
+
                 // Check auth state with timeout
                 val isSignedIn = withTimeout(5000) {
                     var authReady = profileRepository.isUserSignedIn()
                     var attempts = 0
 
-                    while (!authReady && attempts < 10) {
-                        kotlinx.coroutines.delay(200)
+                    while (!authReady && attempts < 15) { // Increased attempts
+                        delay(200)
                         authReady = profileRepository.isUserSignedIn()
                         attempts++
+                        Log.d(tag, "Auth check attempt $attempts: $authReady")
                     }
 
                     authReady
                 }
 
                 if (!isSignedIn) {
-                    Log.w(tag, "User not signed in")
+                    Log.w(tag, "User not signed in after waiting")
                     _profileState.value = ProfileState.Error("Please sign in to view profile")
                     isCurrentlyLoading = false
                     return@launch
                 }
 
+                Log.d(tag, "User is signed in, loading profile...")
+
                 // Load profile with timeout
-                val result = withTimeout(10000) {
+                val result = withTimeout(15000) { // Increased timeout
                     profileRepository.getCurrentUserProfile()
                 }
 
@@ -361,6 +309,7 @@ class ProfileViewModel(
 
     fun signOut() {
         signOutRequested = true
+        Log.d(tag, "Sign out requested")
 
         viewModelScope.launch {
             try {
@@ -390,29 +339,31 @@ class ProfileViewModel(
                     val profileResult = try { profileSignOutJob.await() } catch (e: Exception) { Result.failure(e) }
                     val authResult = try { authSignOutJob.await() } catch (e: Exception) { Result.failure(e) }
 
-                    // Clear all local state regardless of success/failure
-                    _currentProfile.value = null
-                    _selectedImageUri.value = null
-                    _profileState.value = ProfileState.Loading
-                    _updateState.value = ProfileUpdateState.Idle
-                    _deletionState.value = AccountDeletionState.Idle
-                    isCurrentlyLoading = false
-
                     Log.d(tag, "Sign out completed - Profile: ${profileResult.isSuccess}, Auth: ${authResult.isSuccess}")
                 }
+
+                // Clear all local state
+                clearAllState()
+
             } catch (e: Exception) {
                 Log.e(tag, "Error during sign out", e)
                 // Clear all local state anyway
-                _currentProfile.value = null
-                _selectedImageUri.value = null
-                _profileState.value = ProfileState.Loading
-                _updateState.value = ProfileUpdateState.Idle
-                _deletionState.value = AccountDeletionState.Idle
-                isCurrentlyLoading = false
+                clearAllState()
             } finally {
                 _isSigningOut.value = false
+                Log.d(tag, "Sign out process completed")
             }
         }
+    }
+
+    private fun clearAllState() {
+        _currentProfile.value = null
+        _selectedImageUri.value = null
+        _profileState.value = ProfileState.Loading
+        _updateState.value = ProfileUpdateState.Idle
+        _deletionState.value = AccountDeletionState.Idle
+        isCurrentlyLoading = false
+        Log.d(tag, "All state cleared")
     }
 
     fun resetUpdateState() {
@@ -482,10 +433,6 @@ class ProfileViewModel(
             }
         }
     }
-
-    private var signOutRequested = false
-
-
 
     fun wasSignOutRequested(): Boolean = signOutRequested
 

@@ -109,7 +109,9 @@ fun CategoryProductsScreen(
                 categoryName = categoryName,
                 isSearchActive = isSearchActive,
                 searchQuery = searchQuery,
-                onBackClick = { navController.popBackStack() },
+                onBackClick = { navController.navigate("home") {
+                    popUpTo("home") { inclusive = true }
+                } },
                 onSearchToggle = { viewModel.toggleSearch() },
                 onSearchQueryChange = { viewModel.onSearchQueryChange(it) }
             )

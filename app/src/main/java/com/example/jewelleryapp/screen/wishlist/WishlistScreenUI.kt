@@ -82,7 +82,10 @@ fun WishlistScreen(
             TopAppBar(
                 title = { Text("Wishlist", color = goldColor) },
                 navigationIcon = {
-                    IconButton(onClick = { navController.popBackStack() }) {
+                    IconButton(onClick = {  navController.navigate("home") {
+                        popUpTo("home") { inclusive = true }
+                    }
+                    }) {
                         Icon(
                             imageVector = Icons.AutoMirrored.Filled.ArrowBack,
                             contentDescription = "Back",

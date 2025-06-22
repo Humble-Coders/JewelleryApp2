@@ -37,46 +37,83 @@ class RegisterViewModel(private val repository: FirebaseAuthRepository) : ViewMo
             return repository.getGoogleSignInIntent()
         }
 
-        fun handleGoogleSignInResult(data: Intent?) {
-            viewModelScope.launch {
-                try {
-                    Log.d(
-                        "GoogleSignIn",
-                        "Handling Google Sign-In result in Register, data: ${data != null}"
-                    )
+    fun handleGoogleSignInResult(data: Intent?) {
+        viewModelScope.launch {
+            try {
+                Log.d(
+                    "GoogleSignIn",
+                    "Handling Google Sign-In result in Register, data: ${data != null}"
+                )
 
-                    val result = repository.handleGoogleSignInResult(data)
+                val result = repository.handleGoogleSignInResult(data)
 
-                    Log.d("GoogleSignIn", "Repository result in Register: ${result.isSuccess}")
+                Log.d("GoogleSignIn", "Repository result in Register: ${result.isSuccess}")
 
-                    result.fold(
-                        onSuccess = {
-                            Log.d("GoogleSignIn", "Google Sign-In successful in Register")
-                            _registerState.value = RegisterState.Success
-                        },
-                        onFailure = { exception ->
-                            Log.e(
-                                "GoogleSignIn",
-                                "Google Sign-In failed in Register: ${exception.message}",
-                                exception
-                            )
-                            _registerState.value = RegisterState.Error(
-                                exception.message ?: "Google Sign-In failed"
-                            )
+                result.fold(
+                    onSuccess = {
+                        Log.d("GoogleSignIn", "Google Sign-In successful in Register")
+                        _registerState.value = RegisterState.Success
+                    },
+                    onFailure = { exception ->
+                        Log.e(
+                            "GoogleSignIn",
+                            "Google Sign-In failed in Register: ${exception.message}",
+                            exception
+                        )
+
+                        // NEW: Handle specific error messages for email conflicts
+                        val errorMessage = when {
+                            exception.message?.contains("already registered with email and password") == true ->
+                                "This email is already registered. Please sign in using your email and password."
+                            else -> exception.message ?: "Google Sign-In failed"
                         }
-                    )
-                } catch (e: Exception) {
-                    Log.e(
-                        "GoogleSignIn",
-                        "Unexpected error in Register handleGoogleSignInResult",
-                        e
-                    )
-                    _registerState.value = RegisterState.Error(
-                        "An unexpected error occurred: ${e.message}"
-                    )
-                }
+
+                        _registerState.value = RegisterState.Error(errorMessage)
+                    }
+                )
+            } catch (e: Exception) {
+                Log.e(
+                    "GoogleSignIn",
+                    "Unexpected error in Register handleGoogleSignInResult",
+                    e
+                )
+                _registerState.value = RegisterState.Error(
+                    "An unexpected error occurred: ${e.message}"
+                )
             }
         }
+    }
+
+    // UPDATE registerWithEmailAndPassword method to handle Google conflict errors
+    fun registerWithEmailAndPassword(
+        fullName: String,
+        email: String,
+        password: String,
+        phone: String = ""
+    ) {
+        _registerState.value = RegisterState.Loading
+
+        viewModelScope.launch {
+            val result =
+                repository.createUserWithEmailAndPassword(fullName, email, password, phone)
+
+            result.fold(
+                onSuccess = {
+                    _registerState.value = RegisterState.Success
+                },
+                onFailure = { exception ->
+                    // NEW: Handle specific error messages for Google conflicts
+                    val errorMessage = when {
+                        exception.message?.contains("already registered with Google") == true ->
+                            "This email is already registered with Google. Please sign in using Google."
+                        else -> exception.message ?: "Registration failed"
+                    }
+
+                    _registerState.value = RegisterState.Error(errorMessage)
+                }
+            )
+        }
+    }
 
         fun cancelGoogleSignIn() {
             if (_registerState.value is RegisterState.GoogleSignInLoading) {
@@ -84,30 +121,6 @@ class RegisterViewModel(private val repository: FirebaseAuthRepository) : ViewMo
             }
         }
 
-        // RegisterViewModel.kt - Update this method
-        fun registerWithEmailAndPassword(
-            fullName: String,
-            email: String,
-            password: String,
-            phone: String = ""
-        ) {
-            _registerState.value = RegisterState.Loading
-
-            viewModelScope.launch {
-                val result =
-                    repository.createUserWithEmailAndPassword(fullName, email, password, phone)
-
-                result.fold(
-                    onSuccess = {
-                        _registerState.value = RegisterState.Success
-                    },
-                    onFailure = {
-                        _registerState.value =
-                            RegisterState.Error(it.message ?: "Registration failed")
-                    }
-                )
-            }
-        }
 
 
         fun resetState() {

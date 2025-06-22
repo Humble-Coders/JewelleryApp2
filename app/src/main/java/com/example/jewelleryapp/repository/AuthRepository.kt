@@ -32,7 +32,48 @@ class FirebaseAuthRepository(private val firebaseAuth: FirebaseAuth,
         GoogleSignIn.getClient(context, gso)
     }
 
-    // Update handleGoogleSignInResult in FirebaseAuthRepository
+
+    private suspend fun checkIfEmailExistsInEmailAuth(email: String?): Boolean {
+        if (email == null) return false
+
+        return try {
+            val existingProfile = FirebaseFirestore.getInstance()
+                .collection("users")
+                .whereEqualTo("email", email)
+                .whereEqualTo("googleSignIn", false) // Only email/password accounts
+                .limit(1)
+                .get()
+                .await()
+
+            val exists = existingProfile.documents.isNotEmpty()
+            Log.d("AuthRepository", "Email $email exists in email/password auth: $exists")
+            exists
+        } catch (e: Exception) {
+            Log.e("AuthRepository", "Error checking email in email auth", e)
+            false
+        }
+    }
+
+    private suspend fun checkIfEmailExistsInGoogleAuth(email: String): Boolean {
+        return try {
+            val existingProfile = FirebaseFirestore.getInstance()
+                .collection("users")
+                .whereEqualTo("email", email)
+                .whereEqualTo("googleSignIn", true) // Only Google accounts
+                .limit(1)
+                .get()
+                .await()
+
+            val exists = existingProfile.documents.isNotEmpty()
+            Log.d("AuthRepository", "Email $email exists in Google auth: $exists")
+            exists
+        } catch (e: Exception) {
+            Log.e("AuthRepository", "Error checking email in Google auth", e)
+            false
+        }
+    }
+
+    // UPDATE existing handleGoogleSignInResult method
     suspend fun handleGoogleSignInResult(data: Intent?): Result<Unit> {
         return try {
             Log.d("AuthRepository", "Processing Google Sign-In result")
@@ -47,6 +88,14 @@ class FirebaseAuthRepository(private val firebaseAuth: FirebaseAuth,
 
             Log.d("AuthRepository", "Google account retrieved: ${account.email}")
 
+            // NEW: Check if email exists in email/password auth
+            val emailExists = checkIfEmailExistsInEmailAuth(account.email)
+
+            if (emailExists) {
+                Log.d("AuthRepository", "Email ${account.email} already registered with email/password")
+                return Result.failure(Exception("This email is already registered with email and password. Please sign in using your email and password instead."))
+            }
+
             signInWithGoogle(account)
         } catch (e: ApiException) {
             Log.e("AuthRepository", "Google sign-in ApiException: ${e.statusCode}", e)
@@ -56,6 +105,94 @@ class FirebaseAuthRepository(private val firebaseAuth: FirebaseAuth,
             Result.failure(Exception("Google sign-in error: ${e.message}"))
         }
     }
+
+    // UPDATE existing createUserWithEmailAndPassword method
+    suspend fun createUserWithEmailAndPassword(name: String, email: String, password: String, phone: String = ""): Result<Unit> {
+        return try {
+            // Trim and validate email
+            val trimmedEmail = email.trim()
+
+            Log.d("AuthRepository", "Attempting to create user with email: '$trimmedEmail'")
+
+            if (!isValidEmail(trimmedEmail)) {
+                Log.e("AuthRepository", "Invalid email format: $trimmedEmail")
+                return Result.failure(IllegalArgumentException("Invalid email format"))
+            }
+
+            // NEW: Check if email exists with Google sign-in
+            val googleAccountExists = checkIfEmailExistsInGoogleAuth(trimmedEmail)
+            if (googleAccountExists) {
+                Log.d("AuthRepository", "Email $trimmedEmail already registered with Google")
+                return Result.failure(Exception("This email is already registered with Google. Please sign in using Google instead."))
+            }
+
+            withContext(Dispatchers.IO) {
+                // Create the authentication user
+                val authResult = firebaseAuth.createUserWithEmailAndPassword(trimmedEmail, password).await()
+                val userId = authResult.user?.uid ?: throw Exception("Failed to create user account")
+
+                Log.d("AuthRepository", "User created successfully with UID: $userId")
+
+                // Check if a temporary user document exists with encoded email as ID
+                val encodedEmail = trimmedEmail
+
+                val tempUserDoc = try {
+                    FirebaseFirestore.getInstance()
+                        .collection("users")
+                        .document(encodedEmail)
+                        .get()
+                        .await()
+                } catch (e: Exception) {
+                    Log.w("AuthRepository", "Error checking for temp user: ${e.message}")
+                    null
+                }
+
+                // Create user profile data
+                val userProfileData = hashMapOf(
+                    "email" to trimmedEmail,
+                    "encodedEmail" to encodedEmail,
+                    "name" to name,
+                    "phone" to phone,
+                    "createdAt" to System.currentTimeMillis(),
+                    "isTemporary" to false,
+                    "googleSignIn" to false // Mark as email/password account
+                )
+
+                // If temporary document exists, handle data migration
+                if (tempUserDoc != null && tempUserDoc.exists()) {
+                    Log.d("AuthRepository", "Temporary user document found, migrating data")
+                    // Delete the temporary document
+                    FirebaseFirestore.getInstance()
+                        .collection("users")
+                        .document(encodedEmail)
+                        .delete()
+                        .await()
+                }
+
+                // Save new user document with Auth UID
+                FirebaseFirestore.getInstance()
+                    .collection("users")
+                    .document(userId)
+                    .set(userProfileData)
+                    .await()
+
+                // Update Auth profile
+                val profileUpdates = UserProfileChangeRequest.Builder()
+                    .setDisplayName(name)
+                    .build()
+
+                firebaseAuth.currentUser?.updateProfile(profileUpdates)?.await()
+                Log.d("AuthRepository", "User profile updated successfully")
+                Result.success(Unit)
+            }
+        } catch (e: Exception) {
+            Log.e("AuthRepository", "Registration error: ${e.message}", e)
+            Result.failure(e)
+        }
+    }
+
+
+    // Update handleGoogleSignInResult in FirebaseAuthRepository
 
     suspend fun reauthenticateWithPassword(password: String): Result<Unit> {
         return try {
@@ -129,73 +266,14 @@ class FirebaseAuthRepository(private val firebaseAuth: FirebaseAuth,
     }
 
     // Method to get Google Sign-In intent
-    fun getGoogleSignInIntent(): android.content.Intent {
+    fun getGoogleSignInIntent(): Intent {
+        googleSignInClient.signOut() // Just this line
         return googleSignInClient.signInIntent
     }
 
 
 
-    private suspend fun createGoogleUserProfile(userId: String, account: GoogleSignInAccount) {
-        try {
-            val userProfileData = hashMapOf(
-                "email" to (account.email ?: ""),
-                "encodedEmail" to (account.email ?: ""),
-                "name" to (account.displayName ?: ""),
-                "phone" to "", // Google doesn't provide phone by default
-                "createdAt" to System.currentTimeMillis(),
-                "isTemporary" to false,
-                "googleSignIn" to true,
-                "profilePictureUrl" to (account.photoUrl?.toString() ?: ""),
-                "googleId" to (account.id ?: "")
-            )
 
-            FirebaseFirestore.getInstance()
-                .collection("users")
-                .document(userId)
-                .set(userProfileData)
-                .await()
-
-            Log.d("AuthRepository", "Google user profile created successfully")
-        } catch (e: Exception) {
-            Log.e("AuthRepository", "Error creating Google user profile", e)
-            throw e
-        }
-    }
-
-    private suspend fun updateExistingUserWithGoogleData(userId: String, account: GoogleSignInAccount) {
-        try {
-            val updateData = hashMapOf<String, Any>(
-                "googleSignIn" to true,
-                "profilePictureUrl" to (account.photoUrl?.toString() ?: ""),
-                "googleId" to (account.id ?: "")
-            )
-
-            // Only update name if current name is empty
-            val currentUser = FirebaseFirestore.getInstance()
-                .collection("users")
-                .document(userId)
-                .get()
-                .await()
-
-            if (currentUser.exists()) {
-                val currentName = currentUser.getString("name") ?: ""
-                if (currentName.isBlank() && !account.displayName.isNullOrBlank()) {
-                    updateData["name"] = account.displayName!!
-                }
-            }
-
-            FirebaseFirestore.getInstance()
-                .collection("users")
-                .document(userId)
-                .update(updateData)
-                .await()
-
-            Log.d("AuthRepository", "Existing user updated with Google data")
-        } catch (e: Exception) {
-            Log.e("AuthRepository", "Error updating existing user with Google data", e)
-            // Don't throw here as sign-in should still succeed
-        }
-    }
 
     private fun getGoogleSignInErrorMessage(statusCode: Int): String {
         return when (statusCode) {
@@ -241,87 +319,6 @@ class FirebaseAuthRepository(private val firebaseAuth: FirebaseAuth,
     }
 
 
-    suspend fun createUserWithEmailAndPassword(name: String, email: String, password: String, phone: String = ""): Result<Unit> {
-        return try {
-            // Trim and validate email
-            val trimmedEmail = email.trim()
-
-            // Log for debugging
-            Log.d("AuthRepository", "Attempting to create user with email: '$trimmedEmail'")
-
-            if (!isValidEmail(trimmedEmail)) {
-                Log.e("AuthRepository", "Invalid email format: $trimmedEmail")
-                return Result.failure(IllegalArgumentException("Invalid email format"))
-            }
-
-            withContext(Dispatchers.IO) {
-                // Create the authentication user
-                val authResult = firebaseAuth.createUserWithEmailAndPassword(trimmedEmail, password).await()
-                val userId = authResult.user?.uid ?: throw Exception("Failed to create user account")
-
-                Log.d("AuthRepository", "User created successfully with UID: $userId")
-
-                // Check if a temporary user document exists with encoded email as ID
-                val encodedEmail = trimmedEmail
-
-                val tempUserDoc = try {
-                    FirebaseFirestore.getInstance()
-                        .collection("users")
-                        .document(encodedEmail)
-                        .get()
-                        .await()
-                } catch (e: Exception) {
-                    Log.w("AuthRepository", "Error checking for temp user: ${e.message}")
-                    null
-                }
-
-                // Create user profile data
-                val userProfileData = hashMapOf(
-                    "email" to trimmedEmail,
-                    "encodedEmail" to encodedEmail,
-                    "name" to name,
-                    "phone" to phone,
-                    "createdAt" to System.currentTimeMillis(),
-                    "isTemporary" to false
-                )
-
-                // If temporary document exists, handle data migration
-                if (tempUserDoc != null && tempUserDoc.exists()) {
-                    Log.d("AuthRepository", "Temporary user document found, migrating data")
-                    // Copy any fields you want to preserve from temp user
-                    // ...
-
-                    // Delete the temporary document
-                    FirebaseFirestore.getInstance()
-                        .collection("users")
-                        .document(encodedEmail)
-                        .delete()
-                        .await()
-                }
-
-                // Save new user document with Auth UID
-                FirebaseFirestore.getInstance()
-                    .collection("users")
-                    .document(userId)
-                    .set(userProfileData)
-                    .await()
-
-                // Update Auth profile
-                val profileUpdates = UserProfileChangeRequest.Builder()
-                    .setDisplayName(name)
-                    .build()
-
-                firebaseAuth.currentUser?.updateProfile(profileUpdates)?.await()
-                Log.d("AuthRepository", "User profile updated successfully")
-                Result.success(Unit)
-            }
-        } catch (e: Exception) {
-            Log.e("AuthRepository", "Registration error: ${e.message}", e)
-            Result.failure(e)
-        }
-    }
-
-
     private fun isValidEmail(email: String): Boolean {
         val trimmedEmail = email.trim()
 
@@ -333,6 +330,70 @@ class FirebaseAuthRepository(private val firebaseAuth: FirebaseAuth,
     fun getCurrentUser() = firebaseAuth.currentUser
 
     fun isUserLoggedIn() = firebaseAuth.currentUser != null
+
+    private suspend fun createGoogleUserProfile(userId: String, account: GoogleSignInAccount) {
+        try {
+            val userProfileData = hashMapOf(
+                "email" to (account.email ?: ""),
+                "encodedEmail" to (account.email ?: ""),
+                "name" to (account.displayName ?: ""),
+                "phone" to "", // Google doesn't provide phone by default
+                "createdAt" to System.currentTimeMillis(),
+                "isTemporary" to false,
+                "googleSignIn" to true, // Mark as Google account
+                "profilePictureUrl" to (account.photoUrl?.toString() ?: ""),
+                "googleId" to (account.id ?: "")
+            )
+
+            FirebaseFirestore.getInstance()
+                .collection("users")
+                .document(userId)
+                .set(userProfileData)
+                .await()
+
+            Log.d("AuthRepository", "Google user profile created successfully")
+        } catch (e: Exception) {
+            Log.e("AuthRepository", "Error creating Google user profile", e)
+            throw e
+        }
+    }
+
+    // UPDATE updateExistingUserWithGoogleData method in AuthRepository
+    private suspend fun updateExistingUserWithGoogleData(userId: String, account: GoogleSignInAccount) {
+        try {
+            val updateData = hashMapOf<String, Any>(
+                "googleSignIn" to true, // Ensure this is marked as Google account
+                "profilePictureUrl" to (account.photoUrl?.toString() ?: ""),
+                "googleId" to (account.id ?: "")
+            )
+
+            // Only update name if current name is empty
+            val currentUser = FirebaseFirestore.getInstance()
+                .collection("users")
+                .document(userId)
+                .get()
+                .await()
+
+            if (currentUser.exists()) {
+                val currentName = currentUser.getString("name") ?: ""
+                if (currentName.isBlank() && !account.displayName.isNullOrBlank()) {
+                    updateData["name"] = account.displayName!!
+                }
+            }
+
+            FirebaseFirestore.getInstance()
+                .collection("users")
+                .document(userId)
+                .update(updateData)
+                .await()
+
+            Log.d("AuthRepository", "Existing user updated with Google data")
+        } catch (e: Exception) {
+            Log.e("AuthRepository", "Error updating existing user with Google data", e)
+            // Don't throw here as sign-in should still succeed
+        }
+    }
+
 }
 
 

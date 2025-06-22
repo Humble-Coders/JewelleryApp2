@@ -11,10 +11,10 @@ import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.platform.LocalContext
 
-private val DarkColorScheme = darkColorScheme(
-    primary = Purple80,
-    secondary = PurpleGrey80,
-    tertiary = Pink80
+private val DarkColorScheme = lightColorScheme( // Changed from darkColorScheme to lightColorScheme
+    primary = Purple40,    // Using light theme colors
+    secondary = PurpleGrey40,
+    tertiary = Pink40
 )
 
 private val LightColorScheme = lightColorScheme(
@@ -43,10 +43,11 @@ fun JewelleryAppTheme(
     val colorScheme = when {
         dynamicColor && Build.VERSION.SDK_INT >= Build.VERSION_CODES.S -> {
             val context = LocalContext.current
-            if (darkTheme) dynamicDarkColorScheme(context) else dynamicLightColorScheme(context)
+            // Use light theme colors for both dark and light dynamic themes
+            dynamicLightColorScheme(context)
         }
 
-        darkTheme -> DarkColorScheme
+        darkTheme -> DarkColorScheme  // Now uses same colors as light theme
         else -> LightColorScheme
     }
 

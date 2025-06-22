@@ -15,6 +15,7 @@ import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.auth.GoogleAuthProvider
 import com.google.firebase.firestore.FirebaseFirestore
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
@@ -36,18 +37,7 @@ class ProfileRepository(
         private val PROFILE_IMAGE_PATH_KEY = stringPreferencesKey("profile_image_path")
     }
 
-    suspend fun waitForAuthState(): Boolean {
-        return withContext(Dispatchers.IO) {
-            // Wait up to 2 seconds for auth state to be available
-            repeat(20) {
-                if (firebaseAuth.currentUser != null) {
-                    return@withContext true
-                }
-                kotlinx.coroutines.delay(100)
-            }
-            false
-        }
-    }
+
     suspend fun updateUserProfile(updateRequest: ProfileUpdateRequest): Result<Unit> {
         return try {
             val currentUser = firebaseAuth.currentUser
@@ -238,10 +228,15 @@ class ProfileRepository(
         }
     }
 
+    // In ProfileRepository.kt, update the getCurrentUserProfile method:
+
+    // In ProfileRepository.kt, update the getCurrentUserProfile method:
+
     suspend fun getCurrentUserProfile(): Result<UserProfile> {
         return try {
-            // Wait for auth state if needed
+            // Enhanced auth state checking
             if (firebaseAuth.currentUser == null) {
+                Log.d(tag, "No current user, waiting for auth...")
                 val authAvailable = waitForAuthState()
                 if (!authAvailable) {
                     return Result.failure(Exception("No authenticated user"))
@@ -251,36 +246,64 @@ class ProfileRepository(
             val currentUser = firebaseAuth.currentUser
                 ?: return Result.failure(Exception("No authenticated user"))
 
-            withContext(Dispatchers.IO) {
-                val userDoc = firestore.collection("users")
-                    .document(currentUser.uid)
-                    .get()
-                    .await()
+            Log.d(tag, "Current user found: ${currentUser.uid}, email: ${currentUser.email}")
 
-                if (!userDoc.exists()) {
-                    return@withContext Result.failure(Exception("User profile not found"))
+            withContext(Dispatchers.IO) {
+                // Add retry logic for Firestore document fetch
+                var attempt = 0
+                var lastException: Exception? = null
+
+                while (attempt < 3) {
+                    try {
+                        val userDoc = firestore.collection("users")
+                            .document(currentUser.uid)
+                            .get()
+                            .await()
+
+                        if (!userDoc.exists()) {
+                            Log.w(tag, "User document not found, attempt ${attempt + 1}")
+                            if (attempt < 2) {
+                                delay(500L * (attempt + 1)) // Progressive delay
+                                attempt++
+                                continue
+                            }
+                            return@withContext Result.failure(Exception("User profile not found"))
+                        }
+
+                        val data = userDoc.data!!
+                        val isGoogleSignIn = data["googleSignIn"] as? Boolean ?: false
+
+                        // Get local image path from DataStore
+                        val localImagePath = getLocalImagePath().first()
+
+                        val profile = UserProfile(
+                            id = currentUser.uid,
+                            name = data["name"] as? String ?: "",
+                            email = data["email"] as? String ?: currentUser.email ?: "",
+                            phone = data["phone"] as? String ?: "",
+                            dateOfBirth = data["dateOfBirth"] as? String ?: "",
+                            profilePictureUrl = data["profilePictureUrl"] as? String ?: "",
+                            isGoogleSignIn = isGoogleSignIn,
+                            createdAt = data["createdAt"] as? Long ?: 0L,
+                            localImagePath = localImagePath
+                        )
+
+                        Log.d(tag, "Profile loaded successfully for user: ${currentUser.uid}")
+                        return@withContext Result.success(profile)
+
+                    } catch (e: Exception) {
+                        Log.e(tag, "Error loading profile attempt ${attempt + 1}", e)
+                        lastException = e
+                        if (attempt < 2) {
+                            delay(500L * (attempt + 1))
+                            attempt++
+                        } else {
+                            break
+                        }
+                    }
                 }
 
-                val data = userDoc.data!!
-                val isGoogleSignIn = data["googleSignIn"] as? Boolean ?: false
-
-                // Get local image path from DataStore
-                val localImagePath = getLocalImagePath().first()
-
-                val profile = UserProfile(
-                    id = currentUser.uid,
-                    name = data["name"] as? String ?: "",
-                    email = data["email"] as? String ?: currentUser.email ?: "",
-                    phone = data["phone"] as? String ?: "",
-                    dateOfBirth = data["dateOfBirth"] as? String ?: "",
-                    profilePictureUrl = data["profilePictureUrl"] as? String ?: "",
-                    isGoogleSignIn = isGoogleSignIn,
-                    createdAt = data["createdAt"] as? Long ?: 0L,
-                    localImagePath = localImagePath
-                )
-
-                Log.d(tag, "Profile loaded successfully for user: ${currentUser.uid}")
-                Result.success(profile)
+                Result.failure(lastException ?: Exception("Failed to load profile after retries"))
             }
         } catch (e: Exception) {
             Log.e(tag, "Error loading user profile", e)
@@ -288,5 +311,28 @@ class ProfileRepository(
         }
     }
 
+    // Also update waitForAuthState with better logic:
+    suspend fun waitForAuthState(): Boolean {
+        return withContext(Dispatchers.IO) {
+            var attempts = 0
+            val maxAttempts = 25 // Increased attempts
+
+            while (attempts < maxAttempts) {
+                val currentUser = firebaseAuth.currentUser
+
+                if (currentUser != null) {
+                    Log.d(tag, "Auth state ready: ${currentUser.uid}")
+                    return@withContext true
+                }
+
+                delay(200) // Check every 200ms
+                attempts++
+                Log.d(tag, "Waiting for auth state, attempt $attempts/$maxAttempts")
+            }
+
+            Log.w(tag, "Auth state not ready after ${maxAttempts * 200}ms")
+            false
+        }
+    }
 
 }

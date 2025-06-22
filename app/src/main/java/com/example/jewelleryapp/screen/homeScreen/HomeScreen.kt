@@ -30,7 +30,6 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
@@ -63,11 +62,14 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.filled.ChevronRight
 import androidx.compose.material.icons.filled.Close
-
-
+import com.example.jewelleryapp.model.UserProfile
+import com.example.jewelleryapp.repository.ProfileRepository
+import com.example.jewelleryapp.screen.profileScreen.ProfileViewModel
+import com.google.firebase.firestore.FirebaseFirestore
+import kotlinx.coroutines.tasks.await
+import java.io.File
 
 
 @Composable
@@ -76,7 +78,10 @@ fun HomeScreen(
     onCategoryClick: (String) -> Unit = {},
     onProductClick: (String) -> Unit = {},
     onCollectionClick: (String) -> Unit = {},
-    navController: NavController
+    navController: NavController,
+    onLogout: () -> Unit, // Add this parameter
+    profileViewModel: ProfileViewModel, // Add this parameter
+
 ) {
     // Collect existing state flows
     val categories by viewModel.categories.collectAsState()
@@ -90,26 +95,101 @@ fun HomeScreen(
     val isSearchActive by viewModel.isSearchActive.collectAsState()
     val searchQuery by viewModel.searchQuery.collectAsState()
     val filteredCategories by viewModel.filteredCategories.collectAsState()
+    val currentProfile by profileViewModel.currentProfile.collectAsState()
+
 
     val scrollState = rememberScrollState()
-    val drawerState = rememberDrawerState(initialValue = DrawerValue.Closed)
+
+    // Key fix: Use a stable key for drawer state to prevent recreation
+    val currentRoute = navController.currentDestination?.route
+    val drawerState = rememberDrawerState(
+        initialValue = DrawerValue.Closed
+    )
+
+    LaunchedEffect(Unit) {
+        profileViewModel.loadUserProfile()
+    }
+    // Create a stable coroutine scope
     val scope = rememberCoroutineScope()
+
+    // Dispose drawer state properly when leaving home screen
+    DisposableEffect(currentRoute) {
+        onDispose {
+            // Clean up drawer state when leaving
+            if (drawerState.isOpen) {
+                try {
+                    // Don't use coroutine here, just reset the state
+                    // drawerState.close() // This can cause issues in onDispose
+                } catch (e: Exception) {
+                    Log.e("HomeScreen", "Error disposing drawer", e)
+                }
+            }
+        }
+    }
+
+    // Force close drawer when returning to home from other screens
+    LaunchedEffect(currentRoute) {
+        if (currentRoute == "home" && drawerState.isOpen) {
+            try {
+                drawerState.close()
+            } catch (e: Exception) {
+                Log.e("HomeScreen", "Error closing drawer on route change", e)
+            }
+        }
+    }
+
+    // Create stable drawer content to prevent recomposition issues
+    val drawerContent = remember(navController) {
+        @Composable {
+            ModalDrawerSheet(
+                modifier = Modifier.fillMaxWidth(0.75f),
+                drawerContainerColor = Color.White
+            ) {
+                DrawerContent(
+                    navController = navController,
+                    onCloseDrawer = {
+                        scope.launch {
+                            try {
+                                drawerState.close()
+                            } catch (e: Exception) {
+                                Log.e("HomeScreen", "Error closing drawer", e)
+                            }
+                        }
+                    },
+                    onLogout = {
+                        onLogout() // Call the logout function passed from the parent
+                    },
+                    userProfile = currentProfile // Pass profile data
+
+                )
+            }
+        }
+    }
 
     ModalNavigationDrawer(
         drawerState = drawerState,
-        drawerContent = {
-            ModalDrawerSheet(
-                modifier = Modifier.fillMaxWidth(0.75f)
-            ) {
-                DrawerContent(navController) { scope.launch { drawerState.close() } }
-            }
-        }
+        drawerContent = drawerContent,
+        gesturesEnabled = currentRoute == "home" // Only enable on home screen
     ) {
         Scaffold(
             topBar = {
                 TopAppbar(
                     title = "Gagan Jewellers",
-                    onMenuClick = { scope.launch { drawerState.open() } },
+                    onMenuClick = {
+                        if (currentRoute == "home") {
+                            scope.launch {
+                                try {
+                                    if (drawerState.isClosed) {
+                                        drawerState.open()
+                                    } else {
+                                        drawerState.close()
+                                    }
+                                } catch (e: Exception) {
+                                    Log.e("HomeScreen", "Drawer toggle failed", e)
+                                }
+                            }
+                        }
+                    },
                     isSearchActive = isSearchActive,
                     searchQuery = searchQuery,
                     onSearchToggle = { viewModel.toggleSearch() },
@@ -191,6 +271,306 @@ fun HomeScreen(
         }
     }
 }
+
+// In HomeScreen.kt - UPDATE StableDrawerContent function
+
+@Composable
+fun DrawerContent(
+    navController: NavController,
+    onCloseDrawer: () -> Unit,
+    onLogout: () -> Unit,
+    userProfile: UserProfile? // Pass user profile data
+) {
+    val amberColor = Color(0xFFB78628)
+    val context = LocalContext.current
+
+    // Get current user and profile data
+    val currentUser = remember { FirebaseAuth.getInstance().currentUser }
+    val userName = remember(currentUser) { currentUser?.displayName ?: "Guest" }
+
+    // Get profile data to access local image path
+    var profileImageUrl by remember { mutableStateOf<String?>(null) }
+    var localImagePath by remember { mutableStateOf<String?>(null) }
+
+    // Fetch profile data when composable loads
+    LaunchedEffect(currentUser) {
+        currentUser?.let { user ->
+            try {
+                // Get profile document from Firestore
+                val profileDoc = FirebaseFirestore.getInstance()
+                    .collection("users")
+                    .document(user.uid)
+                    .get()
+                    .await()
+
+                if (profileDoc.exists()) {
+                    // Get Google profile picture URL
+                    profileImageUrl = profileDoc.getString("profilePictureUrl")
+
+                    // Get local image path from DataStore (for email/password users)
+                    val profileRepository = ProfileRepository(
+                        FirebaseAuth.getInstance(),
+                        FirebaseFirestore.getInstance(),
+                        context
+                    )
+                    val userProfile = profileRepository.getCurrentUserProfile()
+                    userProfile.fold(
+                        onSuccess = { profile ->
+                            localImagePath = profile.localImagePath
+                        },
+                        onFailure = { /* Handle error silently */ }
+                    )
+                }
+            } catch (e: Exception) {
+                Log.e("DrawerContent", "Error loading profile data", e)
+            }
+        }
+    }
+
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(Color.White)
+            .padding(16.dp)
+    ) {
+        // Profile header with proper image handling
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            modifier = Modifier.padding(bottom = 16.dp)
+        ) {
+            Box(
+                modifier = Modifier
+                    .size(50.dp)
+                    .clip(CircleShape)
+                    .background(amberColor, CircleShape)
+                    .padding(3.dp)
+            ) {
+                // Show image based on priority: local image -> Google image -> default
+                when {
+                    // Local image (for email/password users)
+                    !localImagePath.isNullOrEmpty() -> {
+                        AsyncImage(
+                            model = ImageRequest.Builder(context)
+                                .data(File(localImagePath))
+                                .crossfade(true)
+                                .build(),
+                            contentDescription = "Profile Picture",
+                            modifier = Modifier
+                                .fillMaxSize()
+                                .clip(CircleShape),
+                            contentScale = ContentScale.Crop,
+                            error = painterResource(id = R.drawable.ic_launcher_background)
+                        )
+                    }
+                    // Google profile picture
+                    !profileImageUrl.isNullOrEmpty() -> {
+                        AsyncImage(
+                            model = ImageRequest.Builder(context)
+                                .data(profileImageUrl)
+                                .crossfade(true)
+                                .build(),
+                            contentDescription = "Profile Picture",
+                            modifier = Modifier
+                                .fillMaxSize()
+                                .clip(CircleShape),
+                            contentScale = ContentScale.Crop,
+                            error = painterResource(id = R.drawable.ic_launcher_background)
+                        )
+                    }
+                    // Default image
+                    else -> {
+                        Image(
+                            painter = painterResource(id = R.drawable.ic_launcher_background),
+                            contentDescription = "Default Profile Picture",
+                            modifier = Modifier
+                                .fillMaxSize()
+                                .clip(CircleShape),
+                            contentScale = ContentScale.Crop
+                        )
+                    }
+                }
+            }
+            Spacer(modifier = Modifier.width(12.dp))
+
+            Text(
+                text = "Hi $userName!",
+                fontWeight = FontWeight.Bold,
+                fontSize = 22.sp,
+                color = Color.Black,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis
+            )
+        }
+
+        // Rest of your drawer content remains the same...
+        HorizontalDivider(thickness = 1.dp, color = Color.LightGray)
+        Spacer(modifier = Modifier.height(16.dp))
+
+        // All your existing navigation items...
+        val navigateToProfile = remember {
+            {
+                onCloseDrawer()
+                navController.navigate("profile")
+            }
+        }
+
+        val navigateToHome = remember {
+            {
+                onCloseDrawer()
+                navController.navigate("home") {
+                    popUpTo("home") { inclusive = true }
+                }
+            }
+        }
+
+        val logout = remember {
+            {
+                onCloseDrawer()
+                onLogout()
+            }
+        }
+
+        DrawerItem(
+            icon = Icons.Outlined.Person,
+            text = "My Profile",
+            onClick = navigateToProfile
+        )
+
+        DrawerItem(
+            icon = Icons.Outlined.History,
+            text = "Order History",
+            onClick = { onCloseDrawer() }
+        )
+
+        Text(
+            text = "Shop By",
+            color = amberColor,
+            fontWeight = FontWeight.Bold,
+            fontSize = 14.sp,
+            modifier = Modifier.padding(top = 16.dp, bottom = 8.dp)
+        )
+
+        DrawerItem(
+            text = "All Jewellery",
+            onClick = navigateToHome
+        )
+
+        DrawerItem(
+            text = "Metal",
+            onClick = {
+                onCloseDrawer()
+                navController.navigate("category/metals")
+            }
+        )
+
+        DrawerItem(
+            text = "Collections",
+            onClick = {
+                onCloseDrawer()
+                navController.navigate("collection/all")
+            }
+        )
+
+        Text(
+            text = "Shop For",
+            color = amberColor,
+            fontWeight = FontWeight.Bold,
+            fontSize = 14.sp,
+            modifier = Modifier.padding(top = 16.dp, bottom = 8.dp)
+        )
+
+        DrawerItem(
+            text = "Men",
+            onClick = {
+                onCloseDrawer()
+                navController.navigate("category/men")
+            }
+        )
+
+        DrawerItem(
+            text = "Kids",
+            onClick = {
+                onCloseDrawer()
+                navController.navigate("category/kids")
+            }
+        )
+
+        Text(
+            text = "More",
+            color = amberColor,
+            fontWeight = FontWeight.Bold,
+            fontSize = 14.sp,
+            modifier = Modifier.padding(top = 16.dp, bottom = 8.dp)
+        )
+
+        DrawerItem(
+            icon = Icons.Outlined.AttachMoney,
+            text = "Gold Rate",
+            onClick = { onCloseDrawer() }
+        )
+
+        DrawerItem(
+            icon = Icons.Outlined.Headset,
+            text = "Get In Touch",
+            onClick = { onCloseDrawer() }
+        )
+
+        DrawerItem(
+            icon = Icons.Outlined.LocationOn,
+            text = "Store Locator",
+            onClick = { onCloseDrawer() }
+        )
+
+        DrawerItem(
+            icon = Icons.AutoMirrored.Outlined.ExitToApp,
+            text = "Logout",
+            onClick = logout
+        )
+    }
+}
+
+@Composable
+fun DrawerItem(
+    text: String,
+    onClick: () -> Unit,
+    icon: androidx.compose.ui.graphics.vector.ImageVector? = null
+) {
+    // Stable click handler
+    val stableOnClick = remember(onClick) { onClick }
+
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable { stableOnClick() }
+            .padding(vertical = 12.dp, horizontal = 16.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        if (icon != null) {
+            Icon(
+                imageVector = icon,
+                contentDescription = text,
+                tint = Color.DarkGray,
+                modifier = Modifier.size(24.dp)
+            )
+            Spacer(modifier = Modifier.width(16.dp))
+        }
+        Text(
+            text = text,
+            fontSize = 18.sp,
+            modifier = Modifier.weight(1f),
+            color = Color.Black
+        )
+        Icon(
+            imageVector = Icons.Outlined.ChevronRight,
+            contentDescription = "Arrow",
+            tint = Color.Gray
+        )
+    }
+}
+
+
+
+
 
 @Composable
 fun TopAppbar(
@@ -519,7 +899,11 @@ fun ImageCarousel(items: List<CarouselItemModel>) {
                     modifier = Modifier
                         .size(8.dp)
                         .clip(CircleShape)
-                        .background(if (index == pagerState.currentPage) Color.White else Color.White.copy(alpha = 0.5f))
+                        .background(
+                            if (index == pagerState.currentPage) Color.White else Color.White.copy(
+                                alpha = 0.5f
+                            )
+                        )
                         .padding(4.dp)
                         .clickable {
                             scope.launch {
@@ -875,230 +1259,6 @@ fun BottomNavigationBar(navController: NavController) {
             )
         }
     }
-}
-
-@Composable
-fun DrawerContent(navController: NavController, onCloseDrawer: () -> Unit) {
-    val amberColor = Color(0xFFB78628)
-    val context = LocalContext.current
-
-    // Get current user info
-    val currentUser = FirebaseAuth.getInstance().currentUser
-    val userName = currentUser?.displayName ?: "Guest"
-    val userPhotoUrl = currentUser?.photoUrl?.toString()
-
-    Column(
-        modifier = Modifier
-            .fillMaxSize()
-            .background(Color.White)
-            .padding(16.dp)
-    ) {
-        Row(verticalAlignment = Alignment.CenterVertically) {
-            Box(
-                modifier = Modifier
-                    .size(50.dp)
-                    .clip(CircleShape)
-                    .background(amberColor, CircleShape)
-                    .padding(3.dp)
-            ) {
-                if (userPhotoUrl != null) {
-                    AsyncImage(
-                        model = ImageRequest.Builder(context)
-                            .data(userPhotoUrl)
-                            .crossfade(true)
-                            .build(),
-                        contentDescription = "Profile Picture",
-                        modifier = Modifier
-                            .fillMaxSize()
-                            .clip(CircleShape),
-                        contentScale = ContentScale.Crop,
-                        error = painterResource(id = R.drawable.ic_launcher_background)
-                    )
-                } else {
-                    Image(
-                        painter = painterResource(id = R.drawable.ic_launcher_background),
-                        contentDescription = "Default Profile Picture",
-                        modifier = Modifier
-                            .fillMaxSize()
-                            .clip(CircleShape),
-                        contentScale = ContentScale.Crop
-                    )
-                }
-            }
-
-            Spacer(modifier = Modifier.width(12.dp))
-
-            Text(
-                text = "Hi $userName!",
-                fontWeight = FontWeight.Bold,
-                fontSize = 22.sp,
-                modifier = Modifier.padding(bottom = 8.dp),
-                color = Color.Black,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis
-            )
-        }
-
-        // Rest of your existing drawer content...
-
-        Spacer(modifier = Modifier.height(16.dp))
-
-        HorizontalDivider(thickness = 1.dp, color = Color.LightGray) // Line under "Hi!"
-
-        Spacer(modifier = Modifier.height(16.dp))
-
-        // Profile and Order History
-        DrawerItem(
-            icon = Icons.Outlined.Person,
-            text = "My Profile",
-            onClick = {
-                navController.navigate("profile")
-                onCloseDrawer()
-            }
-        )
-
-        DrawerItem(
-            icon = Icons.Outlined.History,
-            text = "Order History",
-            onClick = {
-                // Navigate to order history when implemented
-                onCloseDrawer()
-            }
-        )
-
-        SectionHeader("Shop By")
-        DrawerItem(
-            text = "All Jewellery",
-            onClick = {
-                navController.navigate("home") {
-                    popUpTo("home") { inclusive = true }
-                }
-                onCloseDrawer()
-            }
-        )
-
-        DrawerItem(
-            text = "Metal",
-            onClick = {
-                // Navigate to metal category
-                navController.navigate("category/metals")
-                onCloseDrawer()
-            }
-        )
-
-        DrawerItem(
-            text = "Collections",
-            onClick = {
-                // Navigate to collections
-                navController.navigate("collection/all")
-                onCloseDrawer()
-            }
-        )
-
-        SectionHeader("Shop For")
-        DrawerItem(
-            text = "Men",
-            onClick = {
-                // Navigate to men's category
-                navController.navigate("category/men")
-                onCloseDrawer()
-            }
-        )
-
-        DrawerItem(
-            text = "Kids",
-            onClick = {
-                // Navigate to kids category
-                navController.navigate("category/kids")
-                onCloseDrawer()
-            }
-        )
-
-        SectionHeader("More")
-        DrawerItem(
-            icon = Icons.Outlined.AttachMoney,
-            text = "Gold Rate",
-            onClick = {
-                // Navigate to gold rate screen when implemented
-                onCloseDrawer()
-            }
-        )
-
-        DrawerItem(
-            icon = Icons.Outlined.Headset,
-            text = "Get In Touch",
-            onClick = {
-                // Navigate to contact screen when implemented
-                onCloseDrawer()
-            }
-        )
-
-        DrawerItem(
-            icon = Icons.Outlined.LocationOn,
-            text = "Store Locator",
-            onClick = {
-                // Navigate to store locator when implemented
-                onCloseDrawer()
-            }
-        )
-
-        DrawerItem(
-            icon = Icons.AutoMirrored.Outlined.ExitToApp,
-            text = "Logout",
-            onClick = {
-                // Handle logout
-                FirebaseAuth.getInstance().signOut()
-                navController.navigate("login") {
-                    popUpTo(0) { inclusive = true }
-                }
-                onCloseDrawer()
-            }
-        )
-    }
-}
-@Composable
-fun DrawerItem(text: String, onClick: () -> Unit, icon: ImageVector? = null) {
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .clickable { onClick() }
-            .padding(vertical = 12.dp, horizontal = 16.dp),
-        verticalAlignment = Alignment.CenterVertically
-    ) {
-        if (icon != null) {
-            Icon(
-                imageVector = icon,
-                contentDescription = text,
-                tint = Color.DarkGray,
-                modifier = Modifier.size(24.dp)
-            )
-            Spacer(modifier = Modifier.width(16.dp)) // Space between icon & text
-        }
-        Text(
-            text = text,
-            fontSize = 18.sp,
-            modifier = Modifier.weight(1f), // Pushes text to the left
-            color = Color.Black
-        )
-        Icon(
-            imageVector = Icons.Outlined.ChevronRight, // Right arrow icon
-            contentDescription = "Arrow",
-            tint = Color.Gray
-        )
-    }
-}
-
-@Composable
-fun SectionHeader(text: String) {
-
-    val amberColor = Color(0xFFB78628)
-    Text(
-        text = text,
-        color = amberColor,
-        fontWeight = FontWeight.Bold,
-        fontSize = 14.sp,
-        modifier = Modifier.padding(top = 16.dp, bottom = 8.dp)
-    )
 }
 
 

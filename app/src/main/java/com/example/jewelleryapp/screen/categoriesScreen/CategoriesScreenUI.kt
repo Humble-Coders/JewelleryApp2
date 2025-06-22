@@ -33,7 +33,8 @@ import com.example.jewelleryapp.model.Category
 // CategoriesScreen.kt
 @Composable
 fun CategoryScreenView(viewModel: CategoriesViewModel,
-                       navController: NavController) {
+                       navController: NavController)
+{
     val categories by viewModel.categories.collectAsState()
     val collections by viewModel.collections.collectAsState()
     val isLoading by viewModel.isLoading.collectAsState()
@@ -44,7 +45,9 @@ fun CategoryScreenView(viewModel: CategoriesViewModel,
                 TopAppbar(
                     title = "Categories",
                     onMenuClick = { /* Handle menu click */ },
-                    onBackClick = { navController.popBackStack() }
+                    onBackClick = {  navController.navigate("home") {
+                        popUpTo("home") { inclusive = true }
+                    } }
                 )
             }
         },
