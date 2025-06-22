@@ -70,7 +70,6 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
-import com.example.jewelleryapp.DynamicLinkHelper
 
 // Defined colors as constants
 private val GoldColor = Color(0xFFC4A661)

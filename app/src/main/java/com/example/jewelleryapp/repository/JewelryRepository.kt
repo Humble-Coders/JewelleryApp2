@@ -1032,53 +1032,6 @@ class JewelryRepository(
     /**
      * Get recently viewed products (ordered by most recent first)
      */
-    fun getRecentlyViewedProducts(): Flow<List<Product>> = flow {
-        try {
-            if (!hasValidUser()) {
-                Log.e(tag, "Cannot fetch recently viewed: No valid user")
-                emit(emptyList())
-                return@flow
-            }
-
-            Log.d(tag, "Fetching recently viewed products for user: $userId")
-
-            val snapshot = withContext(Dispatchers.IO) {
-                firestore.collection("users")
-                    .document(userId)
-                    .collection("recently_viewed")
-                    .orderBy("viewedAt", com.google.firebase.firestore.Query.Direction.DESCENDING)
-                    .limit(10)
-                    .get()
-                    .await()
-            }
-
-            val productIds = snapshot.documents.mapNotNull { doc ->
-                doc.getString("productId")
-            }
-
-            Log.d(tag, "Found ${productIds.size} recently viewed products: $productIds")
-
-            if (productIds.isEmpty()) {
-                emit(emptyList())
-                return@flow
-            }
-
-            // Fetch product details
-            val products = fetchProductsByIds(productIds)
-
-            // Maintain the order from recently viewed (most recent first)
-            val orderedProducts = productIds.mapNotNull { productId ->
-                products.find { it.id == productId }
-            }
-
-            Log.d(tag, "Successfully fetched ${orderedProducts.size} recently viewed products")
-            emit(orderedProducts)
-
-        } catch (e: Exception) {
-            Log.e(tag, "Error fetching recently viewed products", e)
-            emit(emptyList())
-        }
-    }
 
     /**
      * Clear all recently viewed products
@@ -1109,6 +1062,53 @@ class JewelryRepository(
         } catch (e: Exception) {
             Log.e(tag, "Error clearing recently viewed products", e)
         }
+    }
+    /**
+     * Get recently viewed products (ordered by most recent first)
+     */
+    fun getRecentlyViewedProducts(): Flow<List<Product>> = flow {
+        if (!hasValidUser()) {
+            Log.e(tag, "Cannot fetch recently viewed: No valid user")
+            emit(emptyList())
+            return@flow
+        }
+
+        Log.d(tag, "Fetching recently viewed products for user: $userId")
+
+        val snapshot = withContext(Dispatchers.IO) {
+            firestore.collection("users")
+                .document(userId)
+                .collection("recently_viewed")
+                .orderBy("viewedAt", com.google.firebase.firestore.Query.Direction.DESCENDING)
+                .limit(10)
+                .get()
+                .await()
+        }
+
+        val productIds = snapshot.documents.mapNotNull { doc ->
+            doc.getString("productId")
+        }
+
+        Log.d(tag, "Found ${productIds.size} recently viewed products: $productIds")
+
+        if (productIds.isEmpty()) {
+            emit(emptyList())
+            return@flow
+        }
+
+        // Fetch product details
+        val products = fetchProductsByIds(productIds)
+
+        // Maintain the order from recently viewed (most recent first)
+        val orderedProducts = productIds.mapNotNull { productId ->
+            products.find { it.id == productId }
+        }
+
+        Log.d(tag, "Successfully fetched ${orderedProducts.size} recently viewed products")
+        emit(orderedProducts)
+    }.catch { e ->
+        Log.e(tag, "Error fetching recently viewed products", e)
+        emit(emptyList())
     }
 
 }

@@ -105,6 +105,8 @@ dependencies {
 
     implementation ("com.google.firebase:firebase-dynamic-links-ktx:22.1.0")
     implementation (libs.firebase.analytics.ktx)
+    implementation (libs.firebase.messaging)
+
 
     implementation("androidx.datastore:datastore-preferences:1.1.7")
 

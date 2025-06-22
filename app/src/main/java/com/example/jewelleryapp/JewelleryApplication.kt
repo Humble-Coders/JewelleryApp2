@@ -12,6 +12,8 @@ import java.util.concurrent.TimeUnit
 class JewelryApplication : Application(), ImageLoaderFactory {
     override fun onCreate() {
         super.onCreate()
+        FCMHelper.initializeFCM()
+
         // Any other app initialization code
     }
 

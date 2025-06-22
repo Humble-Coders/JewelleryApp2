@@ -9,6 +9,10 @@
     <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE" />
     <uses-permission android:name="android.permission.READ_MEDIA_IMAGES" />
 
+    <uses-permission android:name="android.permission.INTERNET" />
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+    <uses-permission android:name="android.permission.WAKE_LOCK" />
+
     <application
         android:name=".JewelryApplication"
         android:allowBackup="true"
@@ -20,6 +24,15 @@
         android:supportsRtl="true"
         android:theme="@style/Theme.JewelleryApp"
         tools:replace="android:icon,android:theme">
+
+        <service
+            android:name=".MyFirebaseMessagingService"
+            android:exported="false">
+            <intent-filter>
+                <action android:name="com.google.firebase.MESSAGING_EVENT" />
+            </intent-filter>
+        </service>
+
         <activity
             android:name=".MainActivity"
             android:exported="true"
@@ -36,6 +49,13 @@
                 <data android:scheme="gaganjewellers"
                     android:host="product" />
             </intent-filter>
+
+            <meta-data
+                android:name="com.google.firebase.messaging.default_notification_icon"
+                android:resource="@drawable/ic_launcher_foreground" />
+            <meta-data
+                android:name="com.google.firebase.messaging.default_notification_color"
+                android:resource="@color/teal_700" />
 
             <!-- GitHub Pages intent filter -->
             <intent-filter android:autoVerify="true">

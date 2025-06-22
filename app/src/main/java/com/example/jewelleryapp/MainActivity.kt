@@ -2,6 +2,7 @@ package com.example.jewelleryapp
 
 import android.app.Activity
 import android.content.Intent
+import android.content.pm.PackageManager
 import android.net.Uri
 import android.os.Bundle
 import android.util.Log
@@ -50,8 +51,14 @@ import com.example.jewelleryapp.screen.wishlist.WishlistViewModel
 import com.example.jewelleryapp.ui.theme.JewelleryAppTheme
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.FirebaseFirestore
+import android.Manifest
+import android.os.Build
+import androidx.core.app.ActivityCompat
+import androidx.core.content.ContextCompat
 
 class MainActivity : ComponentActivity() {
+    private val NOTIFICATION_PERMISSION_REQUEST_CODE = 1001
+
     private lateinit var loginViewModel: LoginViewModel
     private lateinit var registerViewModel: RegisterViewModel
     private lateinit var homeViewModel: HomeViewModel
@@ -156,6 +163,8 @@ class MainActivity : ComponentActivity() {
 
 
         enableEdgeToEdge()
+        requestNotificationPermission()
+
         setContent {
             JewelleryAppTheme {
                 Surface(
@@ -200,6 +209,53 @@ class MainActivity : ComponentActivity() {
         super.onStop()
         // Remove auth state listener when activity stops
         firebaseAuth.removeAuthStateListener(authStateListener)
+    }
+
+    // Add these methods at the end of your MainActivity class
+
+    private fun requestNotificationPermission() {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            if (ContextCompat.checkSelfPermission(
+                    this,
+                    Manifest.permission.POST_NOTIFICATIONS
+                ) != PackageManager.PERMISSION_GRANTED
+            ) {
+                ActivityCompat.requestPermissions(
+                    this,
+                    arrayOf(Manifest.permission.POST_NOTIFICATIONS),
+                    NOTIFICATION_PERMISSION_REQUEST_CODE
+                )
+            } else {
+                // Permission already granted
+                initializeFCM()
+            }
+        } else {
+            // For older Android versions, no explicit permission needed
+            initializeFCM()
+        }
+    }
+
+    private fun initializeFCM() {
+        FCMHelper.initializeFCM()
+    }
+
+    override fun onRequestPermissionsResult(
+        requestCode: Int,
+        permissions: Array<out String>,
+        grantResults: IntArray
+    ) {
+        super.onRequestPermissionsResult(requestCode, permissions, grantResults)
+
+        when (requestCode) {
+            NOTIFICATION_PERMISSION_REQUEST_CODE -> {
+                if (grantResults.isNotEmpty() && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
+                    Log.d("MainActivity", "Notification permission granted")
+                    initializeFCM()
+                } else {
+                    Log.d("MainActivity", "Notification permission denied")
+                }
+            }
+        }
     }
 }
 
