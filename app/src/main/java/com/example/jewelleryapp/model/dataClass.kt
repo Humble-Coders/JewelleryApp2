@@ -87,6 +87,31 @@ data class ProfileUpdateRequest(
     val dateOfBirth: String
 )
 
+data class GoldSilverRates(
+    val goldRatePerGram: Double = 0.0,
+    val silverRatePerGram: Double = 0.0,
+    val lastUpdated: Long = 0L,
+    val previousGoldRate: Double = 0.0,
+    val previousSilverRate: Double = 0.0,
+    val currency: String = "INR",
+    val rateChangePercentage: Map<String, String> = emptyMap()
+)
+
+data class StoreInfo(
+    val name: String = "",
+    val address: String = "",
+    val phonePrimary: String = "",
+    val phoneSecondary: String = "",
+    val whatsappNumber: String = "",
+    val email: String = "",
+    val latitude: Double = 0.0,
+    val longitude: Double = 0.0,
+    val storeHours: Map<String, String> = emptyMap(),
+    val storeImages: List<String> = emptyList(),
+    val establishedYear: String = "",
+    val whatsappDefaultMessage: String = ""
+)
+
 sealed class ProfileState {
     object Loading : ProfileState()
     data class Success(val profile: UserProfile) : ProfileState()

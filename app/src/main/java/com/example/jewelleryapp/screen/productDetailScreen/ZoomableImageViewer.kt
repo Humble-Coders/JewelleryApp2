@@ -32,38 +32,59 @@ import coil.request.ImageRequest
 import net.engawapg.lib.zoomable.rememberZoomState
 import net.engawapg.lib.zoomable.snapBackZoomable
 import net.engawapg.lib.zoomable.zoomable
+import androidx.compose.foundation.ExperimentalFoundationApi
+import androidx.compose.foundation.pager.HorizontalPager
+import androidx.compose.foundation.pager.rememberPagerState
 
+@OptIn(ExperimentalFoundationApi::class)
 @Composable
 fun ZoomableImageViewer(
     imageUrls: List<String>,
     currentIndex: Int,
     onImageChange: (Int) -> Unit,
     onFullScreenToggle: () -> Unit,
-    modifier: Modifier = Modifier) {
+    modifier: Modifier = Modifier
+) {
     val context = LocalContext.current
-    val zoomState = rememberZoomState()
+    val pagerState = rememberPagerState(
+        initialPage = currentIndex,
+        pageCount = { imageUrls.size }
+    )
 
-    // Reset zoom when image changes
+    // Sync pager state with external currentIndex
     LaunchedEffect(currentIndex) {
-        zoomState.reset()
+        if (pagerState.currentPage != currentIndex) {
+            pagerState.animateScrollToPage(currentIndex)
+        }
     }
 
-
+    // Notify parent when page changes
+    LaunchedEffect(pagerState.currentPage) {
+        if (pagerState.currentPage != currentIndex) {
+            onImageChange(pagerState.currentPage)
+        }
+    }
 
     Box(modifier = modifier) {
-        // Main zoomable image with snapBack functionality
-        AsyncImage(
-            model = ImageRequest.Builder(context)
-                .data(imageUrls.getOrNull(currentIndex) ?: "")
-                .crossfade(true)
-                .build(),
-            contentDescription = "Product Image ${currentIndex + 1}",
-            modifier = Modifier
-                .fillMaxSize()
-                .snapBackZoomable(zoomState) // This automatically snaps back when gesture ends
-                .clickable { onFullScreenToggle() },
-            contentScale = ContentScale.Fit
-        )
+        HorizontalPager(
+            state = pagerState,
+            modifier = Modifier.fillMaxSize()
+        ) { page ->
+            val zoomState = rememberZoomState()
+
+            AsyncImage(
+                model = ImageRequest.Builder(context)
+                    .data(imageUrls.getOrNull(page) ?: "")
+                    .crossfade(true)
+                    .build(),
+                contentDescription = "Product Image ${page + 1}",
+                modifier = Modifier
+                    .fillMaxSize()
+                    .snapBackZoomable(zoomState)
+                    .clickable { onFullScreenToggle() },
+                contentScale = ContentScale.Fit
+            )
+        }
 
         // Navigation arrows (only show if multiple images)
         if (imageUrls.size > 1) {
@@ -170,20 +191,33 @@ fun ZoomableImageViewer(
     }
 }
 
+@OptIn(ExperimentalFoundationApi::class)
 @Composable
 fun FullScreenImageDialog(
     imageUrls: List<String>,
     currentIndex: Int,
     onDismiss: () -> Unit,
-    onImageChange: (Int) -> Unit) {
-    val zoomState = rememberZoomState()
+    onImageChange: (Int) -> Unit
+) {
     val context = LocalContext.current
+    val pagerState = rememberPagerState(
+        initialPage = currentIndex,
+        pageCount = { imageUrls.size }
+    )
 
+    // Sync pager state with external currentIndex
     LaunchedEffect(currentIndex) {
-        zoomState.reset()
+        if (pagerState.currentPage != currentIndex) {
+            pagerState.animateScrollToPage(currentIndex)
+        }
     }
 
-
+    // Notify parent when page changes
+    LaunchedEffect(pagerState.currentPage) {
+        if (pagerState.currentPage != currentIndex) {
+            onImageChange(pagerState.currentPage)
+        }
+    }
 
     Box(
         modifier = Modifier
@@ -208,18 +242,24 @@ fun FullScreenImageDialog(
             )
         }
 
-        // Zoomable image with snapBack
-        AsyncImage(
-            model = ImageRequest.Builder(context)
-                .data(imageUrls.getOrNull(currentIndex) ?: "")
-                .crossfade(true)
-                .build(),
-            contentDescription = "Fullscreen Image ${currentIndex + 1}",
-            modifier = Modifier
-                .fillMaxSize()
-                .snapBackZoomable(zoomState), // SnapBack for fullscreen as well
-            contentScale = ContentScale.Fit
-        )
+        HorizontalPager(
+            state = pagerState,
+            modifier = Modifier.fillMaxSize()
+        ) { page ->
+            val zoomState = rememberZoomState()
+
+            AsyncImage(
+                model = ImageRequest.Builder(context)
+                    .data(imageUrls.getOrNull(page) ?: "")
+                    .crossfade(true)
+                    .build(),
+                contentDescription = "Fullscreen Image ${page + 1}",
+                modifier = Modifier
+                    .fillMaxSize()
+                    .snapBackZoomable(zoomState),
+                contentScale = ContentScale.Fit
+            )
+        }
 
         // Navigation controls (same as above but for fullscreen)
         if (imageUrls.size > 1) {

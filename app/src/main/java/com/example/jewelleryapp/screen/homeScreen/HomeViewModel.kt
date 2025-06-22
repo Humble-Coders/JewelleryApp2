@@ -16,6 +16,10 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
+import android.content.Context
+import android.content.Intent
+import android.net.Uri
+import com.example.jewelleryapp.model.GoldSilverRates
 
 class HomeViewModel(private val repository: JewelryRepository) : ViewModel() {
     private val tag = "HomeViewModel"
@@ -50,6 +54,15 @@ class HomeViewModel(private val repository: JewelryRepository) : ViewModel() {
 
     private val _filteredCategories = MutableStateFlow<List<Category>>(emptyList())
     val filteredCategories: StateFlow<List<Category>> = _filteredCategories.asStateFlow()
+
+    private val _goldSilverRates = MutableStateFlow<GoldSilverRates?>(null)
+    val goldSilverRates: StateFlow<GoldSilverRates?> = _goldSilverRates.asStateFlow()
+
+    private val _isRatesLoading = MutableStateFlow(false)
+    val isRatesLoading: StateFlow<Boolean> = _isRatesLoading.asStateFlow()
+
+    private val _showRatesDialog = MutableStateFlow(false)
+    val showRatesDialog: StateFlow<Boolean> = _showRatesDialog.asStateFlow()
 
 
 
@@ -289,4 +302,82 @@ class HomeViewModel(private val repository: JewelryRepository) : ViewModel() {
             }
         }
     }
+
+    fun openGoogleMaps(context: Context) {
+        try {
+            // You can use your store coordinates or a general location
+            val latitude = 30.3398  // Patiala coordinates
+            val longitude = 76.3869
+            val storeName = "Gagan Jewellers"
+
+            val geoUri = "geo:$latitude,$longitude?q=$latitude,$longitude($storeName)"
+            val mapIntent = Intent(Intent.ACTION_VIEW, Uri.parse(geoUri))
+            mapIntent.setPackage("com.google.android.apps.maps")
+
+            if (mapIntent.resolveActivity(context.packageManager) != null) {
+                context.startActivity(mapIntent)
+            } else {
+                // Fallback to browser if Google Maps not installed
+                val browserIntent = Intent(Intent.ACTION_VIEW, Uri.parse("https://maps.google.com/?q=$latitude,$longitude"))
+                context.startActivity(browserIntent)
+            }
+        } catch (e: Exception) {
+            Log.e("HomeViewModel", "Error opening maps", e)
+        }
+    }
+
+    fun openWhatsApp(context: Context) {
+        try {
+            val phoneNumber = "8194963318" // Your WhatsApp number without + and spaces
+            val message = "Hi! I'm interested in your jewelry collection. Please help me with more details."
+
+            // Try WhatsApp first
+            val whatsappIntent = Intent(Intent.ACTION_VIEW)
+            whatsappIntent.data = Uri.parse("https://api.whatsapp.com/send?phone=$phoneNumber&text=${Uri.encode(message)}")
+            whatsappIntent.setPackage("com.whatsapp")
+
+            if (whatsappIntent.resolveActivity(context.packageManager) != null) {
+                context.startActivity(whatsappIntent)
+            } else {
+                // Try WhatsApp Business
+                val whatsappBusinessIntent = Intent(Intent.ACTION_VIEW)
+                whatsappBusinessIntent.data = Uri.parse("https://api.whatsapp.com/send?phone=$phoneNumber&text=${Uri.encode(message)}")
+                whatsappBusinessIntent.setPackage("com.whatsapp.w4b")
+
+                if (whatsappBusinessIntent.resolveActivity(context.packageManager) != null) {
+                    context.startActivity(whatsappBusinessIntent)
+                } else {
+                    // Fallback to browser
+                    val browserIntent = Intent(Intent.ACTION_VIEW, Uri.parse("https://api.whatsapp.com/send?phone=$phoneNumber&text=${Uri.encode(message)}"))
+                    context.startActivity(browserIntent)
+                }
+            }
+        } catch (e: Exception) {
+            Log.e("HomeViewModel", "Error opening WhatsApp", e)
+        }
+    }
+
+    fun loadGoldSilverRates() {
+        viewModelScope.launch {
+            try {
+                _isRatesLoading.value = true
+                val rates = repository.getGoldSilverRates().first()
+                _goldSilverRates.value = rates
+            } catch (e: Exception) {
+                Log.e(tag, "Error loading gold silver rates", e)
+            } finally {
+                _isRatesLoading.value = false
+            }
+        }
+    }
+
+    fun showRatesDialog() {
+        _showRatesDialog.value = true
+        loadGoldSilverRates()
+    }
+
+    fun hideRatesDialog() {
+        _showRatesDialog.value = false
+    }
+
 }

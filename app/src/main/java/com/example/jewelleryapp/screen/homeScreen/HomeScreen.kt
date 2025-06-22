@@ -159,7 +159,8 @@ fun HomeScreen(
                     onLogout = {
                         onLogout() // Call the logout function passed from the parent
                     },
-                    userProfile = currentProfile // Pass profile data
+                    userProfile = currentProfile, // Pass profile data
+                    homeViewModel = viewModel // Pass the HomeViewModel to handle Google Maps
 
                 )
             }
@@ -270,6 +271,19 @@ fun HomeScreen(
             }
         }
     }
+
+    // Add this before the closing brace of HomeScreen
+    val showRatesDialog by viewModel.showRatesDialog.collectAsState()
+    val goldSilverRates by viewModel.goldSilverRates.collectAsState()
+    val isRatesLoading by viewModel.isRatesLoading.collectAsState()
+
+    if (showRatesDialog) {
+        RatesDialog(
+            rates = goldSilverRates,
+            isLoading = isRatesLoading,
+            onDismiss = { viewModel.hideRatesDialog() }
+        )
+    }
 }
 
 // In HomeScreen.kt - UPDATE StableDrawerContent function
@@ -279,7 +293,8 @@ fun DrawerContent(
     navController: NavController,
     onCloseDrawer: () -> Unit,
     onLogout: () -> Unit,
-    userProfile: UserProfile? // Pass user profile data
+    userProfile: UserProfile?, // Pass user profile data
+    homeViewModel: HomeViewModel
 ) {
     val amberColor = Color(0xFFB78628)
     val context = LocalContext.current
@@ -467,33 +482,13 @@ fun DrawerContent(
             text = "Collections",
             onClick = {
                 onCloseDrawer()
-                navController.navigate("collection/all")
+                navController.navigate("category/all")
+
+
             }
         )
 
-        Text(
-            text = "Shop For",
-            color = amberColor,
-            fontWeight = FontWeight.Bold,
-            fontSize = 14.sp,
-            modifier = Modifier.padding(top = 16.dp, bottom = 8.dp)
-        )
 
-        DrawerItem(
-            text = "Men",
-            onClick = {
-                onCloseDrawer()
-                navController.navigate("category/men")
-            }
-        )
-
-        DrawerItem(
-            text = "Kids",
-            onClick = {
-                onCloseDrawer()
-                navController.navigate("category/kids")
-            }
-        )
 
         Text(
             text = "More",
@@ -504,21 +499,35 @@ fun DrawerContent(
         )
 
         DrawerItem(
-            icon = Icons.Outlined.AttachMoney,
-            text = "Gold Rate",
-            onClick = { onCloseDrawer() }
+            icon = Icons.Outlined.LocationOn,
+            text = "Store Info",
+            onClick = {
+                onCloseDrawer()
+                navController.navigate("store_info")
+            }
         )
+
+
+
 
         DrawerItem(
             icon = Icons.Outlined.Headset,
             text = "Get In Touch",
-            onClick = { onCloseDrawer() }
+            onClick = {
+                onCloseDrawer()
+                // You'll need to pass homeViewModel and context to DrawerContent
+                homeViewModel.openWhatsApp(context)
+            }
         )
 
         DrawerItem(
             icon = Icons.Outlined.LocationOn,
             text = "Store Locator",
-            onClick = { onCloseDrawer() }
+            onClick = {
+                onCloseDrawer()
+                // Add this line - you'll need to pass viewModel and context to DrawerContent
+                homeViewModel.openGoogleMaps(context)
+            }
         )
 
         DrawerItem(
@@ -526,6 +535,25 @@ fun DrawerContent(
             text = "Logout",
             onClick = logout
         )
+
+
+        LaunchedEffect(Unit) {
+            homeViewModel.loadGoldSilverRates()
+        }
+
+        val goldSilverRates by homeViewModel.goldSilverRates.collectAsState()
+        val isRatesLoading by homeViewModel.isRatesLoading.collectAsState()
+
+        RatesDrawerItem(
+            goldRate = goldSilverRates?.goldRatePerGram,
+            silverRate = goldSilverRates?.silverRatePerGram,
+            isLoading = isRatesLoading,
+            onClick = {
+                onCloseDrawer()
+                homeViewModel.showRatesDialog()
+            }
+        )
+
     }
 }
 
@@ -1271,3 +1299,4 @@ fun formatPrice(price: Double, currency: String): String {
         else -> "${price.toInt()} $currency"
     }
 }
+

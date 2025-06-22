@@ -6,6 +6,8 @@ import com.example.jewelleryapp.model.Category
 import com.example.jewelleryapp.model.Collection
 import com.example.jewelleryapp.model.Product
 import com.example.jewelleryapp.model.CarouselItem
+import com.example.jewelleryapp.model.GoldSilverRates
+import com.example.jewelleryapp.model.StoreInfo
 import com.google.firebase.auth.FirebaseAuth
 import kotlinx.coroutines.tasks.await
 import kotlinx.coroutines.flow.Flow
@@ -490,6 +492,41 @@ class JewelryRepository(
         }
     }
 
+    fun getStoreInfo(): Flow<StoreInfo> = flow {
+        try {
+            val snapshot = withContext(Dispatchers.IO) {
+                firestore.collection("store_info")
+                    .document("main_store")
+                    .get()
+                    .await()
+            }
+
+            if (snapshot.exists()) {
+                val storeHours = snapshot.get("store_hours") as? Map<String, String> ?: emptyMap()
+                val storeImages = snapshot.get("store_images") as? List<String> ?: emptyList()
+
+                val storeInfo = StoreInfo(
+                    name = snapshot.getString("name") ?: "",
+                    address = snapshot.getString("address") ?: "",
+                    phonePrimary = snapshot.getString("phone_primary") ?: "",
+                    phoneSecondary = snapshot.getString("phone_secondary") ?: "",
+                    whatsappNumber = snapshot.getString("whatsapp_number") ?: "",
+                    email = snapshot.getString("email") ?: "",
+                    latitude = snapshot.getDouble("latitude") ?: 0.0,
+                    longitude = snapshot.getDouble("longitude") ?: 0.0,
+                    storeHours = storeHours,
+                    storeImages = storeImages,
+                    establishedYear = snapshot.getString("established_year") ?: "",
+                    whatsappDefaultMessage = snapshot.getString("whatsapp_default_message") ?: ""
+                )
+                emit(storeInfo)
+            }
+        } catch (e: Exception) {
+            Log.e(tag, "Error fetching store info", e)
+            throw e
+        }
+    }
+
     // In JewelryRepository.kt - Update getProductDetails method
     fun getProductDetails(productId: String): Flow<Product> = flow {
         try {
@@ -752,6 +789,34 @@ class JewelryRepository(
         } catch (e: Exception) {
             Log.e(tag, "Error fetching available materials", e)
             emit(emptyList()) // Emit empty list instead of throwing
+        }
+    }
+    fun getGoldSilverRates(): Flow<GoldSilverRates> = flow {
+        try {
+            val snapshot = withContext(Dispatchers.IO) {
+                firestore.collection("gold_silver_rates")
+                    .document("current_rates")
+                    .get()
+                    .await()
+            }
+
+            if (snapshot.exists()) {
+                val rateChangePercentage = snapshot.get("rate_change_percentage") as? Map<String, String> ?: emptyMap()
+
+                val rates = GoldSilverRates(
+                    goldRatePerGram = snapshot.getDouble("gold_rate_per_gram") ?: 0.0,
+                    silverRatePerGram = snapshot.getDouble("silver_rate_per_gram") ?: 0.0,
+                    lastUpdated = snapshot.getLong("last_updated") ?: 0L,
+                    previousGoldRate = snapshot.getDouble("previous_gold_rate") ?: 0.0,
+                    previousSilverRate = snapshot.getDouble("previous_silver_rate") ?: 0.0,
+                    currency = snapshot.getString("currency") ?: "INR",
+                    rateChangePercentage = rateChangePercentage
+                )
+                emit(rates)
+            }
+        } catch (e: Exception) {
+            Log.e(tag, "Error fetching gold silver rates", e)
+            throw e
         }
     }
 

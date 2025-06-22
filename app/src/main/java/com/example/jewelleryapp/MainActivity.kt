@@ -40,6 +40,8 @@ import com.example.jewelleryapp.screen.profileScreen.ProfileScreen
 import com.example.jewelleryapp.screen.profileScreen.ProfileViewModel
 import com.example.jewelleryapp.screen.registerScreen.RegisterScreen
 import com.example.jewelleryapp.screen.registerScreen.RegisterViewModel
+import com.example.jewelleryapp.screen.storeInfoScreen.StoreInfoScreen
+import com.example.jewelleryapp.screen.storeInfoScreen.StoreInfoViewModel
 import com.example.jewelleryapp.screen.wishlist.WishlistScreen
 import com.example.jewelleryapp.screen.wishlist.WishlistViewModel
 import com.example.jewelleryapp.ui.theme.JewelleryAppTheme
@@ -58,6 +60,7 @@ class MainActivity : ComponentActivity() {
     private lateinit var categoryProductsViewModel: CategoryProductsViewModel // Add this line
     private lateinit var googleSignInLauncher: ActivityResultLauncher<Intent>
     private lateinit var profileViewModel: ProfileViewModel
+    private lateinit var storeInfoViewModel: StoreInfoViewModel // Add this line
 
 
 
@@ -104,7 +107,6 @@ class MainActivity : ComponentActivity() {
         // Initialize Repositories
         val authRepository = FirebaseAuthRepository(firebaseAuth,this)
         val profileRepository = ProfileRepository(firebaseAuth, firestore, this)
-
         // Get current user ID for repository (or empty string if not logged in)
         val userId = firebaseAuth.currentUser?.uid ?: ""
         Log.d("MainActivity", "User ID: $userId")
@@ -141,6 +143,7 @@ class MainActivity : ComponentActivity() {
         wishlistViewModel = WishlistViewModel(jewelryRepository)
         categoryProductsViewModel = CategoryProductsViewModel(jewelryRepository, "")
         profileViewModel = ProfileViewModel(profileRepository, authRepository)
+        storeInfoViewModel = StoreInfoViewModel(jewelryRepository)
 
 
 
@@ -161,7 +164,8 @@ class MainActivity : ComponentActivity() {
                         activity = this  ,
                         intent = intent,
                         googleSignInLauncher = googleSignInLauncher ,// Pass the launcher
-                        profileViewModel
+                        profileViewModel,
+                        storeInfoViewModel // Pass the store info ViewModel
                     )
                 }
             }
@@ -201,7 +205,8 @@ fun AppNavigation(
     activity: ComponentActivity,
     intent: Intent?,
     googleSignInLauncher: ActivityResultLauncher<Intent>,
-    profileViewModel: ProfileViewModel // Add this parameter
+    profileViewModel: ProfileViewModel, // Add this parameter
+    storeInfoViewModel: StoreInfoViewModel // Add this parameter
 
 ) {
     val navController = rememberNavController()
@@ -320,6 +325,20 @@ fun AppNavigation(
             )
         }
 
+        // In your NavHost
+        composable("store_info") {
+            StoreInfoScreen(
+                viewModel = storeInfoViewModel,
+                navController = navController,
+                onBackClick = {
+                    //Navigate to home screen when back is clicked
+                    navController.navigate("home") {
+                        popUpTo("home") { inclusive = true }
+                    }
+
+                }
+            )
+        }
 
 // Add this new composable route in your NavHost, after the existing "category/{categoryId}" route
         composable(
@@ -448,3 +467,4 @@ private fun handleDeepLink(uri: Uri, navController: NavController) {
         }
     }
 }
+
