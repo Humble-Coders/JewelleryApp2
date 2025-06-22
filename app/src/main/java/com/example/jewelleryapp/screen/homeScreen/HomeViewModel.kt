@@ -37,7 +37,6 @@ class HomeViewModel(private val repository: JewelryRepository) : ViewModel() {
     private val _carouselItems = MutableStateFlow<List<CarouselItem>>(emptyList())
     val carouselItems: StateFlow<List<CarouselItem>> = _carouselItems.asStateFlow()
 
-    private val _recentlyViewedProducts = MutableStateFlow<List<Product>>(emptyList())
 
     // Loading states
     private val _isLoading = MutableStateFlow(false)
@@ -63,6 +62,17 @@ class HomeViewModel(private val repository: JewelryRepository) : ViewModel() {
 
     private val _showRatesDialog = MutableStateFlow(false)
     val showRatesDialog: StateFlow<Boolean> = _showRatesDialog.asStateFlow()
+
+    private val _recentlyViewedProducts = MutableStateFlow<List<Product>>(emptyList())
+    val recentlyViewedProducts: StateFlow<List<Product>> = _recentlyViewedProducts.asStateFlow()
+
+    private val _isRecentlyViewedLoading = MutableStateFlow(false)
+    val isRecentlyViewedLoading: StateFlow<Boolean> = _isRecentlyViewedLoading.asStateFlow()
+
+    private val _isRecentlyViewedLoaded = MutableStateFlow(false)
+    val isRecentlyViewedLoaded: StateFlow<Boolean> = _isRecentlyViewedLoaded.asStateFlow()
+
+
 
 
 
@@ -109,112 +119,112 @@ class HomeViewModel(private val repository: JewelryRepository) : ViewModel() {
 
 
     // In HomeViewModel.kt - Fix the loadData function
-    fun loadData() {
-        // In HomeViewModel.loadData()
-        Log.d("HomeViewModel", "=== LoadData Start ===")
-// ... after each job completes
-
-        Log.d("HomeViewModel", "Starting loadData - Firebase connection time: ${System.currentTimeMillis()}")
-        _isLoading.value = true
-        _error.value = null
-
-        viewModelScope.launch {
-            try {
-                // Create a list to hold any errors that occur
-                val errors = mutableListOf<String>()
-
-                // Launch all data loading operations in parallel using coroutineScope
-                coroutineScope {
-                    // Create separate async jobs for each data type
-                    val categoriesJob = async(Dispatchers.Default) {
-                        try {
-                            repository.getCategories().first()
-                        } catch (e: Exception) {
-                            Log.e(tag, "Error loading categories", e)
-                            errors.add("Categories: ${e.message}")
-                            emptyList()
-                        }
-                    }
-
-                    Log.d("HomeViewModel", "Categories loaded: ${System.currentTimeMillis()}")
-
-
-                    val featuredProductsJob = async(Dispatchers.Default) {
-                        try {
-                            repository.getFeaturedProducts().first()
-                        } catch (e: Exception) {
-                            Log.e(tag, "Error loading featured products", e)
-                            errors.add("Featured Products: ${e.message}")
-                            emptyList()
-                        }
-                    }
-
-                    Log.d("HomeViewModel", "FeaturedProducts loaded: ${System.currentTimeMillis()}")
-
-
-                    val collectionsJob = async(Dispatchers.Default) {
-                        try {
-                            repository.getThemedCollections().first()
-                        } catch (e: Exception) {
-                            Log.e(tag, "Error loading collections", e)
-                            errors.add("Collections: ${e.message}")
-                            emptyList()
-                        }
-                    }
-
-                    Log.d("HomeViewModel", "Collections loaded: ${System.currentTimeMillis()}")
-
-
-                    val carouselItemsJob = async(Dispatchers.Default) {
-                        try {
-                            repository.getCarouselItems().first()
-                        } catch (e: Exception) {
-                            Log.e(tag, "Error loading carousel items", e)
-                            errors.add("Carousel Items: ${e.message}")
-                            emptyList()
-                        }
-                    }
-
-                    Log.d("HomeViewModel", "Carousel loaded: ${System.currentTimeMillis()}")
-
-
-                    // Wait for all jobs to complete and update UI state
-                    val categories = categoriesJob.await()
-                    val featuredProducts = featuredProductsJob.await()
-                    val collections = collectionsJob.await()
-                    val carouselItems = carouselItemsJob.await()
-
-                    // Update all UI states at once
-                    _categories.value = categories
-                    _featuredProducts.value = featuredProducts
-                    _collections.value = collections
-                    _carouselItems.value = carouselItems
-                }
-
-                // If there are any errors, set the error message
-                if (errors.isNotEmpty()) {
-                    // Only show the error if we couldn't load anything at all
-                    if (_categories.value.isEmpty() &&
-                        _featuredProducts.value.isEmpty() &&
-                        _collections.value.isEmpty() &&
-                        _carouselItems.value.isEmpty()) {
-                        _error.value = "Failed to load data. Please check your connection."
-                    }
-                } else {
-                    _error.value = null
-                }
-
-                _isLoading.value = false
-            } catch (e: Exception) {
-                Log.e(tag, "Failed to load data", e)
-                _error.value = "Failed to load data: ${e.message}"
-                _isLoading.value = false
-            }
-        }
-        Log.d("HomeViewModel", "=== LoadData Complete ===")
-        // In HomeViewModel.loadData()
-        Log.d("HomeViewModel", "Data loaded, starting UI update: ${System.currentTimeMillis()}")
-    }
+//    fun loadData() {
+//        // In HomeViewModel.loadData()
+//        Log.d("HomeViewModel", "=== LoadData Start ===")
+//// ... after each job completes
+//
+//        Log.d("HomeViewModel", "Starting loadData - Firebase connection time: ${System.currentTimeMillis()}")
+//        _isLoading.value = true
+//        _error.value = null
+//
+//        viewModelScope.launch {
+//            try {
+//                // Create a list to hold any errors that occur
+//                val errors = mutableListOf<String>()
+//
+//                // Launch all data loading operations in parallel using coroutineScope
+//                coroutineScope {
+//                    // Create separate async jobs for each data type
+//                    val categoriesJob = async(Dispatchers.Default) {
+//                        try {
+//                            repository.getCategories().first()
+//                        } catch (e: Exception) {
+//                            Log.e(tag, "Error loading categories", e)
+//                            errors.add("Categories: ${e.message}")
+//                            emptyList()
+//                        }
+//                    }
+//
+//                    Log.d("HomeViewModel", "Categories loaded: ${System.currentTimeMillis()}")
+//
+//
+//                    val featuredProductsJob = async(Dispatchers.Default) {
+//                        try {
+//                            repository.getFeaturedProducts().first()
+//                        } catch (e: Exception) {
+//                            Log.e(tag, "Error loading featured products", e)
+//                            errors.add("Featured Products: ${e.message}")
+//                            emptyList()
+//                        }
+//                    }
+//
+//                    Log.d("HomeViewModel", "FeaturedProducts loaded: ${System.currentTimeMillis()}")
+//
+//
+//                    val collectionsJob = async(Dispatchers.Default) {
+//                        try {
+//                            repository.getThemedCollections().first()
+//                        } catch (e: Exception) {
+//                            Log.e(tag, "Error loading collections", e)
+//                            errors.add("Collections: ${e.message}")
+//                            emptyList()
+//                        }
+//                    }
+//
+//                    Log.d("HomeViewModel", "Collections loaded: ${System.currentTimeMillis()}")
+//
+//
+//                    val carouselItemsJob = async(Dispatchers.Default) {
+//                        try {
+//                            repository.getCarouselItems().first()
+//                        } catch (e: Exception) {
+//                            Log.e(tag, "Error loading carousel items", e)
+//                            errors.add("Carousel Items: ${e.message}")
+//                            emptyList()
+//                        }
+//                    }
+//
+//                    Log.d("HomeViewModel", "Carousel loaded: ${System.currentTimeMillis()}")
+//
+//
+//                    // Wait for all jobs to complete and update UI state
+//                    val categories = categoriesJob.await()
+//                    val featuredProducts = featuredProductsJob.await()
+//                    val collections = collectionsJob.await()
+//                    val carouselItems = carouselItemsJob.await()
+//
+//                    // Update all UI states at once
+//                    _categories.value = categories
+//                    _featuredProducts.value = featuredProducts
+//                    _collections.value = collections
+//                    _carouselItems.value = carouselItems
+//                }
+//
+//                // If there are any errors, set the error message
+//                if (errors.isNotEmpty()) {
+//                    // Only show the error if we couldn't load anything at all
+//                    if (_categories.value.isEmpty() &&
+//                        _featuredProducts.value.isEmpty() &&
+//                        _collections.value.isEmpty() &&
+//                        _carouselItems.value.isEmpty()) {
+//                        _error.value = "Failed to load data. Please check your connection."
+//                    }
+//                } else {
+//                    _error.value = null
+//                }
+//
+//                _isLoading.value = false
+//            } catch (e: Exception) {
+//                Log.e(tag, "Failed to load data", e)
+//                _error.value = "Failed to load data: ${e.message}"
+//                _isLoading.value = false
+//            }
+//        }
+//        Log.d("HomeViewModel", "=== LoadData Complete ===")
+//        // In HomeViewModel.loadData()
+//        Log.d("HomeViewModel", "Data loaded, starting UI update: ${System.currentTimeMillis()}")
+//    }
 
     // Function to refresh all data
     fun refreshData() {
@@ -380,4 +390,163 @@ class HomeViewModel(private val repository: JewelryRepository) : ViewModel() {
         _showRatesDialog.value = false
     }
 
+    private fun loadRecentlyViewedProducts() {
+        viewModelScope.launch {
+            try {
+                _isRecentlyViewedLoading.value = true
+                repository.getRecentlyViewedProducts().collect { products ->
+                    _recentlyViewedProducts.value = products
+                    Log.d(tag, "Loaded ${products.size} recently viewed products")
+                }
+            } catch (e: Exception) {
+                Log.e(tag, "Error loading recently viewed products", e)
+                _recentlyViewedProducts.value = emptyList()
+            } finally {
+                _isRecentlyViewedLoading.value = false
+            }
+        }
+    }
+
+    // UPDATE the existing loadData method in HomeViewModel to include recently viewed
+    fun loadData() {
+        Log.d("HomeViewModel", "=== LoadData Start ===")
+        Log.d("HomeViewModel", "Starting loadData - Firebase connection time: ${System.currentTimeMillis()}")
+        _isLoading.value = true
+        _error.value = null
+
+        viewModelScope.launch {
+            try {
+                val errors = mutableListOf<String>()
+
+                coroutineScope {
+                    val categoriesJob = async(Dispatchers.Default) {
+                        try {
+                            repository.getCategories().first()
+                        } catch (e: Exception) {
+                            Log.e(tag, "Error loading categories", e)
+                            errors.add("Categories: ${e.message}")
+                            emptyList()
+                        }
+                    }
+
+                    val featuredProductsJob = async(Dispatchers.Default) {
+                        try {
+                            repository.getFeaturedProducts().first()
+                        } catch (e: Exception) {
+                            Log.e(tag, "Error loading featured products", e)
+                            errors.add("Featured Products: ${e.message}")
+                            emptyList()
+                        }
+                    }
+
+                    val collectionsJob = async(Dispatchers.Default) {
+                        try {
+                            repository.getThemedCollections().first()
+                        } catch (e: Exception) {
+                            Log.e(tag, "Error loading collections", e)
+                            errors.add("Collections: ${e.message}")
+                            emptyList()
+                        }
+                    }
+
+                    val carouselItemsJob = async(Dispatchers.Default) {
+                        try {
+                            repository.getCarouselItems().first()
+                        } catch (e: Exception) {
+                            Log.e(tag, "Error loading carousel items", e)
+                            errors.add("Carousel Items: ${e.message}")
+                            emptyList()
+                        }
+                    }
+
+                    // ADD this new job for recently viewed
+                    val recentlyViewedJob = async(Dispatchers.Default) {
+                        try {
+                            repository.getRecentlyViewedProducts().first()
+                        } catch (e: Exception) {
+                            Log.e(tag, "Error loading recently viewed", e)
+                            emptyList()
+                        }
+                    }
+
+                    // Wait for all jobs and update UI state
+                    val categories = categoriesJob.await()
+                    val featuredProducts = featuredProductsJob.await()
+                    val collections = collectionsJob.await()
+                    val carouselItems = carouselItemsJob.await()
+                    val recentlyViewed = recentlyViewedJob.await() // ADD this line
+
+                    // Update all UI states at once
+                    _categories.value = categories
+                    _featuredProducts.value = featuredProducts
+                    _collections.value = collections
+                    _carouselItems.value = carouselItems
+                    _recentlyViewedProducts.value = recentlyViewed // ADD this line
+                }
+
+                if (errors.isNotEmpty()) {
+                    if (_categories.value.isEmpty() &&
+                        _featuredProducts.value.isEmpty() &&
+                        _collections.value.isEmpty() &&
+                        _carouselItems.value.isEmpty()) {
+                        _error.value = "Failed to load data. Please check your connection."
+                    }
+                } else {
+                    _error.value = null
+                }
+
+                _isLoading.value = false
+            } catch (e: Exception) {
+                Log.e(tag, "Failed to load data", e)
+                _error.value = "Failed to load data: ${e.message}"
+                _isLoading.value = false
+            }
+        }
+        Log.d("HomeViewModel", "=== LoadData Complete ===")
+    }
+
+    // Add this method to refresh recently viewed when returning from product detail
+    fun refreshRecentlyViewed() {
+        loadRecentlyViewedProducts()
+    }
+
+    // Add this method to handle recently viewed product clicks
+    fun onRecentlyViewedProductClick(productId: String) {
+        // The click will navigate to product detail, which will automatically track the view
+        Log.d(tag, "Recently viewed product clicked: $productId")
+    }
+
+    // Add this method to toggle wishlist for recently viewed products
+    fun toggleRecentlyViewedFavorite(productId: String) {
+        viewModelScope.launch {
+            try {
+                val currentProduct = _recentlyViewedProducts.value.find { it.id == productId }
+                if (currentProduct != null) {
+                    val isCurrentlyFavorite = currentProduct.isFavorite
+
+                    if (isCurrentlyFavorite) {
+                        repository.removeFromWishlist(productId)
+                    } else {
+                        repository.addToWishlist(productId)
+                    }
+
+                    // Update recently viewed list with new favorite status
+                    _recentlyViewedProducts.value = _recentlyViewedProducts.value.map { product ->
+                        if (product.id == productId) {
+                            product.copy(isFavorite = !isCurrentlyFavorite)
+                        } else {
+                            product
+                        }
+                    }
+
+                    // Also update featured products list if product exists there
+                    updateProductFavoriteStatus(productId, !isCurrentlyFavorite)
+
+                    Log.d(tag, "Toggled favorite for recently viewed product $productId to ${!isCurrentlyFavorite}")
+                }
+            } catch (e: Exception) {
+                Log.e(tag, "Error toggling favorite for recently viewed product $productId", e)
+            }
+        }
+    }
 }

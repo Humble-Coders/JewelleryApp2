@@ -18,7 +18,6 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material.icons.automirrored.outlined.ExitToApp
-import androidx.compose.material.icons.outlined.AttachMoney
 import androidx.compose.material.icons.outlined.ChevronRight
 import androidx.compose.material.icons.outlined.Headset
 import androidx.compose.material.icons.outlined.History
@@ -64,8 +63,10 @@ import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.material.icons.filled.ChevronRight
 import androidx.compose.material.icons.filled.Close
+import androidx.compose.ui.graphics.Brush
 import com.example.jewelleryapp.model.UserProfile
 import com.example.jewelleryapp.repository.ProfileRepository
+import com.example.jewelleryapp.screen.drawer.DrawerViewModel
 import com.example.jewelleryapp.screen.profileScreen.ProfileViewModel
 import com.google.firebase.firestore.FirebaseFirestore
 import kotlinx.coroutines.tasks.await
@@ -81,6 +82,7 @@ fun HomeScreen(
     navController: NavController,
     onLogout: () -> Unit, // Add this parameter
     profileViewModel: ProfileViewModel, // Add this parameter
+    drawerViewModel: DrawerViewModel // Add this parameter
 
 ) {
     // Collect existing state flows
@@ -97,6 +99,9 @@ fun HomeScreen(
     val filteredCategories by viewModel.filteredCategories.collectAsState()
     val currentProfile by profileViewModel.currentProfile.collectAsState()
 
+    val recentlyViewedProducts by viewModel.recentlyViewedProducts.collectAsState()
+    val isRecentlyViewedLoading by viewModel.isRecentlyViewedLoading.collectAsState()
+
 
     val scrollState = rememberScrollState()
 
@@ -106,8 +111,15 @@ fun HomeScreen(
         initialValue = DrawerValue.Closed
     )
 
+    LaunchedEffect(navController.currentDestination?.route) {
+        if (navController.currentDestination?.route == "home") {
+            viewModel.refreshRecentlyViewed()
+        }
+    }
+
     LaunchedEffect(Unit) {
         profileViewModel.loadUserProfile()
+
     }
     // Create a stable coroutine scope
     val scope = rememberCoroutineScope()
@@ -160,7 +172,8 @@ fun HomeScreen(
                         onLogout() // Call the logout function passed from the parent
                     },
                     userProfile = currentProfile, // Pass profile data
-                    homeViewModel = viewModel // Pass the HomeViewModel to handle Google Maps
+                    homeViewModel = viewModel ,// Pass the HomeViewModel to handle Google Maps
+                    drawerViewModel = drawerViewModel// Pass the DrawerViewModel
 
                 )
             }
@@ -249,6 +262,19 @@ fun HomeScreen(
                             val categoryName = categories.find { it.id == categoryId }?.name ?: "Products"
                             navController.navigate("categoryProducts/$categoryId/$categoryName")
                         })
+
+                        RecentlyViewedSection(
+                            products = recentlyViewedProducts,
+                            isLoading = isRecentlyViewedLoading,
+                            onProductClick = { productId ->
+                                viewModel.onRecentlyViewedProductClick(productId)
+                                onProductClick(productId)
+                            },
+                            onFavoriteClick = { productId ->
+                                viewModel.toggleRecentlyViewedFavorite(productId)
+                            }
+                        )
+
                         FeaturedProductsSection(featuredProducts, viewModel, onProductClick)
                         ThemedCollectionsSection(collections, onCollectionClick)
                     }
@@ -288,30 +314,38 @@ fun HomeScreen(
 
 // In HomeScreen.kt - UPDATE StableDrawerContent function
 
+// Replace your existing DrawerContent composable in HomeScreen.kt with this updated version
+
 @Composable
 fun DrawerContent(
     navController: NavController,
     onCloseDrawer: () -> Unit,
     onLogout: () -> Unit,
-    userProfile: UserProfile?, // Pass user profile data
-    homeViewModel: HomeViewModel
+    userProfile: UserProfile?,
+    homeViewModel: HomeViewModel,
+    drawerViewModel: DrawerViewModel // Add this parameter
 ) {
     val amberColor = Color(0xFFB78628)
     val context = LocalContext.current
+
+    // Collect drawer state
+    val materials by drawerViewModel.materials.collectAsState()
+    val categories by drawerViewModel.categories.collectAsState()
+    val isMetalExpanded by drawerViewModel.isMetalExpanded.collectAsState()
+    val isCollectionsExpanded by drawerViewModel.isCollectionsExpanded.collectAsState()
 
     // Get current user and profile data
     val currentUser = remember { FirebaseAuth.getInstance().currentUser }
     val userName = remember(currentUser) { currentUser?.displayName ?: "Guest" }
 
-    // Get profile data to access local image path
+    // Profile image state (existing code)
     var profileImageUrl by remember { mutableStateOf<String?>(null) }
     var localImagePath by remember { mutableStateOf<String?>(null) }
 
-    // Fetch profile data when composable loads
+    // Existing profile loading code...
     LaunchedEffect(currentUser) {
         currentUser?.let { user ->
             try {
-                // Get profile document from Firestore
                 val profileDoc = FirebaseFirestore.getInstance()
                     .collection("users")
                     .document(user.uid)
@@ -319,10 +353,7 @@ fun DrawerContent(
                     .await()
 
                 if (profileDoc.exists()) {
-                    // Get Google profile picture URL
                     profileImageUrl = profileDoc.getString("profilePictureUrl")
-
-                    // Get local image path from DataStore (for email/password users)
                     val profileRepository = ProfileRepository(
                         FirebaseAuth.getInstance(),
                         FirebaseFirestore.getInstance(),
@@ -347,8 +378,9 @@ fun DrawerContent(
             .fillMaxSize()
             .background(Color.White)
             .padding(16.dp)
+            .verticalScroll(rememberScrollState()) // Make drawer scrollable
     ) {
-        // Profile header with proper image handling
+        // Profile header (existing code)
         Row(
             verticalAlignment = Alignment.CenterVertically,
             modifier = Modifier.padding(bottom = 16.dp)
@@ -360,9 +392,7 @@ fun DrawerContent(
                     .background(amberColor, CircleShape)
                     .padding(3.dp)
             ) {
-                // Show image based on priority: local image -> Google image -> default
                 when {
-                    // Local image (for email/password users)
                     !localImagePath.isNullOrEmpty() -> {
                         AsyncImage(
                             model = ImageRequest.Builder(context)
@@ -377,7 +407,6 @@ fun DrawerContent(
                             error = painterResource(id = R.drawable.ic_launcher_background)
                         )
                     }
-                    // Google profile picture
                     !profileImageUrl.isNullOrEmpty() -> {
                         AsyncImage(
                             model = ImageRequest.Builder(context)
@@ -392,7 +421,6 @@ fun DrawerContent(
                             error = painterResource(id = R.drawable.ic_launcher_background)
                         )
                     }
-                    // Default image
                     else -> {
                         Image(
                             painter = painterResource(id = R.drawable.ic_launcher_background),
@@ -417,38 +445,17 @@ fun DrawerContent(
             )
         }
 
-        // Rest of your drawer content remains the same...
         HorizontalDivider(thickness = 1.dp, color = Color.LightGray)
         Spacer(modifier = Modifier.height(16.dp))
 
-        // All your existing navigation items...
-        val navigateToProfile = remember {
-            {
-                onCloseDrawer()
-                navController.navigate("profile")
-            }
-        }
-
-        val navigateToHome = remember {
-            {
-                onCloseDrawer()
-                navController.navigate("home") {
-                    popUpTo("home") { inclusive = true }
-                }
-            }
-        }
-
-        val logout = remember {
-            {
-                onCloseDrawer()
-                onLogout()
-            }
-        }
-
+        // Navigation items
         DrawerItem(
             icon = Icons.Outlined.Person,
             text = "My Profile",
-            onClick = navigateToProfile
+            onClick = {
+                onCloseDrawer()
+                navController.navigate("profile")
+            }
         )
 
         DrawerItem(
@@ -467,28 +474,81 @@ fun DrawerContent(
 
         DrawerItem(
             text = "All Jewellery",
-            onClick = navigateToHome
+            onClick = {
+                onCloseDrawer()
+                navController.navigate("allProducts") {
+                    popUpTo("home")
+                }
+            }
         )
 
-        DrawerItem(
+        // Expandable Metal Section
+        ExpandableDrawerItem(
             text = "Metal",
-            onClick = {
-                onCloseDrawer()
-                navController.navigate("category/metals")
-            }
+            isExpanded = isMetalExpanded,
+            onToggle = { drawerViewModel.toggleMetalExpansion() }
         )
 
-        DrawerItem(
+        // Metal items (expanded)
+        if (isMetalExpanded) {
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .heightIn(max = 120.dp) // Fixed height with scrolling
+                    .padding(start = 16.dp)
+            ) {
+                LazyColumn(
+                    verticalArrangement = Arrangement.spacedBy(4.dp)
+                ) {
+                    items(materials) { material ->
+                        SubDrawerItem(
+                            text = material.name,
+                            onClick = {
+                                onCloseDrawer()
+                                // Navigate to allProducts with pre-selected material filter
+                                navController.navigate("allProducts/${material.name}") {
+                                    popUpTo("home")
+                                }
+                            }
+                        )
+                    }
+                }
+            }
+        }
+
+        // Expandable Collections Section
+        ExpandableDrawerItem(
             text = "Collections",
-            onClick = {
-                onCloseDrawer()
-                navController.navigate("category/all")
-
-
-            }
+            isExpanded = isCollectionsExpanded,
+            onToggle = { drawerViewModel.toggleCollectionsExpansion() }
         )
 
-
+        // Collections items (expanded)
+        if (isCollectionsExpanded) {
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .heightIn(max = 120.dp) // Fixed height with scrolling
+                    .padding(start = 16.dp)
+            ) {
+                LazyColumn(
+                    verticalArrangement = Arrangement.spacedBy(4.dp)
+                ) {
+                    items(categories) { category ->
+                        SubDrawerItem(
+                            text = category.name,
+                            onClick = {
+                                onCloseDrawer()
+                                // Navigate to allProducts with pre-selected category
+                                navController.navigate("allProducts/${category.id}/category") {
+                                    popUpTo("home")
+                                }
+                            }
+                        )
+                    }
+                }
+            }
+        }
 
         Text(
             text = "More",
@@ -498,6 +558,7 @@ fun DrawerContent(
             modifier = Modifier.padding(top = 16.dp, bottom = 8.dp)
         )
 
+        // Existing more items...
         DrawerItem(
             icon = Icons.Outlined.LocationOn,
             text = "Store Info",
@@ -507,15 +568,11 @@ fun DrawerContent(
             }
         )
 
-
-
-
         DrawerItem(
             icon = Icons.Outlined.Headset,
             text = "Get In Touch",
             onClick = {
                 onCloseDrawer()
-                // You'll need to pass homeViewModel and context to DrawerContent
                 homeViewModel.openWhatsApp(context)
             }
         )
@@ -525,7 +582,6 @@ fun DrawerContent(
             text = "Store Locator",
             onClick = {
                 onCloseDrawer()
-                // Add this line - you'll need to pass viewModel and context to DrawerContent
                 homeViewModel.openGoogleMaps(context)
             }
         )
@@ -533,10 +589,13 @@ fun DrawerContent(
         DrawerItem(
             icon = Icons.AutoMirrored.Outlined.ExitToApp,
             text = "Logout",
-            onClick = logout
+            onClick = {
+                onCloseDrawer()
+                onLogout()
+            }
         )
 
-
+        // Existing rates section...
         LaunchedEffect(Unit) {
             homeViewModel.loadGoldSilverRates()
         }
@@ -553,8 +612,52 @@ fun DrawerContent(
                 homeViewModel.showRatesDialog()
             }
         )
-
     }
+}
+
+// Add these new composables
+
+@Composable
+private fun ExpandableDrawerItem(
+    text: String,
+    isExpanded: Boolean,
+    onToggle: () -> Unit
+) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable { onToggle() }
+            .padding(vertical = 12.dp, horizontal = 16.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Text(
+            text = text,
+            fontSize = 18.sp,
+            modifier = Modifier.weight(1f),
+            color = Color.Black
+        )
+        Icon(
+            imageVector = if (isExpanded) Icons.Default.ExpandLess else Icons.Default.ExpandMore,
+            contentDescription = if (isExpanded) "Collapse" else "Expand",
+            tint = Color.Gray
+        )
+    }
+}
+
+@Composable
+private fun SubDrawerItem(
+    text: String,
+    onClick: () -> Unit
+) {
+    Text(
+        text = text,
+        fontSize = 16.sp,
+        color = Color.DarkGray,
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable { onClick() }
+            .padding(vertical = 8.dp, horizontal = 16.dp)
+    )
 }
 
 @Composable
@@ -1300,3 +1403,199 @@ fun formatPrice(price: Double, currency: String): String {
     }
 }
 
+@Composable
+fun RecentlyViewedSection(
+    products: List<ProductModel>,
+    isLoading: Boolean,
+    onProductClick: (String) -> Unit,
+    onFavoriteClick: (String) -> Unit
+) {
+    // Only show section if there are products or currently loading
+    if (products.isEmpty() && !isLoading) return
+
+    Column(
+        modifier = Modifier.padding(16.dp)
+    ) {
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            SectionTitle("Recently Viewed")
+
+            if (products.isNotEmpty()) {
+                Text(
+                    text = "View All",
+                    fontSize = 14.sp,
+                    color = Color(0xFFB78628),
+                    fontWeight = FontWeight.Medium,
+                    modifier = Modifier.clickable {
+                        // Optional: Navigate to a dedicated recently viewed screen
+                        // For now, just log
+                        Log.d("RecentlyViewed", "View All clicked")
+                    }
+                )
+            }
+        }
+
+        Spacer(modifier = Modifier.height(8.dp))
+
+        if (isLoading) {
+            // Loading state
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(16.dp)
+            ) {
+                repeat(3) {
+                    RecentlyViewedPlaceholder()
+                }
+            }
+        } else {
+            // Products list
+            LazyRow(
+                horizontalArrangement = Arrangement.spacedBy(16.dp),
+                contentPadding = PaddingValues(horizontal = 0.dp)
+            ) {
+                items(products) { product ->
+                    RecentlyViewedItem(
+                        product = product,
+                        onProductClick = onProductClick,
+                        onFavoriteClick = onFavoriteClick
+                    )
+                }
+            }
+        }
+
+        Spacer(modifier = Modifier.height(16.dp))
+    }
+}
+
+// 3. ADD RecentlyViewedItem composable
+
+@Composable
+fun RecentlyViewedItem(
+    product: ProductModel,
+    onProductClick: (String) -> Unit,
+    onFavoriteClick: (String) -> Unit
+) {
+    Card(
+        modifier = Modifier
+            .width(140.dp)
+            .height(180.dp)
+            .clickable { onProductClick(product.id) },
+        shape = RoundedCornerShape(8.dp),
+        colors = CardDefaults.cardColors(containerColor = Color.White),
+        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+    ) {
+        Column {
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(100.dp)
+            ) {
+                AsyncImage(
+                    model = ImageRequest.Builder(LocalContext.current)
+                        .data(product.imageUrl)
+                        .crossfade(true)
+                        .build(),
+                    contentDescription = product.name,
+                    modifier = Modifier.fillMaxSize(),
+                    contentScale = ContentScale.Crop,
+                    placeholder = painterResource(id = R.drawable.diamondring_homescreen)
+                )
+
+                // Favorite icon
+                IconButton(
+                    onClick = { onFavoriteClick(product.id) },
+                    modifier = Modifier
+                        .align(Alignment.TopEnd)
+                        .size(28.dp)
+                ) {
+                    Icon(
+                        imageVector = if (product.isFavorite) Icons.Default.Favorite else Icons.Default.FavoriteBorder,
+                        contentDescription = "Favorite",
+                        tint = if (product.isFavorite) Color(0xFFD4A968) else Color(0xFFD4A968),
+                        modifier = Modifier.size(16.dp)
+                    )
+                }
+            }
+
+            Column(
+                modifier = Modifier.padding(8.dp)
+            ) {
+                Text(
+                    text = product.name,
+                    fontSize = 12.sp,
+                    fontWeight = FontWeight.Medium,
+                    maxLines = 2,
+                    overflow = TextOverflow.Ellipsis,
+                    modifier = Modifier.height(32.dp)
+                )
+
+                Spacer(modifier = Modifier.height(4.dp))
+
+                Text(
+                    text = formatPrice(product.price, product.currency),
+                    fontSize = 13.sp,
+                    color = Color(0xFFB78628),
+                    fontWeight = FontWeight.Bold
+                )
+            }
+        }
+    }
+}
+
+// 4. ADD RecentlyViewedPlaceholder for loading state
+
+@Composable
+fun RecentlyViewedPlaceholder() {
+    Card(
+        modifier = Modifier
+            .width(140.dp)
+            .height(180.dp),
+        shape = RoundedCornerShape(8.dp),
+        colors = CardDefaults.cardColors(containerColor = Color.White),
+        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+    ) {
+        Column {
+            // Placeholder image
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(100.dp)
+                    .background(
+                        brush = Brush.linearGradient(
+                            colors = listOf(
+                                Color.LightGray.copy(alpha = 0.3f),
+                                Color.LightGray.copy(alpha = 0.1f),
+                                Color.LightGray.copy(alpha = 0.3f)
+                            )
+                        )
+                    )
+            )
+
+            // Placeholder text
+            Column(modifier = Modifier.padding(8.dp)) {
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth(0.8f)
+                        .height(12.dp)
+                        .background(
+                            Color.LightGray.copy(alpha = 0.3f),
+                            RoundedCornerShape(4.dp)
+                        )
+                )
+                Spacer(modifier = Modifier.height(4.dp))
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth(0.6f)
+                        .height(10.dp)
+                        .background(
+                            Color.LightGray.copy(alpha = 0.3f),
+                            RoundedCornerShape(4.dp)
+                        )
+                )
+            }
+        }
+    }
+}

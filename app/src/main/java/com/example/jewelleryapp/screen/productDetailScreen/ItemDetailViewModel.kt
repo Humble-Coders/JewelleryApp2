@@ -95,55 +95,55 @@ class ItemDetailViewModel(
 
 
     // In ItemDetailViewModel.kt - Update loadProduct method to handle multiple images
-    fun loadProduct(productId: String) {
-        viewModelScope.launch {
-            try {
-                _isLoading.value = true
-                _error.value = null
-
-                if (productId.isBlank()) {
-                    _error.value = "Invalid product ID"
-                    return@launch
-                }
-
-                coroutineScope {
-                    val productDetailsJob = async(Dispatchers.Default) {
-                        repository.getProductDetails(productId).first()
-                    }
-
-                    val wishlistStatusJob = async(Dispatchers.Default) {
-                        repository.isInWishlist(productId)
-                    }
-
-                    val productDetails = productDetailsJob.await()
-                    val isInWishlist = wishlistStatusJob.await()
-
-                    _product.value = productDetails
-                    _isInWishlist.value = isInWishlist
-
-                    // Set up image URLs and reset current index
-                    val images = if (productDetails.imageUrls.isNotEmpty()) {
-                        productDetails.imageUrls
-                    } else if (productDetails.imageUrl.isNotBlank()) {
-                        listOf(productDetails.imageUrl)
-                    } else {
-                        emptyList()
-                    }
-
-                    _imageUrls.value = images
-                    _currentImageIndex.value = 0
-
-                    Log.d(TAG, "Loaded product with ${images.size} images")
-                    Log.d(TAG, "Product $productId wishlist status: $isInWishlist")
-                }
-            } catch (e: Exception) {
-                _error.value = e.message ?: "An error occurred while loading the product"
-                Log.e(TAG, "Error loading product details", e)
-            } finally {
-                _isLoading.value = false
-            }
-        }
-    }
+//    fun loadProduct(productId: String) {
+//        viewModelScope.launch {
+//            try {
+//                _isLoading.value = true
+//                _error.value = null
+//
+//                if (productId.isBlank()) {
+//                    _error.value = "Invalid product ID"
+//                    return@launch
+//                }
+//
+//                coroutineScope {
+//                    val productDetailsJob = async(Dispatchers.Default) {
+//                        repository.getProductDetails(productId).first()
+//                    }
+//
+//                    val wishlistStatusJob = async(Dispatchers.Default) {
+//                        repository.isInWishlist(productId)
+//                    }
+//
+//                    val productDetails = productDetailsJob.await()
+//                    val isInWishlist = wishlistStatusJob.await()
+//
+//                    _product.value = productDetails
+//                    _isInWishlist.value = isInWishlist
+//
+//                    // Set up image URLs and reset current index
+//                    val images = if (productDetails.imageUrls.isNotEmpty()) {
+//                        productDetails.imageUrls
+//                    } else if (productDetails.imageUrl.isNotBlank()) {
+//                        listOf(productDetails.imageUrl)
+//                    } else {
+//                        emptyList()
+//                    }
+//
+//                    _imageUrls.value = images
+//                    _currentImageIndex.value = 0
+//
+//                    Log.d(TAG, "Loaded product with ${images.size} images")
+//                    Log.d(TAG, "Product $productId wishlist status: $isInWishlist")
+//                }
+//            } catch (e: Exception) {
+//                _error.value = e.message ?: "An error occurred while loading the product"
+//                Log.e(TAG, "Error loading product details", e)
+//            } finally {
+//                _isLoading.value = false
+//            }
+//        }
+//    }
 
     // In ItemDetailViewModel.kt - Add these new methods for image navigation and zoom
     fun navigateToImage(index: Int) {
@@ -262,4 +262,72 @@ class ItemDetailViewModel(
             }
         }
     }
+
+    private fun trackProductView(productId: String) {
+        viewModelScope.launch {
+            try {
+                repository.addToRecentlyViewed(productId)
+                Log.d(TAG, "Tracked view for product: $productId")
+            } catch (e: Exception) {
+                Log.e(TAG, "Error tracking product view", e)
+                // Don't show error to user as this is background functionality
+            }
+        }
+    }
+
+    // UPDATE the existing loadProduct method in ItemDetailViewModel
+    fun loadProduct(productId: String) {
+        viewModelScope.launch {
+            try {
+                _isLoading.value = true
+                _error.value = null
+
+                if (productId.isBlank()) {
+                    _error.value = "Invalid product ID"
+                    return@launch
+                }
+
+                coroutineScope {
+                    val productDetailsJob = async(Dispatchers.Default) {
+                        repository.getProductDetails(productId).first()
+                    }
+
+                    val wishlistStatusJob = async(Dispatchers.Default) {
+                        repository.isInWishlist(productId)
+                    }
+
+                    val productDetails = productDetailsJob.await()
+                    val isInWishlist = wishlistStatusJob.await()
+
+                    _product.value = productDetails
+                    _isInWishlist.value = isInWishlist
+
+                    // Set up image URLs and reset current index
+                    val images = if (productDetails.imageUrls.isNotEmpty()) {
+                        productDetails.imageUrls
+                    } else if (productDetails.imageUrl.isNotBlank()) {
+                        listOf(productDetails.imageUrl)
+                    } else {
+                        emptyList()
+                    }
+
+                    _imageUrls.value = images
+                    _currentImageIndex.value = 0
+
+                    // Track product view - ADD THIS LINE
+                    trackProductView(productId)
+
+                    Log.d(TAG, "Loaded product with ${images.size} images")
+                    Log.d(TAG, "Product $productId wishlist status: $isInWishlist")
+                }
+            } catch (e: Exception) {
+                _error.value = e.message ?: "An error occurred while loading the product"
+                Log.e(TAG, "Error loading product details", e)
+            } finally {
+                _isLoading.value = false
+            }
+        }
+    }
+
+
 }

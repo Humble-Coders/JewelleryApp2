@@ -26,10 +26,13 @@ import androidx.navigation.navArgument
 import com.example.jewelleryapp.repository.FirebaseAuthRepository
 import com.example.jewelleryapp.repository.JewelryRepository
 import com.example.jewelleryapp.repository.ProfileRepository
+import com.example.jewelleryapp.screen.allProducts.AllProductsScreen
+import com.example.jewelleryapp.screen.allProducts.AllProductsViewModel
 import com.example.jewelleryapp.screen.categoriesScreen.CategoriesViewModel
 import com.example.jewelleryapp.screen.categoriesScreen.CategoryScreenView
 import com.example.jewelleryapp.screen.categoryProducts.CategoryProductsScreen
 import com.example.jewelleryapp.screen.categoryProducts.CategoryProductsViewModel
+import com.example.jewelleryapp.screen.drawer.DrawerViewModel
 import com.example.jewelleryapp.screen.homeScreen.HomeScreen
 import com.example.jewelleryapp.screen.homeScreen.HomeViewModel
 import com.example.jewelleryapp.screen.productDetailScreen.ItemDetailViewModel
@@ -61,6 +64,8 @@ class MainActivity : ComponentActivity() {
     private lateinit var googleSignInLauncher: ActivityResultLauncher<Intent>
     private lateinit var profileViewModel: ProfileViewModel
     private lateinit var storeInfoViewModel: StoreInfoViewModel // Add this line
+    private lateinit var allProductsViewModel: AllProductsViewModel // Add this line
+    private lateinit var drawerViewModel: DrawerViewModel
 
 
 
@@ -114,6 +119,7 @@ class MainActivity : ComponentActivity() {
 
 
 
+
         authStateListener = FirebaseAuth.AuthStateListener { auth ->
             val user = auth.currentUser
             val newUserId = user?.uid ?: ""
@@ -144,6 +150,8 @@ class MainActivity : ComponentActivity() {
         categoryProductsViewModel = CategoryProductsViewModel(jewelryRepository, "")
         profileViewModel = ProfileViewModel(profileRepository, authRepository)
         storeInfoViewModel = StoreInfoViewModel(jewelryRepository)
+        allProductsViewModel = AllProductsViewModel(jewelryRepository)
+        drawerViewModel = DrawerViewModel(jewelryRepository)
 
 
 
@@ -165,7 +173,9 @@ class MainActivity : ComponentActivity() {
                         intent = intent,
                         googleSignInLauncher = googleSignInLauncher ,// Pass the launcher
                         profileViewModel,
-                        storeInfoViewModel // Pass the store info ViewModel
+                        storeInfoViewModel, // Pass the store info ViewModel
+                        allProductsViewModel, // Pass the all products ViewModel
+                        drawerViewModel
                     )
                 }
             }
@@ -206,7 +216,9 @@ fun AppNavigation(
     intent: Intent?,
     googleSignInLauncher: ActivityResultLauncher<Intent>,
     profileViewModel: ProfileViewModel, // Add this parameter
-    storeInfoViewModel: StoreInfoViewModel // Add this parameter
+    storeInfoViewModel: StoreInfoViewModel, // Add this parameter
+    allProductsViewModel: AllProductsViewModel, // Add this parameter
+    drawerViewModel: DrawerViewModel // Add this parameter
 
 ) {
     val navController = rememberNavController()
@@ -280,6 +292,73 @@ fun AppNavigation(
             )
         }
 
+        // All Products Screen (existing)
+        composable("allProducts") {
+            val allProductsViewModel: AllProductsViewModel = viewModel() {
+                AllProductsViewModel(repository = jewelryRepository)
+            }
+
+            AllProductsScreen(
+                viewModel = allProductsViewModel,
+                navController = navController
+            )
+        }
+
+// All Products with pre-selected material
+        composable(
+            route = "allProducts/{materialName}",
+            arguments = listOf(
+                navArgument("materialName") {
+                    type = NavType.StringType
+                    nullable = false
+                }
+            )
+        ) { backStackEntry ->
+            val materialName = backStackEntry.arguments?.getString("materialName") ?: ""
+
+            val allProductsViewModel: AllProductsViewModel = viewModel(
+                key = "allProducts_material_$materialName"
+            ) {
+                AllProductsViewModel(
+                    repository = jewelryRepository,
+                    preSelectedMaterial = materialName
+                )
+            }
+
+            AllProductsScreen(
+                viewModel = allProductsViewModel,
+                navController = navController
+            )
+        }
+
+// All Products with pre-selected category
+        composable(
+            route = "allProducts/{categoryId}/category",
+            arguments = listOf(
+                navArgument("categoryId") {
+                    type = NavType.StringType
+                    nullable = false
+                }
+            )
+        ) { backStackEntry ->
+            val categoryId = backStackEntry.arguments?.getString("categoryId") ?: ""
+
+            val allProductsViewModel: AllProductsViewModel = viewModel(
+                key = "allProducts_category_$categoryId"
+            ) {
+                AllProductsViewModel(
+                    repository = jewelryRepository,
+                    preSelectedCategoryId = categoryId
+                )
+            }
+
+            AllProductsScreen(
+                viewModel = allProductsViewModel,
+                navController = navController
+            )
+        }
+
+
         // Home Screen
         // Update HomeScreen call in AppNavigation
         composable("home") {
@@ -305,7 +384,8 @@ fun AppNavigation(
                         popUpTo(0) { inclusive = true }
                     }
                 },
-                profileViewModel = profileViewModel // Pass ProfileViewModel for profile actions
+                profileViewModel = profileViewModel, // Pass ProfileViewModel for profile actions
+                drawerViewModel = drawerViewModel
             )
         }
 

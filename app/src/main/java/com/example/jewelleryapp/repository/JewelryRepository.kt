@@ -7,6 +7,7 @@ import com.example.jewelleryapp.model.Collection
 import com.example.jewelleryapp.model.Product
 import com.example.jewelleryapp.model.CarouselItem
 import com.example.jewelleryapp.model.GoldSilverRates
+import com.example.jewelleryapp.model.Material
 import com.example.jewelleryapp.model.StoreInfo
 import com.google.firebase.auth.FirebaseAuth
 import kotlinx.coroutines.tasks.await
@@ -30,6 +31,8 @@ class JewelryRepository(
 
     // Cache for wishlist status to avoid excessive Firestore calls
     private val wishlistCache = mutableMapOf<String, Boolean>()
+    private val recentlyViewedCache = mutableListOf<String>()
+
 
     // Function to update wishlist cache from Firestore - Optimized with async
     suspend fun refreshWishlistCache() {
@@ -817,6 +820,294 @@ class JewelryRepository(
         } catch (e: Exception) {
             Log.e(tag, "Error fetching gold silver rates", e)
             throw e
+        }
+    }
+
+    // Add these methods to your existing JewelryRepository class
+
+    // Add these methods to your existing JewelryRepository class
+
+    /**
+     * Get paginated all products with filtering and sorting
+     */
+    fun getAllProductsPaginated(
+        page: Int,
+        pageSize: Int = 20,
+        materialFilter: String? = null,
+        sortBy: String? = null
+    ): Flow<List<Product>> = flow {
+        try {
+            Log.d(tag, "Fetching paginated all products: page $page, pageSize $pageSize")
+
+            // Get all products with pagination using startAfter for efficient pagination
+            val query = firestore.collection("products")
+                .orderBy("name") // Order by name for consistent pagination
+                .limit(pageSize.toLong())
+
+            // Apply pagination offset
+            val snapshot = if (page == 0) {
+                withContext(Dispatchers.IO) {
+                    query.get().await()
+                }
+            } else {
+                // For subsequent pages, we need to get documents to skip
+                val skipCount = page * pageSize
+                val skipQuery = firestore.collection("products")
+                    .orderBy("name")
+                    .limit(skipCount.toLong())
+
+                val lastDoc = withContext(Dispatchers.IO) {
+                    val skipSnapshot = skipQuery.get().await()
+                    skipSnapshot.documents.lastOrNull()
+                }
+
+                if (lastDoc != null) {
+                    withContext(Dispatchers.IO) {
+                        query.startAfter(lastDoc).get().await()
+                    }
+                } else {
+                    // No more documents
+                    withContext(Dispatchers.IO) {
+                        query.limit(0).get().await()
+                    }
+                }
+            }
+
+            if (snapshot.isEmpty) {
+                emit(emptyList())
+                return@flow
+            }
+
+            Log.d(tag, "Found ${snapshot.size()} products for page $page")
+
+            // Process products in parallel
+            val products = coroutineScope {
+                snapshot.documents.map { doc ->
+                    async(Dispatchers.Default) {
+                        try {
+                            // Get all images from the images array
+                            val images = doc.get("images") as? List<*>
+                            val imageUrls = images?.mapNotNull { it as? String }?.filter { it.isNotBlank() } ?: emptyList()
+                            val primaryImageUrl = imageUrls.firstOrNull() ?: ""
+
+                            val isInWishlist = wishlistCache[doc.id] == true
+
+                            Product(
+                                id = doc.id,
+                                name = doc.getString("name") ?: "",
+                                price = doc.getDouble("price") ?: 0.0,
+                                currency = doc.getString("currency") ?: "Rs",
+                                imageUrl = primaryImageUrl,
+                                imageUrls = imageUrls,
+                                isFavorite = isInWishlist,
+                                category = doc.getString("type") ?: "",
+                                categoryId = doc.getString("category_id") ?: "",
+                                materialId = doc.getString("material_id"),
+                                materialType = doc.getString("material_type"),
+                                stone = doc.getString("stone") ?: "",
+                                clarity = doc.getString("clarity") ?: "",
+                                cut = doc.getString("cut") ?: "",
+                                description = doc.getString("description") ?: ""
+                            )
+                        } catch (e: Exception) {
+                            Log.e(tag, "Error processing product ${doc.id}", e)
+                            null
+                        }
+                    }
+                }.awaitAll().filterNotNull()
+            }
+
+            Log.d(tag, "Successfully processed ${products.size} products for page $page")
+            emit(products)
+
+        } catch (e: Exception) {
+            Log.e(tag, "Error fetching paginated all products for page $page", e)
+            emit(emptyList())
+        }
+    }
+
+    /**
+     * Get total count of all products
+     */
+    suspend fun getAllProductsCount(): Int {
+        return try {
+            withContext(Dispatchers.IO) {
+                val snapshot = firestore.collection("products")
+                    .get()
+                    .await()
+
+                val count = snapshot.size()
+                Log.d(tag, "Total products count: $count")
+                count
+            }
+        } catch (e: Exception) {
+            Log.e(tag, "Error getting total products count", e)
+            0
+        }
+    }
+
+    fun getMaterials(): Flow<List<Material>> = flow {
+        try {
+            val snapshot = withContext(Dispatchers.IO) {
+                firestore.collection("materials")
+                    .get()
+                    .await()
+            }
+
+            val materials = snapshot.documents.map { doc ->
+                Material(
+                    id = doc.id,
+                    name = doc.getString("name") ?: "",
+                    imageUrl = doc.getString("image_url") ?: ""
+                )
+            }
+
+            Log.d(tag, "Fetched ${materials.size} materials")
+            emit(materials)
+        } catch (e: Exception) {
+            Log.e(tag, "Error fetching materials", e)
+            emit(emptyList())
+        }
+    }
+
+    // Add these methods to your existing JewelryRepository class
+
+
+    /**
+     * Add product to recently viewed (limit 10, remove oldest when full)
+     */
+    suspend fun addToRecentlyViewed(productId: String) {
+        try {
+            if (userId.isBlank()) {
+                Log.e(tag, "Cannot add to recently viewed: User ID is blank")
+                return
+            }
+
+            withContext(Dispatchers.IO) {
+                val recentlyViewedRef = firestore.collection("users")
+                    .document(userId)
+                    .collection("recently_viewed")
+
+                // Get current recently viewed items ordered by timestamp
+                val currentItems = recentlyViewedRef
+                    .orderBy("viewedAt")
+                    .get()
+                    .await()
+
+                // Remove existing entry if product already viewed (to update timestamp)
+                currentItems.documents.forEach { doc ->
+                    if (doc.getString("productId") == productId) {
+                        doc.reference.delete().await()
+                    }
+                }
+
+                // If we have 10+ items after potential removal, delete oldest
+                val remainingItems = recentlyViewedRef
+                    .orderBy("viewedAt")
+                    .get()
+                    .await()
+
+                if (remainingItems.size() >= 10) {
+                    // Delete oldest items to make room (keep only 9, so after adding new one we have 10)
+                    val itemsToDelete = remainingItems.documents.take(remainingItems.size() - 9)
+                    itemsToDelete.forEach { doc ->
+                        doc.reference.delete().await()
+                    }
+                }
+
+                // Add new item with current timestamp
+                recentlyViewedRef.add(mapOf(
+                    "productId" to productId,
+                    "viewedAt" to System.currentTimeMillis()
+                )).await()
+
+                Log.d(tag, "Successfully added product $productId to recently viewed")
+            }
+        } catch (e: Exception) {
+            Log.e(tag, "Error adding product to recently viewed", e)
+            // Don't throw error as this is not critical functionality
+        }
+    }
+
+    /**
+     * Get recently viewed products (ordered by most recent first)
+     */
+    fun getRecentlyViewedProducts(): Flow<List<Product>> = flow {
+        try {
+            if (!hasValidUser()) {
+                Log.e(tag, "Cannot fetch recently viewed: No valid user")
+                emit(emptyList())
+                return@flow
+            }
+
+            Log.d(tag, "Fetching recently viewed products for user: $userId")
+
+            val snapshot = withContext(Dispatchers.IO) {
+                firestore.collection("users")
+                    .document(userId)
+                    .collection("recently_viewed")
+                    .orderBy("viewedAt", com.google.firebase.firestore.Query.Direction.DESCENDING)
+                    .limit(10)
+                    .get()
+                    .await()
+            }
+
+            val productIds = snapshot.documents.mapNotNull { doc ->
+                doc.getString("productId")
+            }
+
+            Log.d(tag, "Found ${productIds.size} recently viewed products: $productIds")
+
+            if (productIds.isEmpty()) {
+                emit(emptyList())
+                return@flow
+            }
+
+            // Fetch product details
+            val products = fetchProductsByIds(productIds)
+
+            // Maintain the order from recently viewed (most recent first)
+            val orderedProducts = productIds.mapNotNull { productId ->
+                products.find { it.id == productId }
+            }
+
+            Log.d(tag, "Successfully fetched ${orderedProducts.size} recently viewed products")
+            emit(orderedProducts)
+
+        } catch (e: Exception) {
+            Log.e(tag, "Error fetching recently viewed products", e)
+            emit(emptyList())
+        }
+    }
+
+    /**
+     * Clear all recently viewed products
+     */
+    suspend fun clearRecentlyViewed() {
+        try {
+            if (userId.isBlank()) {
+                Log.e(tag, "Cannot clear recently viewed: User ID is blank")
+                return
+            }
+
+            withContext(Dispatchers.IO) {
+                val recentlyViewedRef = firestore.collection("users")
+                    .document(userId)
+                    .collection("recently_viewed")
+
+                val snapshot = recentlyViewedRef.get().await()
+
+                // Delete all documents in batch
+                val batch = firestore.batch()
+                snapshot.documents.forEach { doc ->
+                    batch.delete(doc.reference)
+                }
+                batch.commit().await()
+
+                Log.d(tag, "Successfully cleared all recently viewed products")
+            }
+        } catch (e: Exception) {
+            Log.e(tag, "Error clearing recently viewed products", e)
         }
     }
 

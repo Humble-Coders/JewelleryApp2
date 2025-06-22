@@ -112,6 +112,13 @@ data class StoreInfo(
     val whatsappDefaultMessage: String = ""
 )
 
+data class Material(
+    val id: String,
+    val name: String,
+    val imageUrl: String
+)
+
+
 sealed class ProfileState {
     object Loading : ProfileState()
     data class Success(val profile: UserProfile) : ProfileState()
