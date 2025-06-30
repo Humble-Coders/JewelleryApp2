@@ -369,8 +369,6 @@ fun HomeScreen(
                             )
                         }
                     ) {
-                        // REPLACE the LazyColumn content in HomeScreen.kt with this:
-
                         LazyColumn(
                             modifier = Modifier
                                 .fillMaxSize()
@@ -386,15 +384,10 @@ fun HomeScreen(
                                 }
                             }
 
-                            // Add spacing after carousel
-                            item {
-                                Spacer(modifier = Modifier.height(8.dp))
-                            }
-
-                            // Category Section with modern design
+                            // Category Row
                             item {
                                 if (categories.isNotEmpty()) {
-                                    CategorySection(categories, onCategoryClick = { categoryId ->
+                                    CategoryRow(categories, onCategoryClick = { categoryId ->
                                         Log.d("HomeScreen", "Category clicked: $categoryId")
                                         val categoryName = categories.find { it.id == categoryId }?.name ?: "Products"
                                         navController.navigate("categoryProducts/$categoryId/$categoryName")
@@ -421,24 +414,29 @@ fun HomeScreen(
                                 }
                             }
 
-                            // Featured Products Section with modern styling
+                            // Featured Products Title
                             item {
                                 if (featuredProducts.isNotEmpty()) {
-                                    ModernSectionTitle("Handpicked for you")
+                                    Text(
+                                        text = "Featured Products",
+                                        fontSize = 24.sp,
+                                        fontWeight = FontWeight.Bold,
+                                        modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)
+                                    )
                                 }
                             }
 
-                            // Featured Products Grid with modern cards
+                            // Featured Products Grid - Always show shimmer if loading or empty
                             if (featuredProducts.isNotEmpty()) {
                                 items(featuredProducts.chunked(2)) { productPair ->
                                     Row(
                                         modifier = Modifier
                                             .fillMaxWidth()
-                                            .padding(horizontal = 20.dp, vertical = 6.dp),
+                                            .padding(horizontal = 16.dp, vertical = 4.dp),
                                         horizontalArrangement = Arrangement.spacedBy(16.dp)
                                     ) {
                                         productPair.forEach { product ->
-                                            ModernProductItem(
+                                            AnimatedProductItem(
                                                 product = product,
                                                 onProductClick = onProductClick,
                                                 viewModel = viewModel,
@@ -452,12 +450,12 @@ fun HomeScreen(
                                     }
                                 }
                             } else {
-                                // Show shimmer placeholders when loading
-                                items(3) {
+                                // Show shimmer placeholders when loading or empty
+                                items(3) { // Show 3 rows of shimmer placeholders
                                     Row(
                                         modifier = Modifier
                                             .fillMaxWidth()
-                                            .padding(horizontal = 20.dp, vertical = 6.dp),
+                                            .padding(horizontal = 16.dp, vertical = 4.dp),
                                         horizontalArrangement = Arrangement.spacedBy(16.dp)
                                     ) {
                                         repeat(2) {
@@ -467,11 +465,9 @@ fun HomeScreen(
                                 }
                             }
 
-                            // Themed Collections Section with modern title
+                            // Themed Collections Section
                             item {
                                 if (collections.isNotEmpty()) {
-                                    Spacer(modifier = Modifier.height(16.dp))
-                                    ModernSectionTitle("Curated themes and styles")
                                     AnimatedThemedCollectionsSection(collections, onCollectionClick)
                                 } else {
                                     ShimmerCollectionsPlaceholder()
@@ -480,10 +476,9 @@ fun HomeScreen(
 
                             // Bottom spacing
                             item {
-                                Spacer(modifier = Modifier.height(24.dp))
+                                Spacer(modifier = Modifier.height(16.dp))
                             }
                         }
-
                     }
                 }
 
@@ -2154,7 +2149,7 @@ fun AnimatedImageCarousel(items: List<CarouselItemModel>) {
     Box(
         modifier = Modifier
             .fillMaxWidth()
-            .height(220.dp) // Slightly taller for better proportions
+            .height(200.dp)
     ) {
         val pagerState = rememberPagerState(pageCount = { items.size })
         val scope = rememberCoroutineScope()
@@ -2162,12 +2157,12 @@ fun AnimatedImageCarousel(items: List<CarouselItemModel>) {
         // Auto-scroll effect
         LaunchedEffect(pagerState) {
             while (true) {
-                delay(4000) // 4 seconds for better viewing
+                delay(3000) // 3 seconds
                 val nextPage = (pagerState.currentPage + 1) % items.size
                 pagerState.animateScrollToPage(
                     page = nextPage,
                     animationSpec = tween(
-                        durationMillis = 800,
+                        durationMillis = 500,
                         easing = FastOutSlowInEasing
                     )
                 )
@@ -2191,7 +2186,7 @@ fun AnimatedImageCarousel(items: List<CarouselItemModel>) {
                     placeholder = painterResource(id = R.drawable.swipeable_img1)
                 )
 
-                // Modern gradient overlay
+                // Enhanced gradient overlay
                 Box(
                     modifier = Modifier
                         .fillMaxSize()
@@ -2199,24 +2194,20 @@ fun AnimatedImageCarousel(items: List<CarouselItemModel>) {
                             brush = Brush.verticalGradient(
                                 colors = listOf(
                                     Color.Transparent,
-                                    Color.Transparent,
                                     Color.Black.copy(alpha = 0.3f),
                                     Color.Black.copy(alpha = 0.7f)
-                                ),
-                                startY = 0f,
-                                endY = Float.POSITIVE_INFINITY
+                                )
                             )
                         )
                 )
 
-                // Content overlay with modern styling
+                // Animated text overlay
                 Column(
                     modifier = Modifier
                         .align(Alignment.BottomStart)
-                        .padding(24.dp)
-                        .fillMaxWidth(0.85f)
+                        .padding(20.dp)
+                        .animateContentSize()
                 ) {
-                    // Subtitle with modern styling
                     AnimatedVisibility(
                         visible = true,
                         enter = slideInVertically(
@@ -2226,16 +2217,14 @@ fun AnimatedImageCarousel(items: List<CarouselItemModel>) {
                     ) {
                         Text(
                             text = item.subtitle,
-                            color = Color.White.copy(alpha = 0.85f),
+                            color = Color.White.copy(alpha = 0.9f),
                             fontSize = 14.sp,
-                            fontWeight = FontWeight.Normal,
-                            letterSpacing = 0.5.sp
+                            fontWeight = FontWeight.Light
                         )
                     }
 
-                    Spacer(modifier = Modifier.height(4.dp))
+                    Spacer(modifier = Modifier.height(8.dp))
 
-                    // Main title with better typography
                     AnimatedVisibility(
                         visible = true,
                         enter = slideInVertically(
@@ -2246,16 +2235,14 @@ fun AnimatedImageCarousel(items: List<CarouselItemModel>) {
                         Text(
                             text = item.title,
                             color = Color.White,
-                            fontSize = 24.sp,
+                            fontSize = 26.sp,
                             fontWeight = FontWeight.Bold,
-                            lineHeight = 28.sp,
-                            letterSpacing = 0.2.sp
+                            lineHeight = 30.sp
                         )
                     }
 
                     Spacer(modifier = Modifier.height(16.dp))
 
-                    // Modern button design
                     AnimatedVisibility(
                         visible = true,
                         enter = slideInVertically(
@@ -2263,68 +2250,53 @@ fun AnimatedImageCarousel(items: List<CarouselItemModel>) {
                             animationSpec = tween(600, delayMillis = 600)
                         ) + fadeIn(animationSpec = tween(600, delayMillis = 600))
                     ) {
-                        Surface(
+                        Button(
                             onClick = { /* Handle click */ },
-                            shape = RoundedCornerShape(12.dp),
-                            color = Color.White.copy(alpha = 0.15f),
-                            border = BorderStroke(1.dp, Color.White.copy(alpha = 0.3f)),
-                            modifier = Modifier.height(48.dp)
+                            shape = RoundedCornerShape(25.dp),
+                            colors = ButtonDefaults.buttonColors(
+                                containerColor = Color.White.copy(alpha = 0.2f)
+                            ),
+                            border = BorderStroke(1.dp, Color.White),
+                            modifier = Modifier.height(45.dp)
                         ) {
-                            Row(
-                                modifier = Modifier.padding(horizontal = 20.dp),
-                                verticalAlignment = Alignment.CenterVertically
-                            ) {
-                                Text(
-                                    text = item.buttonText,
-                                    color = Color.White,
-                                    fontSize = 14.sp,
-                                    fontWeight = FontWeight.Medium,
-                                    letterSpacing = 0.3.sp
-                                )
-                                Spacer(modifier = Modifier.width(8.dp))
-                                Icon(
-                                    imageVector = Icons.AutoMirrored.Filled.ArrowForward,
-                                    contentDescription = "Arrow",
-                                    tint = Color.White,
-                                    modifier = Modifier.size(16.dp)
-                                )
-                            }
+                            Text(
+                                text = item.buttonText,
+                                color = Color.White,
+                                fontSize = 14.sp,
+                                fontWeight = FontWeight.Medium
+                            )
                         }
                     }
                 }
             }
         }
 
-        // Modern minimalist dots indicator
+        // Modern dots indicator
         Row(
             modifier = Modifier
                 .align(Alignment.BottomEnd)
-                .padding(24.dp)
+                .padding(20.dp)
                 .background(
-                    Color.Black.copy(alpha = 0.2f),
-                    RoundedCornerShape(16.dp)
+                    Color.Black.copy(alpha = 0.3f),
+                    RoundedCornerShape(20.dp)
                 )
-                .padding(horizontal = 16.dp, vertical = 10.dp),
-            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                .padding(horizontal = 12.dp, vertical = 8.dp),
+            horizontalArrangement = Arrangement.spacedBy(6.dp)
         ) {
             repeat(items.size) { index ->
                 val isSelected = index == pagerState.currentPage
-
-                val dotWidth by animateDpAsState(
-                    targetValue = if (isSelected) 24.dp else 8.dp,
-                    animationSpec = spring(
-                        dampingRatio = Spring.DampingRatioMediumBouncy,
-                        stiffness = Spring.StiffnessHigh
-                    ),
-                    label = "dot_width"
-                )
-
                 Box(
                     modifier = Modifier
-                        .size(width = dotWidth, height = 8.dp)
+                        .size(
+                            width = if (isSelected) 20.dp else 8.dp,
+                            height = 8.dp
+                        )
                         .clip(RoundedCornerShape(4.dp))
                         .background(
-                            if (isSelected) Color.White else Color.White.copy(alpha = 0.4f)
+                            if (isSelected) Color.White else Color.White.copy(alpha = 0.5f)
+                        )
+                        .animateContentSize(
+                            animationSpec = tween(300)
                         )
                         .clickable {
                             scope.launch {
@@ -2334,297 +2306,6 @@ fun AnimatedImageCarousel(items: List<CarouselItemModel>) {
                 )
             }
         }
-    }
-}
-
-// REPLACE CategoryRow and add section title
-@Composable
-fun CategorySection(categories: List<Category>, onCategoryClick: (String) -> Unit) {
-    if (categories.isEmpty()) return
-
-    Column(
-        modifier = Modifier.padding(vertical = 8.dp)
-    ) {
-        // Section title with modern styling
-        Text(
-            text = "Discover our finest collections",
-            fontSize = 18.sp,
-            fontWeight = FontWeight.Normal,
-            color = Color.Gray.copy(alpha = 0.8f),
-            textAlign = TextAlign.Center,
-            letterSpacing = 0.3.sp,
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(vertical = 16.dp)
-        )
-
-        LazyRow(
-            horizontalArrangement = Arrangement.spacedBy(32.dp),
-            contentPadding = PaddingValues(horizontal = 24.dp)
-        ) {
-            items(categories) { category ->
-                ModernCategoryItem(category, onCategoryClick)
-            }
-        }
-    }
-}
-
-// REPLACE the AnimatedProductItem with this modern version
-@Composable
-fun ModernProductItem(
-    product: ProductModel,
-    onProductClick: (String) -> Unit,
-    viewModel: HomeViewModel,
-    modifier: Modifier = Modifier
-) {
-    var currentImageIndex by remember(product.id) { mutableIntStateOf(0) }
-
-    // Get all available images
-    val imageUrls = remember(product.id, product.imageUrls, product.imageUrl) {
-        val allImages = mutableListOf<String>()
-
-        if (product.imageUrls.isNotEmpty()) {
-            product.imageUrls.forEach { url ->
-                if (url.isNotBlank()) {
-                    allImages.add(url)
-                }
-            }
-        }
-
-        if (allImages.isEmpty() && product.imageUrl.isNotBlank()) {
-            allImages.add(product.imageUrl)
-        }
-
-        allImages.distinct()
-    }
-
-    // Auto-change images
-    LaunchedEffect(product.id, imageUrls.size) {
-        if (imageUrls.size > 1) {
-            while (true) {
-                delay(3000)
-                currentImageIndex = (currentImageIndex + 1) % imageUrls.size
-            }
-        }
-    }
-
-    LaunchedEffect(product.id) {
-        viewModel.checkWishlistStatus(product.id)
-    }
-
-    // Modern card design with subtle shadows
-    Surface(
-        modifier = modifier
-            .fillMaxWidth()
-            .clickable { onProductClick(product.id) }
-            .animateContentSize(),
-        shape = RoundedCornerShape(16.dp),
-        color = Color.White,
-        shadowElevation = 2.dp, // Reduced shadow for modern look
-        tonalElevation = 0.dp
-    ) {
-        Column(
-            modifier = Modifier
-                .fillMaxWidth()
-                .clip(RoundedCornerShape(16.dp))
-        ) {
-            Box(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(180.dp) // Slightly taller for better proportions
-                    .clip(RoundedCornerShape(topStart = 16.dp, topEnd = 16.dp))
-            ) {
-                // Image with smooth crossfade
-                if (imageUrls.isNotEmpty()) {
-                    AnimatedContent(
-                        targetState = currentImageIndex,
-                        transitionSpec = {
-                            fadeIn(
-                                animationSpec = tween(800, easing = FastOutSlowInEasing)
-                            ) togetherWith fadeOut(
-                                animationSpec = tween(400, easing = FastOutLinearInEasing)
-                            )
-                        },
-                        label = "image_crossfade",
-                        modifier = Modifier.fillMaxSize()
-                    ) { imageIndex ->
-                        AsyncImage(
-                            model = ImageRequest.Builder(LocalContext.current)
-                                .data(imageUrls[imageIndex])
-                                .crossfade(600)
-                                .build(),
-                            contentDescription = product.name,
-                            modifier = Modifier.fillMaxSize(),
-                            contentScale = ContentScale.Crop,
-                            placeholder = painterResource(id = R.drawable.diamondring_homescreen),
-                            error = painterResource(id = R.drawable.diamondring_homescreen)
-                        )
-                    }
-                }
-
-                // Modern gradient overlay
-                Box(
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .background(
-                            brush = Brush.verticalGradient(
-                                colors = listOf(
-                                    Color.Transparent,
-                                    Color.Transparent,
-                                    Color.Black.copy(alpha = 0.1f)
-                                )
-                            )
-                        )
-                )
-
-                // Modern favorite button
-                Surface(
-                    modifier = Modifier
-                        .align(Alignment.TopEnd)
-                        .padding(12.dp),
-                    shape = CircleShape,
-                    color = Color.White.copy(alpha = 0.9f),
-                    shadowElevation = 4.dp
-                ) {
-                    IconButton(
-                        onClick = { viewModel.toggleFavorite(product.id) },
-                        modifier = Modifier.size(40.dp)
-                    ) {
-                        Icon(
-                            imageVector = if (product.isFavorite) Icons.Default.Favorite else Icons.Default.FavoriteBorder,
-                            contentDescription = "Favorite",
-                            tint = if (product.isFavorite) Color(0xFFE91E63) else Color.Gray.copy(alpha = 0.6f),
-                            modifier = Modifier.size(20.dp)
-                        )
-                    }
-                }
-
-                // Minimal dots for multiple images
-                if (imageUrls.size > 1) {
-                    Row(
-                        modifier = Modifier
-                            .align(Alignment.BottomCenter)
-                            .padding(12.dp)
-                            .background(
-                                Color.Black.copy(alpha = 0.3f),
-                                RoundedCornerShape(12.dp)
-                            )
-                            .padding(horizontal = 8.dp, vertical = 4.dp),
-                        horizontalArrangement = Arrangement.spacedBy(4.dp)
-                    ) {
-                        repeat(imageUrls.size) { index ->
-                            val isSelected = index == currentImageIndex
-
-                            val dotWidth by animateDpAsState(
-                                targetValue = if (isSelected) 12.dp else 4.dp,
-                                animationSpec = spring(
-                                    dampingRatio = Spring.DampingRatioMediumBouncy,
-                                    stiffness = Spring.StiffnessHigh
-                                ),
-                                label = "dot_width"
-                            )
-
-                            Box(
-                                modifier = Modifier
-                                    .size(width = dotWidth, height = 4.dp)
-                                    .clip(RoundedCornerShape(2.dp))
-                                    .background(
-                                        if (isSelected) Color.White else Color.White.copy(alpha = 0.4f)
-                                    )
-                            )
-                        }
-                    }
-                }
-            }
-
-            // Product details with modern spacing
-            Column(
-                modifier = Modifier.padding(16.dp)
-            ) {
-                Text(
-                    text = product.name,
-                    fontSize = 15.sp,
-                    fontWeight = FontWeight.Medium,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis,
-                    color = Color.Black.copy(alpha = 0.85f),
-                    letterSpacing = 0.1.sp,
-                    modifier = Modifier.fillMaxWidth()
-                )
-
-                Spacer(modifier = Modifier.height(8.dp))
-
-                Text(
-                    text = formatPrice(product.price, product.currency),
-                    fontSize = 16.sp,
-                    color = Color(0xFFB78628),
-                    fontWeight = FontWeight.SemiBold,
-                    letterSpacing = 0.2.sp
-                )
-            }
-        }
-    }
-}
-
-// Add this section title component
-@Composable
-fun ModernSectionTitle(title: String) {
-    Text(
-        text = title,
-        fontSize = 20.sp,
-        fontWeight = FontWeight.SemiBold,
-        color = Color.Black.copy(alpha = 0.8f),
-        letterSpacing = 0.3.sp,
-        modifier = Modifier.padding(horizontal = 20.dp, vertical = 12.dp)
-    )
-}
-
-
-@Composable
-fun ModernCategoryItem(category: CategoryModel, onCategoryClick: (String) -> Unit) {
-    Column(
-        horizontalAlignment = Alignment.CenterHorizontally,
-        modifier = Modifier
-            .clickable { onCategoryClick(category.id) }
-            .padding(vertical = 8.dp)
-    ) {
-        // Enhanced circular image with subtle shadow
-        Surface(
-            modifier = Modifier.size(80.dp), // Larger for better touch target
-            shape = CircleShape,
-            color = Color.White,
-            shadowElevation = 4.dp,
-            tonalElevation = 0.dp
-        ) {
-            AsyncImage(
-                model = ImageRequest.Builder(LocalContext.current)
-                    .data(category.imageUrl)
-                    .crossfade(true)
-                    .build(),
-                contentDescription = category.name,
-                modifier = Modifier
-                    .fillMaxSize()
-                    .padding(4.dp) // Inner padding for the image
-                    .clip(CircleShape),
-                contentScale = ContentScale.Crop,
-                placeholder = painterResource(id = R.drawable.necklace_homescreen)
-            )
-        }
-
-        Spacer(modifier = Modifier.height(12.dp))
-
-        // Category name with better typography
-        Text(
-            text = category.name,
-            fontSize = 14.sp,
-            fontWeight = FontWeight.Medium,
-            textAlign = TextAlign.Center,
-            color = Color.Black.copy(alpha = 0.8f),
-            letterSpacing = 0.2.sp,
-            maxLines = 1,
-            overflow = TextOverflow.Ellipsis,
-            modifier = Modifier.width(90.dp)
-        )
     }
 }
 
@@ -2884,120 +2565,27 @@ fun AnimatedThemedCollectionsSection(
 ) {
     if (collections.isEmpty()) return
 
-    LazyRow(
-        horizontalArrangement = Arrangement.spacedBy(16.dp),
-        contentPadding = PaddingValues(horizontal = 20.dp)
+    Column(
+        modifier = Modifier.padding(16.dp)
     ) {
-        itemsIndexed(collections) { index, collection ->
-            ModernCollectionItem(
-                collection = collection,
-                onCollectionClick = onCollectionClick,
-                index = index
-            )
-        }
-    }
-}
+        Text(
+            text = "Themed Collections",
+            fontSize = 24.sp,
+            fontWeight = FontWeight.Bold
+        )
 
-@Composable
-fun ModernCollectionItem(
-    collection: CollectionModel,
-    onCollectionClick: (String) -> Unit,
-    index: Int
-) {
-    var isVisible by remember { mutableStateOf(false) }
+        Spacer(modifier = Modifier.height(12.dp))
 
-    LaunchedEffect(collection.id) {
-        delay(index * 100L)
-        isVisible = true
-    }
-
-    AnimatedVisibility(
-        visible = isVisible,
-        enter = slideInHorizontally(
-            initialOffsetX = { it },
-            animationSpec = tween(600, easing = FastOutSlowInEasing)
-        ) + fadeIn(animationSpec = tween(600))
-    ) {
-        Surface(
-            modifier = Modifier
-                .width(280.dp)
-                .height(160.dp)
-                .clickable { onCollectionClick(collection.id) },
-            shape = RoundedCornerShape(16.dp),
-            shadowElevation = 4.dp,
-            tonalElevation = 0.dp
+        LazyRow(
+            horizontalArrangement = Arrangement.spacedBy(16.dp),
+            contentPadding = PaddingValues(horizontal = 0.dp)
         ) {
-            Box(modifier = Modifier.fillMaxSize()) {
-                AsyncImage(
-                    model = ImageRequest.Builder(LocalContext.current)
-                        .data(collection.imageUrl)
-                        .crossfade(true)
-                        .build(),
-                    contentDescription = collection.name,
-                    modifier = Modifier.fillMaxSize(),
-                    contentScale = ContentScale.Crop,
-                    placeholder = painterResource(id = R.drawable.collectioin_img1)
+            itemsIndexed(collections) { index, collection ->
+                AnimatedCollectionItem(
+                    collection = collection,
+                    onCollectionClick = onCollectionClick,
+                    index = index
                 )
-
-                // Modern gradient overlay
-                Box(
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .background(
-                            brush = Brush.verticalGradient(
-                                colors = listOf(
-                                    Color.Transparent,
-                                    Color.Transparent,
-                                    Color.Black.copy(alpha = 0.4f),
-                                    Color.Black.copy(alpha = 0.8f)
-                                )
-                            )
-                        )
-                )
-
-                Column(
-                    modifier = Modifier
-                        .align(Alignment.BottomStart)
-                        .padding(20.dp)
-                        .fillMaxWidth(0.9f)
-                ) {
-                    Text(
-                        text = collection.name,
-                        color = Color.White,
-                        fontSize = 18.sp,
-                        fontWeight = FontWeight.SemiBold,
-                        letterSpacing = 0.2.sp
-                    )
-
-                    Spacer(modifier = Modifier.height(8.dp))
-
-                    Surface(
-                        onClick = { onCollectionClick(collection.id) },
-                        shape = RoundedCornerShape(8.dp),
-                        color = Color.White.copy(alpha = 0.15f),
-                        border = BorderStroke(1.dp, Color.White.copy(alpha = 0.3f))
-                    ) {
-                        Row(
-                            modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp),
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            Text(
-                                text = "View All",
-                                color = Color.White,
-                                fontSize = 12.sp,
-                                fontWeight = FontWeight.Medium,
-                                letterSpacing = 0.3.sp
-                            )
-                            Spacer(modifier = Modifier.width(6.dp))
-                            Icon(
-                                imageVector = Icons.AutoMirrored.Filled.ArrowForward,
-                                contentDescription = "Arrow",
-                                tint = Color.White,
-                                modifier = Modifier.size(14.dp)
-                            )
-                        }
-                    }
-                }
             }
         }
     }
