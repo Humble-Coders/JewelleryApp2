@@ -225,6 +225,8 @@ class JewelryRepository(
 
             val allDocuments = productBatches.awaitAll().flatten()
 
+// REPLACE the product creation part in fetchProductsByIds method with this:
+
             val products = allDocuments.map { doc ->
                 async(Dispatchers.Default) {
                     // Get all images from the images array
@@ -238,7 +240,7 @@ class JewelryRepository(
                     val materialId = doc.getString("material_id")
                     val materialType = doc.getString("material_type")
 
-                    Log.d(tag, "Product ${doc.id}: Found ${imageUrls.size} images")
+                    Log.d(tag, "Product ${doc.id}: Found ${imageUrls.size} images: $imageUrls")
 
                     Product(
                         id = doc.id,
@@ -422,21 +424,31 @@ class JewelryRepository(
                 }.awaitAll().flatten()
 
                 // Process each document in parallel
+                // REPLACE the product creation part in getFeaturedProducts method with this:
+
+// Process each document in parallel
                 batchResults.map { doc ->
                     async(Dispatchers.Default) {
-                        // Direct HTTPS URL - no conversion needed
-                        val imageUrl = ((doc.get("images") as? List<*>)?.firstOrNull() ?: "").toString()
+                        // Get all images from the images array
+                        val images = doc.get("images") as? List<*>
+                        val imageUrls = images?.mapNotNull { it as? String }?.filter { it.isNotBlank() } ?: emptyList()
+
+                        // Use first image as primary
+                        val primaryImageUrl = imageUrls.firstOrNull() ?: ""
 
                         // Check wishlist status from cache
                         val productId = doc.getString("id") ?: doc.id
                         val isFavorite = wishlistCache[productId] == true
+
+                        Log.d(tag, "Featured Product $productId: Found ${imageUrls.size} images: $imageUrls")
 
                         Product(
                             id = productId,
                             name = doc.getString("name") ?: "",
                             price = doc.getDouble("price") ?: 0.0,
                             currency = "Rs", // Using Rs as default currency
-                            imageUrl = imageUrl,
+                            imageUrl = primaryImageUrl, // Keep for backward compatibility
+                            imageUrls = imageUrls, // Add all images for cycling
                             isFavorite = isFavorite
                         )
                     }

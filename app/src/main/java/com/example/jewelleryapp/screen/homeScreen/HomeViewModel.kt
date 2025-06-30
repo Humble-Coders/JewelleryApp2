@@ -104,9 +104,22 @@ class HomeViewModel(private val repository: JewelryRepository) : ViewModel() {
         }
     }
 
+    // REPLACE the loadData() method in HomeViewModel.kt with this:
+
     fun loadData() {
         Log.d("HomeViewModel", "=== LoadData Start ===")
-        _isLoading.value = true
+
+        // Only show loading for the first time or when explicitly refreshing
+        // Don't show loading if we already have some data
+        val hasExistingData = _categories.value.isNotEmpty() ||
+                _featuredProducts.value.isNotEmpty() ||
+                _collections.value.isNotEmpty() ||
+                _carouselItems.value.isNotEmpty()
+
+        if (!hasExistingData) {
+            _isLoading.value = true
+        }
+
         _error.value = null
 
         viewModelScope.launch {
@@ -191,6 +204,12 @@ class HomeViewModel(private val repository: JewelryRepository) : ViewModel() {
         Log.d("HomeViewModel", "=== LoadData Complete ===")
     }
 
+    // ADD this new method to handle explicit refresh
+    fun refreshData() {
+        _isLoading.value = true // Always show loading when explicitly refreshing
+        loadData()
+    }
+
     private fun loadRecentlyViewedWithDelay() {
         viewModelScope.launch {
             try {
@@ -217,9 +236,7 @@ class HomeViewModel(private val repository: JewelryRepository) : ViewModel() {
         }
     }
 
-    fun refreshData() {
-        loadData()
-    }
+
 
     fun checkWishlistStatus(productId: String) {
         viewModelScope.launch {

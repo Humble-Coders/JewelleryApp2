@@ -5,11 +5,13 @@ import android.content.pm.PackageManager
 import android.util.Log
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.animateContentSize
 import androidx.compose.animation.core.FastOutLinearInEasing
 import androidx.compose.animation.core.FastOutSlowInEasing
+import androidx.compose.animation.core.LinearEasing
 import androidx.compose.animation.core.RepeatMode
 import androidx.compose.animation.core.Spring
 import androidx.compose.animation.core.animateDpAsState
@@ -26,6 +28,7 @@ import androidx.compose.animation.scaleOut
 import androidx.compose.animation.slideInHorizontally
 import androidx.compose.animation.slideInVertically
 import androidx.compose.animation.slideOutVertically
+import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
@@ -310,16 +313,10 @@ fun HomeScreen(
         ) { paddingValues ->
             Box(modifier = Modifier.fillMaxSize()) {
                 // Main content
-                if (isLoading) {
-                    Box(
-                        modifier = Modifier
-                            .fillMaxSize()
-                            .padding(paddingValues),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        CircularProgressIndicator(color = Color(0xFFB78628))
-                    }
-                } else if (error != null) {
+                // REPLACE this section in HomeScreen.kt where you handle loading state:
+
+// Main content
+                if (error != null) {
                     Box(
                         modifier = Modifier
                             .fillMaxSize()
@@ -349,7 +346,7 @@ fun HomeScreen(
                 } else {
                     var isRefreshing by remember { mutableStateOf(false) }
 
-// Handle refresh
+                    // Handle refresh
                     LaunchedEffect(isLoading) {
                         if (isLoading) {
                             isRefreshing = true
@@ -372,6 +369,8 @@ fun HomeScreen(
                             )
                         }
                     ) {
+                        // REPLACE the LazyColumn content in HomeScreen.kt with this:
+
                         LazyColumn(
                             modifier = Modifier
                                 .fillMaxSize()
@@ -387,10 +386,15 @@ fun HomeScreen(
                                 }
                             }
 
-                            // Category Row
+                            // Add spacing after carousel
+                            item {
+                                Spacer(modifier = Modifier.height(8.dp))
+                            }
+
+                            // Category Section with modern design
                             item {
                                 if (categories.isNotEmpty()) {
-                                    CategoryRow(categories, onCategoryClick = { categoryId ->
+                                    CategorySection(categories, onCategoryClick = { categoryId ->
                                         Log.d("HomeScreen", "Category clicked: $categoryId")
                                         val categoryName = categories.find { it.id == categoryId }?.name ?: "Products"
                                         navController.navigate("categoryProducts/$categoryId/$categoryName")
@@ -417,29 +421,24 @@ fun HomeScreen(
                                 }
                             }
 
-                            // Featured Products Title
+                            // Featured Products Section with modern styling
                             item {
                                 if (featuredProducts.isNotEmpty()) {
-                                    Text(
-                                        text = "Featured Products",
-                                        fontSize = 24.sp,
-                                        fontWeight = FontWeight.Bold,
-                                        modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)
-                                    )
+                                    ModernSectionTitle("Handpicked for you")
                                 }
                             }
 
-                            // Featured Products Grid - Integrated into main LazyColumn
+                            // Featured Products Grid with modern cards
                             if (featuredProducts.isNotEmpty()) {
                                 items(featuredProducts.chunked(2)) { productPair ->
                                     Row(
                                         modifier = Modifier
                                             .fillMaxWidth()
-                                            .padding(horizontal = 16.dp, vertical = 4.dp),
+                                            .padding(horizontal = 20.dp, vertical = 6.dp),
                                         horizontalArrangement = Arrangement.spacedBy(16.dp)
                                     ) {
                                         productPair.forEach { product ->
-                                            AnimatedProductItem(
+                                            ModernProductItem(
                                                 product = product,
                                                 onProductClick = onProductClick,
                                                 viewModel = viewModel,
@@ -453,11 +452,12 @@ fun HomeScreen(
                                     }
                                 }
                             } else {
-                                items(2) {
+                                // Show shimmer placeholders when loading
+                                items(3) {
                                     Row(
                                         modifier = Modifier
                                             .fillMaxWidth()
-                                            .padding(horizontal = 16.dp, vertical = 4.dp),
+                                            .padding(horizontal = 20.dp, vertical = 6.dp),
                                         horizontalArrangement = Arrangement.spacedBy(16.dp)
                                     ) {
                                         repeat(2) {
@@ -467,9 +467,11 @@ fun HomeScreen(
                                 }
                             }
 
-                            // Themed Collections Section
+                            // Themed Collections Section with modern title
                             item {
                                 if (collections.isNotEmpty()) {
+                                    Spacer(modifier = Modifier.height(16.dp))
+                                    ModernSectionTitle("Curated themes and styles")
                                     AnimatedThemedCollectionsSection(collections, onCollectionClick)
                                 } else {
                                     ShimmerCollectionsPlaceholder()
@@ -478,9 +480,10 @@ fun HomeScreen(
 
                             // Bottom spacing
                             item {
-                                Spacer(modifier = Modifier.height(16.dp))
+                                Spacer(modifier = Modifier.height(24.dp))
                             }
                         }
+
                     }
                 }
 
@@ -2151,7 +2154,7 @@ fun AnimatedImageCarousel(items: List<CarouselItemModel>) {
     Box(
         modifier = Modifier
             .fillMaxWidth()
-            .height(200.dp)
+            .height(220.dp) // Slightly taller for better proportions
     ) {
         val pagerState = rememberPagerState(pageCount = { items.size })
         val scope = rememberCoroutineScope()
@@ -2159,12 +2162,12 @@ fun AnimatedImageCarousel(items: List<CarouselItemModel>) {
         // Auto-scroll effect
         LaunchedEffect(pagerState) {
             while (true) {
-                delay(3000) // 3 seconds
+                delay(4000) // 4 seconds for better viewing
                 val nextPage = (pagerState.currentPage + 1) % items.size
                 pagerState.animateScrollToPage(
                     page = nextPage,
                     animationSpec = tween(
-                        durationMillis = 500,
+                        durationMillis = 800,
                         easing = FastOutSlowInEasing
                     )
                 )
@@ -2188,7 +2191,7 @@ fun AnimatedImageCarousel(items: List<CarouselItemModel>) {
                     placeholder = painterResource(id = R.drawable.swipeable_img1)
                 )
 
-                // Enhanced gradient overlay
+                // Modern gradient overlay
                 Box(
                     modifier = Modifier
                         .fillMaxSize()
@@ -2196,20 +2199,24 @@ fun AnimatedImageCarousel(items: List<CarouselItemModel>) {
                             brush = Brush.verticalGradient(
                                 colors = listOf(
                                     Color.Transparent,
+                                    Color.Transparent,
                                     Color.Black.copy(alpha = 0.3f),
                                     Color.Black.copy(alpha = 0.7f)
-                                )
+                                ),
+                                startY = 0f,
+                                endY = Float.POSITIVE_INFINITY
                             )
                         )
                 )
 
-                // Animated text overlay
+                // Content overlay with modern styling
                 Column(
                     modifier = Modifier
                         .align(Alignment.BottomStart)
-                        .padding(20.dp)
-                        .animateContentSize()
+                        .padding(24.dp)
+                        .fillMaxWidth(0.85f)
                 ) {
+                    // Subtitle with modern styling
                     AnimatedVisibility(
                         visible = true,
                         enter = slideInVertically(
@@ -2219,14 +2226,16 @@ fun AnimatedImageCarousel(items: List<CarouselItemModel>) {
                     ) {
                         Text(
                             text = item.subtitle,
-                            color = Color.White.copy(alpha = 0.9f),
+                            color = Color.White.copy(alpha = 0.85f),
                             fontSize = 14.sp,
-                            fontWeight = FontWeight.Light
+                            fontWeight = FontWeight.Normal,
+                            letterSpacing = 0.5.sp
                         )
                     }
 
-                    Spacer(modifier = Modifier.height(8.dp))
+                    Spacer(modifier = Modifier.height(4.dp))
 
+                    // Main title with better typography
                     AnimatedVisibility(
                         visible = true,
                         enter = slideInVertically(
@@ -2237,14 +2246,16 @@ fun AnimatedImageCarousel(items: List<CarouselItemModel>) {
                         Text(
                             text = item.title,
                             color = Color.White,
-                            fontSize = 26.sp,
+                            fontSize = 24.sp,
                             fontWeight = FontWeight.Bold,
-                            lineHeight = 30.sp
+                            lineHeight = 28.sp,
+                            letterSpacing = 0.2.sp
                         )
                     }
 
                     Spacer(modifier = Modifier.height(16.dp))
 
+                    // Modern button design
                     AnimatedVisibility(
                         visible = true,
                         enter = slideInVertically(
@@ -2252,53 +2263,68 @@ fun AnimatedImageCarousel(items: List<CarouselItemModel>) {
                             animationSpec = tween(600, delayMillis = 600)
                         ) + fadeIn(animationSpec = tween(600, delayMillis = 600))
                     ) {
-                        Button(
+                        Surface(
                             onClick = { /* Handle click */ },
-                            shape = RoundedCornerShape(25.dp),
-                            colors = ButtonDefaults.buttonColors(
-                                containerColor = Color.White.copy(alpha = 0.2f)
-                            ),
-                            border = BorderStroke(1.dp, Color.White),
-                            modifier = Modifier.height(45.dp)
+                            shape = RoundedCornerShape(12.dp),
+                            color = Color.White.copy(alpha = 0.15f),
+                            border = BorderStroke(1.dp, Color.White.copy(alpha = 0.3f)),
+                            modifier = Modifier.height(48.dp)
                         ) {
-                            Text(
-                                text = item.buttonText,
-                                color = Color.White,
-                                fontSize = 14.sp,
-                                fontWeight = FontWeight.Medium
-                            )
+                            Row(
+                                modifier = Modifier.padding(horizontal = 20.dp),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Text(
+                                    text = item.buttonText,
+                                    color = Color.White,
+                                    fontSize = 14.sp,
+                                    fontWeight = FontWeight.Medium,
+                                    letterSpacing = 0.3.sp
+                                )
+                                Spacer(modifier = Modifier.width(8.dp))
+                                Icon(
+                                    imageVector = Icons.AutoMirrored.Filled.ArrowForward,
+                                    contentDescription = "Arrow",
+                                    tint = Color.White,
+                                    modifier = Modifier.size(16.dp)
+                                )
+                            }
                         }
                     }
                 }
             }
         }
 
-        // Modern dots indicator
+        // Modern minimalist dots indicator
         Row(
             modifier = Modifier
                 .align(Alignment.BottomEnd)
-                .padding(20.dp)
+                .padding(24.dp)
                 .background(
-                    Color.Black.copy(alpha = 0.3f),
-                    RoundedCornerShape(20.dp)
+                    Color.Black.copy(alpha = 0.2f),
+                    RoundedCornerShape(16.dp)
                 )
-                .padding(horizontal = 12.dp, vertical = 8.dp),
-            horizontalArrangement = Arrangement.spacedBy(6.dp)
+                .padding(horizontal = 16.dp, vertical = 10.dp),
+            horizontalArrangement = Arrangement.spacedBy(8.dp)
         ) {
             repeat(items.size) { index ->
                 val isSelected = index == pagerState.currentPage
+
+                val dotWidth by animateDpAsState(
+                    targetValue = if (isSelected) 24.dp else 8.dp,
+                    animationSpec = spring(
+                        dampingRatio = Spring.DampingRatioMediumBouncy,
+                        stiffness = Spring.StiffnessHigh
+                    ),
+                    label = "dot_width"
+                )
+
                 Box(
                     modifier = Modifier
-                        .size(
-                            width = if (isSelected) 20.dp else 8.dp,
-                            height = 8.dp
-                        )
+                        .size(width = dotWidth, height = 8.dp)
                         .clip(RoundedCornerShape(4.dp))
                         .background(
-                            if (isSelected) Color.White else Color.White.copy(alpha = 0.5f)
-                        )
-                        .animateContentSize(
-                            animationSpec = tween(300)
+                            if (isSelected) Color.White else Color.White.copy(alpha = 0.4f)
                         )
                         .clickable {
                             scope.launch {
@@ -2311,6 +2337,297 @@ fun AnimatedImageCarousel(items: List<CarouselItemModel>) {
     }
 }
 
+// REPLACE CategoryRow and add section title
+@Composable
+fun CategorySection(categories: List<Category>, onCategoryClick: (String) -> Unit) {
+    if (categories.isEmpty()) return
+
+    Column(
+        modifier = Modifier.padding(vertical = 8.dp)
+    ) {
+        // Section title with modern styling
+        Text(
+            text = "Discover our finest collections",
+            fontSize = 18.sp,
+            fontWeight = FontWeight.Normal,
+            color = Color.Gray.copy(alpha = 0.8f),
+            textAlign = TextAlign.Center,
+            letterSpacing = 0.3.sp,
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(vertical = 16.dp)
+        )
+
+        LazyRow(
+            horizontalArrangement = Arrangement.spacedBy(32.dp),
+            contentPadding = PaddingValues(horizontal = 24.dp)
+        ) {
+            items(categories) { category ->
+                ModernCategoryItem(category, onCategoryClick)
+            }
+        }
+    }
+}
+
+// REPLACE the AnimatedProductItem with this modern version
+@Composable
+fun ModernProductItem(
+    product: ProductModel,
+    onProductClick: (String) -> Unit,
+    viewModel: HomeViewModel,
+    modifier: Modifier = Modifier
+) {
+    var currentImageIndex by remember(product.id) { mutableIntStateOf(0) }
+
+    // Get all available images
+    val imageUrls = remember(product.id, product.imageUrls, product.imageUrl) {
+        val allImages = mutableListOf<String>()
+
+        if (product.imageUrls.isNotEmpty()) {
+            product.imageUrls.forEach { url ->
+                if (url.isNotBlank()) {
+                    allImages.add(url)
+                }
+            }
+        }
+
+        if (allImages.isEmpty() && product.imageUrl.isNotBlank()) {
+            allImages.add(product.imageUrl)
+        }
+
+        allImages.distinct()
+    }
+
+    // Auto-change images
+    LaunchedEffect(product.id, imageUrls.size) {
+        if (imageUrls.size > 1) {
+            while (true) {
+                delay(3000)
+                currentImageIndex = (currentImageIndex + 1) % imageUrls.size
+            }
+        }
+    }
+
+    LaunchedEffect(product.id) {
+        viewModel.checkWishlistStatus(product.id)
+    }
+
+    // Modern card design with subtle shadows
+    Surface(
+        modifier = modifier
+            .fillMaxWidth()
+            .clickable { onProductClick(product.id) }
+            .animateContentSize(),
+        shape = RoundedCornerShape(16.dp),
+        color = Color.White,
+        shadowElevation = 2.dp, // Reduced shadow for modern look
+        tonalElevation = 0.dp
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .clip(RoundedCornerShape(16.dp))
+        ) {
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(180.dp) // Slightly taller for better proportions
+                    .clip(RoundedCornerShape(topStart = 16.dp, topEnd = 16.dp))
+            ) {
+                // Image with smooth crossfade
+                if (imageUrls.isNotEmpty()) {
+                    AnimatedContent(
+                        targetState = currentImageIndex,
+                        transitionSpec = {
+                            fadeIn(
+                                animationSpec = tween(800, easing = FastOutSlowInEasing)
+                            ) togetherWith fadeOut(
+                                animationSpec = tween(400, easing = FastOutLinearInEasing)
+                            )
+                        },
+                        label = "image_crossfade",
+                        modifier = Modifier.fillMaxSize()
+                    ) { imageIndex ->
+                        AsyncImage(
+                            model = ImageRequest.Builder(LocalContext.current)
+                                .data(imageUrls[imageIndex])
+                                .crossfade(600)
+                                .build(),
+                            contentDescription = product.name,
+                            modifier = Modifier.fillMaxSize(),
+                            contentScale = ContentScale.Crop,
+                            placeholder = painterResource(id = R.drawable.diamondring_homescreen),
+                            error = painterResource(id = R.drawable.diamondring_homescreen)
+                        )
+                    }
+                }
+
+                // Modern gradient overlay
+                Box(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .background(
+                            brush = Brush.verticalGradient(
+                                colors = listOf(
+                                    Color.Transparent,
+                                    Color.Transparent,
+                                    Color.Black.copy(alpha = 0.1f)
+                                )
+                            )
+                        )
+                )
+
+                // Modern favorite button
+                Surface(
+                    modifier = Modifier
+                        .align(Alignment.TopEnd)
+                        .padding(12.dp),
+                    shape = CircleShape,
+                    color = Color.White.copy(alpha = 0.9f),
+                    shadowElevation = 4.dp
+                ) {
+                    IconButton(
+                        onClick = { viewModel.toggleFavorite(product.id) },
+                        modifier = Modifier.size(40.dp)
+                    ) {
+                        Icon(
+                            imageVector = if (product.isFavorite) Icons.Default.Favorite else Icons.Default.FavoriteBorder,
+                            contentDescription = "Favorite",
+                            tint = if (product.isFavorite) Color(0xFFE91E63) else Color.Gray.copy(alpha = 0.6f),
+                            modifier = Modifier.size(20.dp)
+                        )
+                    }
+                }
+
+                // Minimal dots for multiple images
+                if (imageUrls.size > 1) {
+                    Row(
+                        modifier = Modifier
+                            .align(Alignment.BottomCenter)
+                            .padding(12.dp)
+                            .background(
+                                Color.Black.copy(alpha = 0.3f),
+                                RoundedCornerShape(12.dp)
+                            )
+                            .padding(horizontal = 8.dp, vertical = 4.dp),
+                        horizontalArrangement = Arrangement.spacedBy(4.dp)
+                    ) {
+                        repeat(imageUrls.size) { index ->
+                            val isSelected = index == currentImageIndex
+
+                            val dotWidth by animateDpAsState(
+                                targetValue = if (isSelected) 12.dp else 4.dp,
+                                animationSpec = spring(
+                                    dampingRatio = Spring.DampingRatioMediumBouncy,
+                                    stiffness = Spring.StiffnessHigh
+                                ),
+                                label = "dot_width"
+                            )
+
+                            Box(
+                                modifier = Modifier
+                                    .size(width = dotWidth, height = 4.dp)
+                                    .clip(RoundedCornerShape(2.dp))
+                                    .background(
+                                        if (isSelected) Color.White else Color.White.copy(alpha = 0.4f)
+                                    )
+                            )
+                        }
+                    }
+                }
+            }
+
+            // Product details with modern spacing
+            Column(
+                modifier = Modifier.padding(16.dp)
+            ) {
+                Text(
+                    text = product.name,
+                    fontSize = 15.sp,
+                    fontWeight = FontWeight.Medium,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                    color = Color.Black.copy(alpha = 0.85f),
+                    letterSpacing = 0.1.sp,
+                    modifier = Modifier.fillMaxWidth()
+                )
+
+                Spacer(modifier = Modifier.height(8.dp))
+
+                Text(
+                    text = formatPrice(product.price, product.currency),
+                    fontSize = 16.sp,
+                    color = Color(0xFFB78628),
+                    fontWeight = FontWeight.SemiBold,
+                    letterSpacing = 0.2.sp
+                )
+            }
+        }
+    }
+}
+
+// Add this section title component
+@Composable
+fun ModernSectionTitle(title: String) {
+    Text(
+        text = title,
+        fontSize = 20.sp,
+        fontWeight = FontWeight.SemiBold,
+        color = Color.Black.copy(alpha = 0.8f),
+        letterSpacing = 0.3.sp,
+        modifier = Modifier.padding(horizontal = 20.dp, vertical = 12.dp)
+    )
+}
+
+
+@Composable
+fun ModernCategoryItem(category: CategoryModel, onCategoryClick: (String) -> Unit) {
+    Column(
+        horizontalAlignment = Alignment.CenterHorizontally,
+        modifier = Modifier
+            .clickable { onCategoryClick(category.id) }
+            .padding(vertical = 8.dp)
+    ) {
+        // Enhanced circular image with subtle shadow
+        Surface(
+            modifier = Modifier.size(80.dp), // Larger for better touch target
+            shape = CircleShape,
+            color = Color.White,
+            shadowElevation = 4.dp,
+            tonalElevation = 0.dp
+        ) {
+            AsyncImage(
+                model = ImageRequest.Builder(LocalContext.current)
+                    .data(category.imageUrl)
+                    .crossfade(true)
+                    .build(),
+                contentDescription = category.name,
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(4.dp) // Inner padding for the image
+                    .clip(CircleShape),
+                contentScale = ContentScale.Crop,
+                placeholder = painterResource(id = R.drawable.necklace_homescreen)
+            )
+        }
+
+        Spacer(modifier = Modifier.height(12.dp))
+
+        // Category name with better typography
+        Text(
+            text = category.name,
+            fontSize = 14.sp,
+            fontWeight = FontWeight.Medium,
+            textAlign = TextAlign.Center,
+            color = Color.Black.copy(alpha = 0.8f),
+            letterSpacing = 0.2.sp,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
+            modifier = Modifier.width(90.dp)
+        )
+    }
+}
+
 @Composable
 fun AnimatedProductItem(
     product: ProductModel,
@@ -2318,15 +2635,32 @@ fun AnimatedProductItem(
     viewModel: HomeViewModel,
     modifier: Modifier = Modifier
 ) {
-    var currentImageIndex by remember { mutableIntStateOf(0) }
-    val imageUrls = remember(product) {
-        // If product has multiple images, cycle through them
-        // For now, using single image but structure is ready for multiple
-        listOf(product.imageUrl)
+    var currentImageIndex by remember(product.id) { mutableIntStateOf(0) }
+
+    // Get all available images, prioritizing imageUrls list
+    val imageUrls = remember(product.id, product.imageUrls, product.imageUrl) {
+        val allImages = mutableListOf<String>()
+
+        // First, add all images from imageUrls list if it exists and is not empty
+        if (product.imageUrls.isNotEmpty()) {
+            product.imageUrls.forEach { url ->
+                if (url.isNotBlank()) {
+                    allImages.add(url)
+                }
+            }
+        }
+
+        // If imageUrls is empty, fall back to imageUrl
+        if (allImages.isEmpty() && product.imageUrl.isNotBlank()) {
+            allImages.add(product.imageUrl)
+        }
+
+        // Remove duplicates while preserving order
+        allImages.distinct()
     }
 
-    // Auto-change images if multiple exist
-    LaunchedEffect(product.id) {
+    // Auto-change images every 3 seconds if multiple images exist
+    LaunchedEffect(product.id, imageUrls.size) {
         if (imageUrls.size > 1) {
             while (true) {
                 delay(3000) // 3 seconds
@@ -2339,33 +2673,68 @@ fun AnimatedProductItem(
         viewModel.checkWishlistStatus(product.id)
     }
 
-    Card(
+    // Fixed Card with no shadow corners and proper clipping
+    Surface(
         modifier = modifier
             .fillMaxWidth()
             .clickable { onProductClick(product.id) }
             .animateContentSize(),
         shape = RoundedCornerShape(16.dp),
-        colors = CardDefaults.cardColors(containerColor = Color.White),
-        elevation = CardDefaults.cardElevation(defaultElevation = 6.dp)
+        color = Color.White,
+        shadowElevation = 0.dp,
+        tonalElevation = 0.dp
     ) {
-        Column {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .clip(RoundedCornerShape(16.dp)) // Ensure proper clipping
+        ) {
             Box(
                 modifier = Modifier
                     .fillMaxWidth()
                     .height(160.dp)
+                    .clip(RoundedCornerShape(topStart = 16.dp, topEnd = 16.dp)) // Clip the image container
             ) {
-                AsyncImage(
-                    model = ImageRequest.Builder(LocalContext.current)
-                        .data(imageUrls[currentImageIndex])
-                        .crossfade(true)
-                        .build(),
-                    contentDescription = product.name,
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .clip(RoundedCornerShape(topStart = 16.dp, topEnd = 16.dp)),
-                    contentScale = ContentScale.Crop,
-                    placeholder = painterResource(id = R.drawable.diamondring_homescreen)
-                )
+                // Smooth crossfade animation between images
+                if (imageUrls.isNotEmpty()) {
+                    AnimatedContent(
+                        targetState = currentImageIndex,
+                        transitionSpec = {
+                            fadeIn(
+                                animationSpec = tween(800, easing = FastOutSlowInEasing)
+                            ) togetherWith fadeOut(
+                                animationSpec = tween(400, easing = FastOutLinearInEasing)
+                            )
+                        },
+                        label = "image_crossfade",
+                        modifier = Modifier.fillMaxSize()
+                    ) { imageIndex ->
+                        AsyncImage(
+                            model = ImageRequest.Builder(LocalContext.current)
+                                .data(imageUrls[imageIndex])
+                                .crossfade(600) // Additional crossfade from Coil
+                                .build(),
+                            contentDescription = product.name,
+                            modifier = Modifier.fillMaxSize(),
+                            contentScale = ContentScale.Crop,
+                            placeholder = painterResource(id = R.drawable.diamondring_homescreen),
+                            error = painterResource(id = R.drawable.diamondring_homescreen)
+                        )
+                    }
+                } else {
+                    // Fallback single image
+                    AsyncImage(
+                        model = ImageRequest.Builder(LocalContext.current)
+                            .data(product.imageUrl)
+                            .crossfade(true)
+                            .build(),
+                        contentDescription = product.name,
+                        modifier = Modifier.fillMaxSize(),
+                        contentScale = ContentScale.Crop,
+                        placeholder = painterResource(id = R.drawable.diamondring_homescreen),
+                        error = painterResource(id = R.drawable.diamondring_homescreen)
+                    )
+                }
 
                 // Gradient overlay for better text visibility
                 Box(
@@ -2375,7 +2744,7 @@ fun AnimatedProductItem(
                             brush = Brush.verticalGradient(
                                 colors = listOf(
                                     Color.Transparent,
-                                    Color.Black.copy(alpha = 0.1f)
+                                    Color.Black.copy(alpha = 0.05f)
                                 )
                             )
                         )
@@ -2387,8 +2756,8 @@ fun AnimatedProductItem(
                         .align(Alignment.TopEnd)
                         .padding(8.dp),
                     shape = CircleShape,
-                    color = Color.White.copy(alpha = 0.9f),
-                    shadowElevation = 4.dp
+                    color = Color.White.copy(alpha = 0.95f),
+                    shadowElevation = 2.dp
                 ) {
                     IconButton(
                         onClick = { viewModel.toggleFavorite(product.id) },
@@ -2403,21 +2772,81 @@ fun AnimatedProductItem(
                     }
                 }
 
-                // Image count indicator (for multiple images)
+                // Animated image count indicator (for multiple images)
                 if (imageUrls.size > 1) {
                     Surface(
                         modifier = Modifier
-                            .align(Alignment.BottomEnd)
+                            .align(Alignment.TopStart)
                             .padding(8.dp),
                         shape = RoundedCornerShape(12.dp),
-                        color = Color.Black.copy(alpha = 0.6f)
+                        color = Color.Black.copy(alpha = 0.7f)
                     ) {
-                        Text(
-                            text = "${currentImageIndex + 1}/${imageUrls.size}",
-                            color = Color.White,
-                            fontSize = 12.sp,
-                            modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
-                        )
+                        AnimatedContent(
+                            targetState = currentImageIndex,
+                            transitionSpec = {
+                                slideInVertically(
+                                    initialOffsetY = { it },
+                                    animationSpec = tween(300)
+                                ) + fadeIn() togetherWith slideOutVertically(
+                                    targetOffsetY = { -it },
+                                    animationSpec = tween(300)
+                                ) + fadeOut()
+                            },
+                            label = "counter_animation"
+                        ) { index ->
+                            Text(
+                                text = "${index + 1}/${imageUrls.size}",
+                                color = Color.White,
+                                fontSize = 12.sp,
+                                fontWeight = FontWeight.Medium,
+                                modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
+                            )
+                        }
+                    }
+                }
+
+                // Smooth animated dots indicator for multiple images
+                if (imageUrls.size > 1) {
+                    Surface(
+                        modifier = Modifier
+                            .align(Alignment.BottomCenter)
+                            .padding(8.dp),
+                        shape = RoundedCornerShape(12.dp),
+                        color = Color.Black.copy(alpha = 0.5f)
+                    ) {
+                        Row(
+                            modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
+                            horizontalArrangement = Arrangement.spacedBy(4.dp)
+                        ) {
+                            repeat(imageUrls.size) { index ->
+                                val isSelected = index == currentImageIndex
+
+                                val dotWidth by animateDpAsState(
+                                    targetValue = if (isSelected) 16.dp else 6.dp,
+                                    animationSpec = spring(
+                                        dampingRatio = Spring.DampingRatioMediumBouncy,
+                                        stiffness = Spring.StiffnessHigh
+                                    ),
+                                    label = "dot_width"
+                                )
+
+                                val dotColor by animateColorAsState(
+                                    targetValue = if (isSelected) Color.White else Color.White.copy(alpha = 0.4f),
+                                    animationSpec = tween(300),
+                                    label = "dot_color"
+                                )
+
+                                Box(
+                                    modifier = Modifier
+                                        .size(
+                                            width = dotWidth,
+                                            height = 6.dp
+                                        )
+                                        .clip(RoundedCornerShape(3.dp))
+                                        .background(dotColor)
+                                )
+                            }
+                        }
                     }
                 }
             }
@@ -2429,13 +2858,13 @@ fun AnimatedProductItem(
                     text = product.name,
                     fontSize = 15.sp,
                     fontWeight = FontWeight.Medium,
-                    maxLines = 2,
+                    maxLines = 1, // Changed to single line
                     overflow = TextOverflow.Ellipsis,
                     color = Color.Black,
-                    lineHeight = 20.sp
+                    modifier = Modifier.fillMaxWidth()
                 )
 
-                Spacer(modifier = Modifier.height(4.dp))
+                Spacer(modifier = Modifier.height(6.dp)) // Slightly increased spacing
 
                 Text(
                     text = formatPrice(product.price, product.currency),
@@ -2455,27 +2884,120 @@ fun AnimatedThemedCollectionsSection(
 ) {
     if (collections.isEmpty()) return
 
-    Column(
-        modifier = Modifier.padding(16.dp)
+    LazyRow(
+        horizontalArrangement = Arrangement.spacedBy(16.dp),
+        contentPadding = PaddingValues(horizontal = 20.dp)
     ) {
-        Text(
-            text = "Themed Collections",
-            fontSize = 24.sp,
-            fontWeight = FontWeight.Bold
-        )
+        itemsIndexed(collections) { index, collection ->
+            ModernCollectionItem(
+                collection = collection,
+                onCollectionClick = onCollectionClick,
+                index = index
+            )
+        }
+    }
+}
 
-        Spacer(modifier = Modifier.height(12.dp))
+@Composable
+fun ModernCollectionItem(
+    collection: CollectionModel,
+    onCollectionClick: (String) -> Unit,
+    index: Int
+) {
+    var isVisible by remember { mutableStateOf(false) }
 
-        LazyRow(
-            horizontalArrangement = Arrangement.spacedBy(16.dp),
-            contentPadding = PaddingValues(horizontal = 0.dp)
+    LaunchedEffect(collection.id) {
+        delay(index * 100L)
+        isVisible = true
+    }
+
+    AnimatedVisibility(
+        visible = isVisible,
+        enter = slideInHorizontally(
+            initialOffsetX = { it },
+            animationSpec = tween(600, easing = FastOutSlowInEasing)
+        ) + fadeIn(animationSpec = tween(600))
+    ) {
+        Surface(
+            modifier = Modifier
+                .width(280.dp)
+                .height(160.dp)
+                .clickable { onCollectionClick(collection.id) },
+            shape = RoundedCornerShape(16.dp),
+            shadowElevation = 4.dp,
+            tonalElevation = 0.dp
         ) {
-            itemsIndexed(collections) { index, collection ->
-                AnimatedCollectionItem(
-                    collection = collection,
-                    onCollectionClick = onCollectionClick,
-                    index = index
+            Box(modifier = Modifier.fillMaxSize()) {
+                AsyncImage(
+                    model = ImageRequest.Builder(LocalContext.current)
+                        .data(collection.imageUrl)
+                        .crossfade(true)
+                        .build(),
+                    contentDescription = collection.name,
+                    modifier = Modifier.fillMaxSize(),
+                    contentScale = ContentScale.Crop,
+                    placeholder = painterResource(id = R.drawable.collectioin_img1)
                 )
+
+                // Modern gradient overlay
+                Box(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .background(
+                            brush = Brush.verticalGradient(
+                                colors = listOf(
+                                    Color.Transparent,
+                                    Color.Transparent,
+                                    Color.Black.copy(alpha = 0.4f),
+                                    Color.Black.copy(alpha = 0.8f)
+                                )
+                            )
+                        )
+                )
+
+                Column(
+                    modifier = Modifier
+                        .align(Alignment.BottomStart)
+                        .padding(20.dp)
+                        .fillMaxWidth(0.9f)
+                ) {
+                    Text(
+                        text = collection.name,
+                        color = Color.White,
+                        fontSize = 18.sp,
+                        fontWeight = FontWeight.SemiBold,
+                        letterSpacing = 0.2.sp
+                    )
+
+                    Spacer(modifier = Modifier.height(8.dp))
+
+                    Surface(
+                        onClick = { onCollectionClick(collection.id) },
+                        shape = RoundedCornerShape(8.dp),
+                        color = Color.White.copy(alpha = 0.15f),
+                        border = BorderStroke(1.dp, Color.White.copy(alpha = 0.3f))
+                    ) {
+                        Row(
+                            modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Text(
+                                text = "View All",
+                                color = Color.White,
+                                fontSize = 12.sp,
+                                fontWeight = FontWeight.Medium,
+                                letterSpacing = 0.3.sp
+                            )
+                            Spacer(modifier = Modifier.width(6.dp))
+                            Icon(
+                                imageVector = Icons.AutoMirrored.Filled.ArrowForward,
+                                contentDescription = "Arrow",
+                                tint = Color.White,
+                                modifier = Modifier.size(14.dp)
+                            )
+                        }
+                    }
+                }
             }
         }
     }
@@ -2694,7 +3216,8 @@ fun Modifier.shimmerEffect(): Modifier = composed {
         initialValue = -2 * size.width.toFloat(),
         targetValue = 2 * size.width.toFloat(),
         animationSpec = infiniteRepeatable(
-            animation = tween(1000)
+            animation = tween(1200, easing = LinearEasing),
+            repeatMode = RepeatMode.Restart
         ),
         label = "shimmer"
     )
@@ -2702,9 +3225,11 @@ fun Modifier.shimmerEffect(): Modifier = composed {
     background(
         brush = Brush.linearGradient(
             colors = listOf(
-                Color(0xFFE0E0E0),
+                Color(0xFFE8E8E8),
                 Color(0xFFF5F5F5),
-                Color(0xFFE0E0E0)
+                Color(0xFFFFFFFF),
+                Color(0xFFF5F5F5),
+                Color(0xFFE8E8E8)
             ),
             start = Offset(startOffsetX, 0f),
             end = Offset(startOffsetX + size.width.toFloat(), size.height.toFloat())
