@@ -43,7 +43,6 @@ import com.example.jewelleryapp.screen.profileScreen.ProfileScreen
 import com.example.jewelleryapp.screen.profileScreen.ProfileViewModel
 import com.example.jewelleryapp.screen.registerScreen.RegisterScreen
 import com.example.jewelleryapp.screen.registerScreen.RegisterViewModel
-import com.example.jewelleryapp.screen.homeScreen.StoreInfoScreen
 import com.example.jewelleryapp.screen.homeScreen.StoreInfoViewModel
 import com.example.jewelleryapp.screen.wishlist.WishlistScreen
 import com.example.jewelleryapp.screen.wishlist.WishlistViewModel
@@ -54,6 +53,7 @@ import android.Manifest
 import android.os.Build
 import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
+import com.example.jewelleryapp.screen.homeScreen.StoreInfoScreen
 
 class MainActivity : ComponentActivity() {
     private val NOTIFICATION_PERMISSION_REQUEST_CODE = 1001
