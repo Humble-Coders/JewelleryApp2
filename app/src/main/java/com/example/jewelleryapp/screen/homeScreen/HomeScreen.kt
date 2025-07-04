@@ -1,8 +1,8 @@
 package com.example.jewelleryapp.screen.homeScreen
 
-import android.content.Intent
 import android.content.pm.PackageManager
 import android.util.Log
+import androidx.activity.ComponentActivity
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.AnimatedContent
@@ -16,7 +16,6 @@ import androidx.compose.animation.core.RepeatMode
 import androidx.compose.animation.core.Spring
 import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.animation.core.animateFloat
-import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.infiniteRepeatable
 import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.animation.core.spring
@@ -33,6 +32,7 @@ import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.gestures.animateScrollBy
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -40,26 +40,25 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.statusBars
+import androidx.compose.foundation.layout.systemBarsPadding
 import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.itemsIndexed
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.pager.HorizontalPager
 import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.selection.selectable
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
@@ -80,15 +79,12 @@ import androidx.compose.material.icons.filled.Menu
 import androidx.compose.material.icons.filled.Mic
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.Search
-import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.Stop
-import androidx.compose.material.icons.filled.Warning
 import androidx.compose.material.icons.outlined.ChevronRight
 import androidx.compose.material.icons.outlined.Headset
 import androidx.compose.material.icons.outlined.LocationOn
 import androidx.compose.material.icons.outlined.Person
 import androidx.compose.material3.Badge
-import androidx.compose.material3.BadgedBox
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
@@ -104,9 +100,6 @@ import androidx.compose.material3.ModalDrawerSheet
 import androidx.compose.material3.ModalNavigationDrawer
 import androidx.compose.material3.NavigationBar
 import androidx.compose.material3.NavigationBarItem
-import androidx.compose.material3.OutlinedButton
-import androidx.compose.material3.OutlinedTextField
-import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
@@ -114,9 +107,11 @@ import androidx.compose.material3.rememberDrawerState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
@@ -129,12 +124,15 @@ import androidx.compose.ui.draw.scale
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.SolidColor
+import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.platform.LocalHapticFeedback
+import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
@@ -145,6 +143,7 @@ import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.core.content.ContextCompat
+import androidx.core.view.WindowCompat
 import androidx.navigation.NavController
 import coil.compose.AsyncImage
 import coil.request.ImageRequest
@@ -176,10 +175,9 @@ fun HomeScreen(
     onProductClick: (String) -> Unit = {},
     onCollectionClick: (String) -> Unit = {},
     navController: NavController,
-    onLogout: () -> Unit, // Add this parameter
-    profileViewModel: ProfileViewModel, // Add this parameter
-    drawerViewModel: DrawerViewModel // Add this parameter
-
+    onLogout: () -> Unit,
+    profileViewModel: ProfileViewModel,
+    drawerViewModel: DrawerViewModel
 ) {
     // Collect existing state flows
     val categories by viewModel.categories.collectAsState()
@@ -198,8 +196,6 @@ fun HomeScreen(
     val recentlyViewedProducts by viewModel.recentlyViewedProducts.collectAsState()
     val isRecentlyViewedLoading by viewModel.isRecentlyViewedLoading.collectAsState()
 
-
-
     // Key fix: Use a stable key for drawer state to prevent recreation
     val currentRoute = navController.currentDestination?.route
     val drawerState = rememberDrawerState(
@@ -214,8 +210,8 @@ fun HomeScreen(
 
     LaunchedEffect(Unit) {
         profileViewModel.loadUserProfile()
-
     }
+
     // Create a stable coroutine scope
     val scope = rememberCoroutineScope()
 
@@ -226,7 +222,6 @@ fun HomeScreen(
             if (drawerState.isOpen) {
                 try {
                     // Don't use coroutine here, just reset the state
-                    // drawerState.close() // This can cause issues in onDispose
                 } catch (e: Exception) {
                     Log.e("HomeScreen", "Error disposing drawer", e)
                 }
@@ -264,12 +259,11 @@ fun HomeScreen(
                         }
                     },
                     onLogout = {
-                        onLogout() // Call the logout function passed from the parent
+                        onLogout()
                     },
-                    userProfile = currentProfile, // Pass profile data
-                    homeViewModel = viewModel ,// Pass the HomeViewModel to handle Google Maps
-                    drawerViewModel = drawerViewModel// Pass the DrawerViewModel
-
+                    userProfile = currentProfile,
+                    homeViewModel = viewModel,
+                    drawerViewModel = drawerViewModel
                 )
             }
         }
@@ -278,7 +272,7 @@ fun HomeScreen(
     ModalNavigationDrawer(
         drawerState = drawerState,
         drawerContent = drawerContent,
-        gesturesEnabled = currentRoute == "home" // Only enable on home screen
+        gesturesEnabled = currentRoute == "home"
     ) {
         Scaffold(
             topBar = {
@@ -305,70 +299,69 @@ fun HomeScreen(
                     onSearchQueryChange = { viewModel.onSearchQueryChange(it) },
                     onWishlistClick = {
                         navController.navigate("wishlist")
-
                     },
                 )
             },
-            bottomBar = { BottomNavigationBar(navController = navController) }
+            bottomBar = { BottomNavigationBar(navController = navController) },
+            containerColor = Color.White
         ) { paddingValues ->
-            Box(modifier = Modifier.fillMaxSize()) {
-                // Main content
-                // REPLACE this section in HomeScreen.kt where you handle loading state:
-
-// Main content
-                if (error != null) {
-                    Box(
-                        modifier = Modifier
-                            .fillMaxSize()
-                            .padding(paddingValues),
-                        contentAlignment = Alignment.Center
+            // Main content without outer Box
+            if (error != null) {
+                Box(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .padding(paddingValues),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Column(
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                        verticalArrangement = Arrangement.Center
                     ) {
-                        Column(
-                            horizontalAlignment = Alignment.CenterHorizontally,
-                            verticalArrangement = Arrangement.Center
+                        Text(
+                            text = "Something went wrong",
+                            color = Color.Red,
+                            style = MaterialTheme.typography.titleMedium
+                        )
+                        Spacer(modifier = Modifier.height(8.dp))
+                        Button(
+                            onClick = { viewModel.refreshData() },
+                            colors = ButtonDefaults.buttonColors(
+                                containerColor = Color(0xFFB78628)
+                            )
                         ) {
-                            Text(
-                                text = "Something went wrong",
-                                color = Color.Red,
-                                style = MaterialTheme.typography.titleMedium
-                            )
-                            Spacer(modifier = Modifier.height(8.dp))
-                            Button(
-                                onClick = { viewModel.refreshData() },
-                                colors = ButtonDefaults.buttonColors(
-                                    containerColor = Color(0xFFB78628)
-                                )
-                            ) {
-                                Text("Try Again")
-                            }
+                            Text("Try Again")
                         }
                     }
-                } else {
-                    var isRefreshing by remember { mutableStateOf(false) }
+                }
+            } else {
+                var isRefreshing by remember { mutableStateOf(false) }
 
-                    // Handle refresh
-                    LaunchedEffect(isLoading) {
-                        if (isLoading) {
-                            isRefreshing = true
-                        } else {
-                            isRefreshing = false
-                        }
+                // Handle refresh
+                LaunchedEffect(isLoading) {
+                    if (isLoading) {
+                        isRefreshing = true
+                    } else {
+                        isRefreshing = false
                     }
+                }
 
-                    SwipeRefresh(
-                        state = rememberSwipeRefreshState(isRefreshing),
-                        onRefresh = {
-                            viewModel.refreshData()
-                        },
-                        indicator = { state, refreshTrigger ->
-                            SwipeRefreshIndicator(
-                                state = state,
-                                refreshTriggerDistance = refreshTrigger,
-                                backgroundColor = Color(0xFFB78628),
-                                contentColor = Color.White
-                            )
-                        }
-                    ) {
+                // SwipeRefresh directly in Scaffold content
+                SwipeRefresh(
+                    state = rememberSwipeRefreshState(isRefreshing),
+                    onRefresh = {
+                        viewModel.refreshData()
+                    },
+                    modifier = Modifier.fillMaxSize(),
+                    indicator = { state, refreshTrigger ->
+                        SwipeRefreshIndicator(
+                            state = state,
+                            refreshTriggerDistance = refreshTrigger,
+                            backgroundColor = Color(0xFFB78628),
+                            contentColor = Color.White
+                        )
+                    }
+                ) {
+                    Box {
                         LazyColumn(
                             modifier = Modifier
                                 .fillMaxSize()
@@ -419,14 +412,17 @@ fun HomeScreen(
                                 if (featuredProducts.isNotEmpty()) {
                                     Text(
                                         text = "Featured Products",
-                                        fontSize = 24.sp,
-                                        fontWeight = FontWeight.Bold,
-                                        modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)
+                                        fontSize = 22.sp,
+                                        fontWeight = FontWeight.Normal,
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .padding(horizontal = 16.dp, vertical = 8.dp),
+                                        textAlign = TextAlign.Center
                                     )
                                 }
                             }
 
-                            // Featured Products Grid - Always show shimmer if loading or empty
+                            // Featured Products Grid
                             if (featuredProducts.isNotEmpty()) {
                                 items(featuredProducts.chunked(2)) { productPair ->
                                     Row(
@@ -451,7 +447,7 @@ fun HomeScreen(
                                 }
                             } else {
                                 // Show shimmer placeholders when loading or empty
-                                items(3) { // Show 3 rows of shimmer placeholders
+                                items(3) {
                                     Row(
                                         modifier = Modifier
                                             .fillMaxWidth()
@@ -479,28 +475,27 @@ fun HomeScreen(
                                 Spacer(modifier = Modifier.height(16.dp))
                             }
                         }
+
+                        // Search results overlay
+                        CategorySearchResults(
+                            categories = filteredCategories,
+                            isVisible = isSearchActive,
+                            onCategoryClick = { categoryId ->
+                                viewModel.toggleSearch()
+                                val categoryName = categories.find { it.id == categoryId }?.name ?: "Products"
+                                navController.navigate("categoryProducts/$categoryId/$categoryName")
+                            },
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(paddingValues)
+                        )
                     }
                 }
-
-                // Search results overlay
-                CategorySearchResults(
-                    categories = filteredCategories,
-                    isVisible = isSearchActive,
-                    onCategoryClick = { categoryId ->
-                        // Close search and navigate to category
-                        viewModel.toggleSearch()
-                        val categoryName = categories.find { it.id == categoryId }?.name ?: "Products"
-                        navController.navigate("categoryProducts/$categoryId/$categoryName")
-                    },
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(paddingValues)
-                )
             }
         }
     }
 
-    // Add this before the closing brace of HomeScreen
+    // Rates dialog
     val showRatesDialog by viewModel.showRatesDialog.collectAsState()
     val goldSilverRates by viewModel.goldSilverRates.collectAsState()
     val isRatesLoading by viewModel.isRatesLoading.collectAsState()
@@ -939,7 +934,6 @@ private fun VoiceWaveAnimation() {
 }
 
 
-// Fixed TopAppbar - Better state management
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun TopAppbar(
@@ -955,16 +949,23 @@ fun TopAppbar(
     val amberColor = Color(0xFFB78628)
     val focusManager = LocalFocusManager.current
     val context = LocalContext.current
+    val view = LocalView.current
 
-    // Voice search states - Use stable references
+    // Set status bar color to white
+    SideEffect {
+        val window = (view.context as ComponentActivity).window
+        window.statusBarColor = Color.White.toArgb()
+        WindowCompat.getInsetsController(window, view).isAppearanceLightStatusBars = true
+    }
+
+    // Voice search states
     var isVoiceSearchActive by remember { mutableStateOf(false) }
     var voiceSearchError by remember { mutableStateOf<String?>(null) }
-    var voiceState by remember { mutableStateOf("idle") } // idle, ready, speaking, processing
+    var voiceState by remember { mutableStateOf("idle") }
 
-    // Create stable callback references to prevent recreation
+    // Create stable callback references
     val onVoiceResult = remember {
         { result: String ->
-            Log.d("TopAppbar", "Voice search result: $result")
             onSearchQueryChange(result)
             isVoiceSearchActive = false
             voiceSearchError = null
@@ -974,36 +975,17 @@ fun TopAppbar(
 
     val onVoiceError = remember {
         { error: String ->
-            Log.e("TopAppbar", "Voice search error: $error")
             voiceSearchError = error
             isVoiceSearchActive = false
             voiceState = "idle"
         }
     }
 
-    val onVoiceReady = remember {
-        {
-            Log.d("TopAppbar", "Voice ready for speech")
-            voiceState = "ready"
-        }
-    }
+    val onVoiceReady = remember { { voiceState = "ready" } }
+    val onVoiceBeginning = remember { { voiceState = "speaking"; voiceSearchError = null } }
+    val onVoiceEnd = remember { { voiceState = "processing" } }
 
-    val onVoiceBeginning = remember {
-        {
-            Log.d("TopAppbar", "Voice beginning of speech")
-            voiceState = "speaking"
-            voiceSearchError = null
-        }
-    }
-
-    val onVoiceEnd = remember {
-        {
-            Log.d("TopAppbar", "Voice end of speech")
-            voiceState = "processing"
-        }
-    }
-
-    // Voice search manager with stable callbacks
+    // Voice search manager
     val voiceSearchManager = remember(onVoiceResult, onVoiceError, onVoiceReady, onVoiceBeginning, onVoiceEnd) {
         VoiceSearchManager(
             context = context,
@@ -1019,18 +1001,16 @@ fun TopAppbar(
     val permissionLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.RequestPermission()
     ) { isGranted ->
-        Log.d("TopAppbar", "Permission result: $isGranted")
         if (isGranted) {
             isVoiceSearchActive = true
             voiceSearchError = null
             voiceState = "idle"
             voiceSearchManager.startListening()
         } else {
-            voiceSearchError = "Microphone permission is required for voice search. Please enable it in Settings."
+            voiceSearchError = "Microphone permission required"
         }
     }
 
-    // Function to check and request permission
     val requestVoiceSearchPermission = remember {
         {
             val permissionStatus = ContextCompat.checkSelfPermission(
@@ -1038,47 +1018,22 @@ fun TopAppbar(
                 android.Manifest.permission.RECORD_AUDIO
             )
 
-            Log.d("TopAppbar", "Current permission status: $permissionStatus")
-
             when (permissionStatus) {
                 PackageManager.PERMISSION_GRANTED -> {
-                    Log.d("TopAppbar", "Permission already granted")
                     isVoiceSearchActive = true
                     voiceSearchError = null
                     voiceState = "idle"
                     voiceSearchManager.startListening()
                 }
                 PackageManager.PERMISSION_DENIED -> {
-                    Log.d("TopAppbar", "Requesting permission")
                     permissionLauncher.launch(android.Manifest.permission.RECORD_AUDIO)
                 }
             }
         }
     }
 
-    // Clean up voice search when component is disposed
-    DisposableEffect(voiceSearchManager) {
-        onDispose {
-            try {
-                if (isVoiceSearchActive) {
-                    voiceSearchManager.destroy()
-                }
-            } catch (e: Exception) {
-                Log.e("TopAppbar", "Error in cleanup", e)
-            }
-        }
-    }
-
-    // Auto-dismiss error after delay
-    LaunchedEffect(voiceSearchError) {
-        voiceSearchError?.let {
-            delay(8000)
-            voiceSearchError = null
-        }
-    }
-
-    val normalHeight = 80.dp
-    val expandedHeight = 240.dp
+    val normalHeight = 50.dp
+    val expandedHeight = 100.dp
 
     val currentHeight by animateDpAsState(
         targetValue = if (isSearchActive) expandedHeight else normalHeight,
@@ -1089,350 +1044,244 @@ fun TopAppbar(
         label = "topbar_height"
     )
 
-    val backgroundAlpha by animateFloatAsState(
-        targetValue = if (isSearchActive) 0.05f else 0f,
-        animationSpec = tween(300),
-        label = "background_alpha"
-    )
-
     Column(
         modifier = Modifier
             .fillMaxWidth()
-            .windowInsetsPadding(WindowInsets.statusBars)
+            .systemBarsPadding()
     ) {
         Surface(
             modifier = Modifier
                 .fillMaxWidth()
                 .height(currentHeight),
             color = Color.White,
-            shadowElevation = if (isSearchActive) 0.dp else 2.dp
+            shadowElevation = if (isSearchActive) 0.dp else 0.5.dp
         ) {
-            Box(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .background(
-                        if (isSearchActive) amberColor.copy(alpha = backgroundAlpha) else Color.Transparent
-                    )
-            ) {
-                Column {
-                    // Main app bar
+            Column {
+                // Main app bar
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(normalHeight)
+                        .padding(horizontal = 12.dp, vertical = 6.dp),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    // Menu/Back button
+                    Surface(
+                        modifier = Modifier.size(38.dp),
+                        shape = CircleShape,
+                        color = amberColor.copy(alpha = 0.06f),
+                        onClick = onBackClick ?: onMenuClick
+                    ) {
+                        Box(contentAlignment = Alignment.Center) {
+                            Icon(
+                                imageVector = if (onBackClick != null) Icons.AutoMirrored.Filled.ArrowBack else Icons.Default.Menu,
+                                contentDescription = if (onBackClick != null) "Back" else "Menu",
+                                tint = amberColor,
+                                modifier = Modifier.size(20.dp)
+                            )
+                        }
+                    }
+
+                    // Title
+                    AnimatedVisibility(
+                        visible = !isSearchActive,
+                        enter = fadeIn(animationSpec = tween(200)),
+                        exit = fadeOut(animationSpec = tween(150))
+                    ) {
+                        Text(
+                            text = title,
+                            color = amberColor,
+                            fontWeight = FontWeight.Normal,
+                            fontSize = 18.sp
+                        )
+                    }
+
+                    // Action buttons
                     Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .height(normalHeight)
-                            .padding(horizontal = 16.dp, vertical = 16.dp),
-                        horizontalArrangement = Arrangement.SpaceBetween,
+                        horizontalArrangement = Arrangement.spacedBy(4.dp),
                         verticalAlignment = Alignment.CenterVertically
                     ) {
-                        // Menu/Back button
+                        // Search button
                         Surface(
-                            modifier = Modifier.size(52.dp),
+                            modifier = Modifier.size(38.dp),
                             shape = CircleShape,
-                            color = amberColor.copy(alpha = 0.1f),
-                            onClick = onBackClick ?: onMenuClick
+                            color = if (isSearchActive) amberColor else amberColor.copy(alpha = 0.06f),
+                            onClick = {
+                                onSearchToggle()
+                                if (!isSearchActive) {
+                                    if (isVoiceSearchActive) {
+                                        voiceSearchManager.stopListening()
+                                        isVoiceSearchActive = false
+                                        voiceState = "idle"
+                                    }
+                                }
+                            }
                         ) {
                             Box(contentAlignment = Alignment.Center) {
                                 Icon(
-                                    imageVector = if (onBackClick != null) Icons.AutoMirrored.Filled.ArrowBack else Icons.Default.Menu,
-                                    contentDescription = if (onBackClick != null) "Back" else "Menu",
-                                    tint = amberColor,
-                                    modifier = Modifier.size(26.dp)
+                                    imageVector = if (isSearchActive) Icons.Default.Close else Icons.Default.Search,
+                                    contentDescription = if (isSearchActive) "Close Search" else "Search",
+                                    tint = if (isSearchActive) Color.White else amberColor,
+                                    modifier = Modifier.size(20.dp)
                                 )
                             }
                         }
 
-                        // Title
-                        AnimatedVisibility(
-                            visible = !isSearchActive,
-                            enter = fadeIn(animationSpec = tween(200)) + scaleIn(
-                                animationSpec = tween(200),
-                                initialScale = 0.9f
-                            ),
-                            exit = fadeOut(animationSpec = tween(150)) + scaleOut(
-                                animationSpec = tween(150),
-                                targetScale = 0.9f
-                            )
+                        // Wishlist button
+                        Surface(
+                            modifier = Modifier.size(38.dp),
+                            shape = CircleShape,
+                            color = amberColor.copy(alpha = 0.06f),
+                            onClick = onWishlistClick
                         ) {
-                            Text(
-                                text = title,
-                                color = amberColor,
-                                fontWeight = FontWeight.Bold,
-                                fontSize = 22.sp
-                            )
+                            Box(contentAlignment = Alignment.Center) {
+                                Icon(
+                                    imageVector = Icons.Default.FavoriteBorder,
+                                    contentDescription = "Wishlist",
+                                    tint = amberColor,
+                                    modifier = Modifier.size(20.dp)
+                                )
+                            }
                         }
+                    }
+                }
 
-                        // Action buttons
+                // Search bar section
+                AnimatedVisibility(
+                    visible = isSearchActive,
+                    enter = slideInVertically(
+                        initialOffsetY = { -it / 2 },
+                        animationSpec = tween(250)
+                    ) + fadeIn(animationSpec = tween(250)),
+                    exit = slideOutVertically(
+                        targetOffsetY = { -it / 2 },
+                        animationSpec = tween(200)
+                    ) + fadeOut(animationSpec = tween(200))
+                ) {
+                    // Search input
+                    Card(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(56.dp)
+                            .padding(horizontal = 12.dp, vertical = 2.dp),
+                        shape = RoundedCornerShape(28.dp),
+                        colors = CardDefaults.cardColors(containerColor = Color.White),
+                        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+                    ) {
                         Row(
-                            horizontalArrangement = Arrangement.spacedBy(8.dp),
+                            modifier = Modifier
+                                .fillMaxSize()
+                                .padding(horizontal = 16.dp),
                             verticalAlignment = Alignment.CenterVertically
                         ) {
-                            // Voice search button (only when search is active)
-                            AnimatedVisibility(
-                                visible = isSearchActive,
-                                enter = fadeIn(animationSpec = tween(200)),
-                                exit = fadeOut(animationSpec = tween(150))
-                            ) {
-                                Surface(
-                                    modifier = Modifier.size(52.dp),
-                                    shape = CircleShape,
-                                    color = when (voiceState) {
-                                        "speaking" -> Color(0xFF4CAF50)
-                                        "ready" -> Color(0xFF2196F3)
-                                        "processing" -> Color(0xFFFF9800)
-                                        else -> amberColor.copy(alpha = 0.1f)
-                                    },
-                                    onClick = {
-                                        if (isVoiceSearchActive) {
-                                            Log.d("TopAppbar", "Stopping voice search")
-                                            voiceSearchManager.stopListening()
-                                            isVoiceSearchActive = false
-                                            voiceState = "idle"
-                                        } else {
-                                            Log.d("TopAppbar", "Attempting to start voice search")
-                                            requestVoiceSearchPermission()
-                                        }
-                                    }
-                                ) {
-                                    Box(contentAlignment = Alignment.Center) {
-                                        Icon(
-                                            imageVector = if (isVoiceSearchActive) Icons.Default.Stop else Icons.Default.Mic,
-                                            contentDescription = if (isVoiceSearchActive) "Stop Voice Search" else "Voice Search",
-                                            tint = if (voiceState != "idle") Color.White else amberColor,
-                                            modifier = Modifier.size(26.dp)
+                            Icon(
+                                imageVector = Icons.Default.Search,
+                                contentDescription = "Search",
+                                tint = amberColor.copy(alpha = 0.7f),
+                                modifier = Modifier.size(20.dp)
+                            )
+
+                            Spacer(modifier = Modifier.width(12.dp))
+
+                            // Fixed TextField - Removed the Box wrapper
+                            BasicTextField(
+                                value = if (isVoiceSearchActive && voiceState == "speaking") "Listening..." else searchQuery,
+                                onValueChange = { if (!isVoiceSearchActive) onSearchQueryChange(it) },
+                                modifier = Modifier.weight(1f),
+                                enabled = !isVoiceSearchActive,
+                                singleLine = true,
+                                textStyle = TextStyle(
+                                    fontSize = 16.sp,
+                                    color = if (isVoiceSearchActive && voiceState == "speaking") amberColor else Color.Black,
+                                    fontWeight = FontWeight.Normal
+                                ),
+                                cursorBrush = SolidColor(amberColor),
+                                keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
+                                keyboardActions = KeyboardActions(
+                                    onSearch = { focusManager.clearFocus() }
+                                ),
+                                decorationBox = { innerTextField ->
+                                    if (searchQuery.isEmpty() && !isVoiceSearchActive) {
+                                        Text(
+                                            text = "Search categories...",
+                                            color = Color.Gray.copy(alpha = 0.7f),
+                                            fontSize = 16.sp,
+                                            fontWeight = FontWeight.Normal
+                                        )
+                                    } else if (isVoiceSearchActive) {
+                                        Text(
+                                            text = when (voiceState) {
+                                                "ready" -> "Ready to speak..."
+                                                "processing" -> "Processing..."
+                                                "speaking" -> "Listening..."
+                                                else -> "Search categories..."
+                                            },
+                                            color = amberColor.copy(alpha = 0.8f),
+                                            fontSize = 16.sp,
+                                            fontWeight = FontWeight.Normal
                                         )
                                     }
+                                    innerTextField()
                                 }
-                            }
+                            )
 
-                            // Search button
-                            Surface(
-                                modifier = Modifier.size(52.dp),
-                                shape = CircleShape,
-                                color = if (isSearchActive) amberColor else amberColor.copy(alpha = 0.1f),
+                            // Voice search button
+                            IconButton(
                                 onClick = {
-                                    onSearchToggle()
-                                    if (!isSearchActive) {
-                                        // Stop voice search when closing search
-                                        if (isVoiceSearchActive) {
-                                            voiceSearchManager.stopListening()
-                                            isVoiceSearchActive = false
-                                            voiceState = "idle"
-                                        }
+                                    if (isVoiceSearchActive) {
+                                        voiceSearchManager.stopListening()
+                                        isVoiceSearchActive = false
+                                        voiceState = "idle"
+                                    } else {
+                                        requestVoiceSearchPermission()
+                                    }
+                                },
+                                modifier = Modifier.size(40.dp)
+                            ) {
+                                when {
+                                    isVoiceSearchActive && voiceState == "speaking" -> {
+                                        Icon(
+                                            imageVector = Icons.Default.Stop,
+                                            contentDescription = "Stop",
+                                            tint = Color(0xFF4CAF50),
+                                            modifier = Modifier.size(20.dp)
+                                        )
+                                    }
+                                    isVoiceSearchActive -> {
+                                        CircularProgressIndicator(
+                                            modifier = Modifier.size(18.dp),
+                                            strokeWidth = 2.dp,
+                                            color = amberColor
+                                        )
+                                    }
+                                    else -> {
+                                        Icon(
+                                            imageVector = Icons.Default.Mic,
+                                            contentDescription = "Voice Search",
+                                            tint = amberColor,
+                                            modifier = Modifier.size(20.dp)
+                                        )
                                     }
                                 }
-                            ) {
-                                Box(contentAlignment = Alignment.Center) {
-                                    Icon(
-                                        imageVector = if (isSearchActive) Icons.Default.Close else Icons.Default.Search,
-                                        contentDescription = if (isSearchActive) "Close Search" else "Search",
-                                        tint = if (isSearchActive) Color.White else amberColor,
-                                        modifier = Modifier.size(26.dp)
-                                    )
-                                }
                             }
 
-                            // Wishlist button
-                            Surface(
-                                modifier = Modifier.size(52.dp),
-                                shape = CircleShape,
-                                color = amberColor.copy(alpha = 0.1f),
-                                onClick = onWishlistClick
+                            // Clear button
+                            AnimatedVisibility(
+                                visible = searchQuery.isNotEmpty() && !isVoiceSearchActive,
+                                enter = scaleIn() + fadeIn(),
+                                exit = scaleOut() + fadeOut()
                             ) {
-                                Box(contentAlignment = Alignment.Center) {
-                                    Icon(
-                                        imageVector = Icons.Default.FavoriteBorder,
-                                        contentDescription = "Wishlist",
-                                        tint = amberColor,
-                                        modifier = Modifier.size(26.dp)
-                                    )
-                                }
-                            }
-                        }
-                    }
-
-                    // Search bar section
-                    AnimatedVisibility(
-                        visible = isSearchActive,
-                        enter = slideInVertically(
-                            initialOffsetY = { -it / 2 },
-                            animationSpec = tween(250, easing = FastOutSlowInEasing)
-                        ) + fadeIn(animationSpec = tween(250)),
-                        exit = slideOutVertically(
-                            targetOffsetY = { -it / 2 },
-                            animationSpec = tween(200, easing = FastOutLinearInEasing)
-                        ) + fadeOut(animationSpec = tween(200))
-                    ) {
-                        Column(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(horizontal = 16.dp, vertical = 12.dp)
-                        ) {
-                            // Search input card
-                            Card(
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .height(60.dp),
-                                shape = RoundedCornerShape(16.dp),
-                                colors = CardDefaults.cardColors(containerColor = Color.White),
-                                elevation = CardDefaults.cardElevation(defaultElevation = 6.dp)
-                            ) {
-                                Row(
-                                    modifier = Modifier
-                                        .fillMaxSize()
-                                        .padding(horizontal = 20.dp),
-                                    verticalAlignment = Alignment.CenterVertically
+                                IconButton(
+                                    onClick = { onSearchQueryChange("") },
+                                    modifier = Modifier.size(40.dp)
                                 ) {
                                     Icon(
-                                        imageVector = Icons.Default.Search,
-                                        contentDescription = "Search",
-                                        tint = amberColor.copy(alpha = 0.7f),
-                                        modifier = Modifier.size(24.dp)
+                                        imageVector = Icons.Default.Clear,
+                                        contentDescription = "Clear",
+                                        tint = Color.Gray,
+                                        modifier = Modifier.size(18.dp)
                                     )
-
-                                    Spacer(modifier = Modifier.width(16.dp))
-
-                                    OutlinedTextField(
-                                        value = searchQuery,
-                                        onValueChange = onSearchQueryChange,
-                                        modifier = Modifier.weight(1f),
-                                        singleLine = true,
-                                        placeholder = {
-                                            Text(
-                                                text = "Search categories...",
-                                                color = Color.Gray,
-                                                fontSize = 18.sp
-                                            )
-                                        },
-                                        textStyle = TextStyle(
-                                            fontSize = 18.sp,
-                                            color = Color.Black
-                                        ),
-                                        colors = OutlinedTextFieldDefaults.colors(
-                                            focusedBorderColor = Color.Transparent,
-                                            unfocusedBorderColor = Color.Transparent,
-                                            cursorColor = amberColor,
-                                            focusedContainerColor = Color.Transparent,
-                                            unfocusedContainerColor = Color.Transparent
-                                        ),
-                                        keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
-                                        keyboardActions = KeyboardActions(
-                                            onSearch = { focusManager.clearFocus() }
-                                        )
-                                    )
-
-                                    // Clear button
-                                    AnimatedVisibility(
-                                        visible = searchQuery.isNotEmpty(),
-                                        enter = scaleIn() + fadeIn(),
-                                        exit = scaleOut() + fadeOut()
-                                    ) {
-                                        IconButton(
-                                            onClick = { onSearchQueryChange("") },
-                                            modifier = Modifier.size(40.dp)
-                                        ) {
-                                            Icon(
-                                                imageVector = Icons.Default.Clear,
-                                                contentDescription = "Clear",
-                                                tint = Color.Gray,
-                                                modifier = Modifier.size(22.dp)
-                                            )
-                                        }
-                                    }
-                                }
-                            }
-
-                            // Voice feedback
-                            if (isVoiceSearchActive) {
-                                Spacer(modifier = Modifier.height(12.dp))
-                                VoiceSearchFeedback(voiceState = voiceState)
-                            }
-
-                            // Error message
-                            AnimatedVisibility(
-                                visible = voiceSearchError != null,
-                                enter = slideInVertically() + fadeIn(),
-                                exit = slideOutVertically() + fadeOut()
-                            ) {
-                                voiceSearchError?.let { error ->
-                                    Spacer(modifier = Modifier.height(8.dp))
-                                    Card(
-                                        modifier = Modifier.fillMaxWidth(),
-                                        shape = RoundedCornerShape(12.dp),
-                                        colors = CardDefaults.cardColors(
-                                            containerColor = Color.Red.copy(alpha = 0.1f)
-                                        )
-                                    ) {
-                                        Column(
-                                            modifier = Modifier
-                                                .fillMaxWidth()
-                                                .padding(12.dp)
-                                        ) {
-                                            Row(
-                                                verticalAlignment = Alignment.CenterVertically,
-                                                horizontalArrangement = Arrangement.SpaceBetween,
-                                                modifier = Modifier.fillMaxWidth()
-                                            ) {
-                                                Row(
-                                                    verticalAlignment = Alignment.CenterVertically,
-                                                    modifier = Modifier.weight(1f)
-                                                ) {
-                                                    Icon(
-                                                        imageVector = Icons.Default.Warning,
-                                                        contentDescription = "Error",
-                                                        tint = Color.Red,
-                                                        modifier = Modifier.size(16.dp)
-                                                    )
-                                                    Spacer(modifier = Modifier.width(8.dp))
-                                                    Text(
-                                                        text = error,
-                                                        color = Color.Red,
-                                                        fontSize = 14.sp
-                                                    )
-                                                }
-                                                IconButton(
-                                                    onClick = { voiceSearchError = null },
-                                                    modifier = Modifier.size(24.dp)
-                                                ) {
-                                                    Icon(
-                                                        imageVector = Icons.Default.Close,
-                                                        contentDescription = "Close",
-                                                        tint = Color.Red,
-                                                        modifier = Modifier.size(16.dp)
-                                                    )
-                                                }
-                                            }
-
-                                            // Add "Go to Settings" button for permission errors
-                                            if (error.contains("permission", ignoreCase = true)) {
-                                                Spacer(modifier = Modifier.height(8.dp))
-                                                OutlinedButton(
-                                                    onClick = {
-                                                        try {
-                                                            val intent = Intent(android.provider.Settings.ACTION_APPLICATION_DETAILS_SETTINGS).apply {
-                                                                data = android.net.Uri.fromParts("package", context.packageName, null)
-                                                            }
-                                                            context.startActivity(intent)
-                                                        } catch (e: Exception) {
-                                                            Log.e("TopAppbar", "Cannot open settings", e)
-                                                        }
-                                                    },
-                                                    colors = ButtonDefaults.outlinedButtonColors(
-                                                        contentColor = Color.Red
-                                                    ),
-                                                    border = BorderStroke(1.dp, Color.Red),
-                                                    modifier = Modifier.fillMaxWidth()
-                                                ) {
-                                                    Icon(
-                                                        imageVector = Icons.Default.Settings,
-                                                        contentDescription = "Settings",
-                                                        modifier = Modifier.size(16.dp)
-                                                    )
-                                                    Spacer(modifier = Modifier.width(8.dp))
-                                                    Text("Open App Settings", fontSize = 14.sp)
-                                                }
-                                            }
-                                        }
-                                    }
                                 }
                             }
                         }
@@ -1443,84 +1292,6 @@ fun TopAppbar(
     }
 }
 
-@Composable
-private fun VoiceSearchFeedback(voiceState: String) {
-    Card(
-        modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(12.dp),
-        colors = CardDefaults.cardColors(
-            containerColor = when (voiceState) {
-                "speaking" -> Color(0xFF4CAF50).copy(alpha = 0.15f)
-                "ready" -> Color(0xFF2196F3).copy(alpha = 0.15f)
-                "processing" -> Color(0xFFFF9800).copy(alpha = 0.15f)
-                else -> Color(0xFFFF9800).copy(alpha = 0.15f)
-            }
-        )
-    ) {
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(16.dp),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            when (voiceState) {
-                "speaking" -> {
-                    VoiceWaveAnimation()
-                    Spacer(modifier = Modifier.width(12.dp))
-                    Text(
-                        text = "Listening... Speak now",
-                        color = Color(0xFF4CAF50),
-                        fontWeight = FontWeight.Medium,
-                        fontSize = 16.sp
-                    )
-                }
-                "ready" -> {
-                    Icon(
-                        imageVector = Icons.Default.Mic,
-                        contentDescription = "Ready",
-                        tint = Color(0xFF2196F3),
-                        modifier = Modifier.size(20.dp)
-                    )
-                    Spacer(modifier = Modifier.width(12.dp))
-                    Text(
-                        text = "Ready - Start speaking",
-                        color = Color(0xFF2196F3),
-                        fontWeight = FontWeight.Medium,
-                        fontSize = 16.sp
-                    )
-                }
-                "processing" -> {
-                    CircularProgressIndicator(
-                        modifier = Modifier.size(20.dp),
-                        strokeWidth = 2.dp,
-                        color = Color(0xFFFF9800)
-                    )
-                    Spacer(modifier = Modifier.width(12.dp))
-                    Text(
-                        text = "Processing speech...",
-                        color = Color(0xFFFF9800),
-                        fontWeight = FontWeight.Medium,
-                        fontSize = 16.sp
-                    )
-                }
-                else -> {
-                    CircularProgressIndicator(
-                        modifier = Modifier.size(20.dp),
-                        strokeWidth = 2.dp,
-                        color = Color(0xFFFF9800)
-                    )
-                    Spacer(modifier = Modifier.width(12.dp))
-                    Text(
-                        text = "Initializing voice search...",
-                        color = Color(0xFFFF9800),
-                        fontWeight = FontWeight.Medium,
-                        fontSize = 16.sp
-                    )
-                }
-            }
-        }
-    }
-}
 
 // Updated CategorySearchResults to handle proper positioning
 @Composable
@@ -1645,18 +1416,71 @@ fun CategorySearchItem(
     }
 }
 
-// Category row with circular images
 @Composable
 fun CategoryRow(categories: List<Category>, onCategoryClick: (String) -> Unit) {
     if (categories.isEmpty()) return
 
+    val listState = rememberLazyListState()
+    var lastInteractionTime by remember { mutableLongStateOf(System.currentTimeMillis()) }
+    val infiniteCategories = categories + categories + categories
+
+    // Start at middle section for seamless infinite scroll
+    LaunchedEffect(categories.size) {
+        if (categories.size > 1) {
+            listState.scrollToItem(categories.size) // Start at second set
+        }
+    }
+
+    LaunchedEffect(listState.isScrollInProgress) {
+        if (listState.isScrollInProgress) {
+            lastInteractionTime = System.currentTimeMillis()
+        }
+    }
+
+    LaunchedEffect(categories.size) {
+        if (categories.size > 1) {
+            while (true) {
+                delay(500)
+                val timeSinceLastInteraction = System.currentTimeMillis() - lastInteractionTime
+
+                if (timeSinceLastInteraction > 3000 && !listState.isScrollInProgress) {
+                    try {
+                        val currentIndex = listState.firstVisibleItemIndex
+                        val itemWidth = 84f
+
+                        // Scroll one complete category set
+                        listState.animateScrollBy(
+                            value = itemWidth * categories.size,
+                            animationSpec = tween(
+                                durationMillis = categories.size * 8000,
+                                easing = LinearEasing
+                            )
+                        )
+
+                        // Reset position if we've scrolled past middle section
+                        val newIndex = listState.firstVisibleItemIndex
+                        if (newIndex >= categories.size * 2) {
+                            listState.scrollToItem(categories.size)
+                        }
+
+                        lastInteractionTime = System.currentTimeMillis()
+                    } catch (e: Exception) {
+                        delay(1000)
+                    }
+                }
+            }
+        }
+    }
+
     Column(
-        modifier = Modifier.padding(16.dp)
+        modifier = Modifier.padding(top = 8.dp, start = 16.dp, end = 16.dp, bottom = 16.dp)
     ) {
         LazyRow(
-            horizontalArrangement = Arrangement.spacedBy(24.dp)
+            state = listState,
+            horizontalArrangement = Arrangement.spacedBy(24.dp),
+            userScrollEnabled = true
         ) {
-            items(categories) { category ->
+            items(infiniteCategories) { category ->
                 CategoryItem(category, onCategoryClick)
             }
         }
@@ -1699,8 +1523,8 @@ fun CategoryItem(category: CategoryModel, onCategoryClick: (String) -> Unit) {
 fun SectionTitle(title: String) {
     Text(
         text = title,
-        fontSize = 24.sp,
-        fontWeight = FontWeight.Bold
+        fontSize = 16.sp,
+        fontWeight = FontWeight.Normal
     )
 }
 
@@ -1720,25 +1544,11 @@ fun BottomNavigationBar(navController: NavController) {
     val currentRoute = navController.currentDestination?.route
     val currentRouteBase = currentRoute?.split("/")?.firstOrNull()
 
-    // Animation states for better visual feedback
-    var selectedIndex by remember { mutableIntStateOf(0) }
-
-    // Update selected index based on current route
-    LaunchedEffect(currentRouteBase) {
-        selectedIndex = when (currentRouteBase) {
-            "home" -> 0
-            "category" -> 1
-            "wishlist" -> 2
-            "profile" -> 3
-            else -> 0
-        }
-    }
-
     NavigationBar(
         containerColor = Color.White,
         modifier = Modifier
             .fillMaxWidth()
-            .height(80.dp) // Slightly taller for better touch targets
+            .height(80.dp)  // Increased height to accommodate labels
             .background(
                 brush = Brush.verticalGradient(
                     colors = listOf(
@@ -1752,11 +1562,11 @@ fun BottomNavigationBar(navController: NavController) {
         val items = listOf(
             NavigationItem(Icons.Default.Home, "Home", "home", 0),
             NavigationItem(Icons.Default.GridView, "Categories", "category", 0),
-            NavigationItem(Icons.Default.FavoriteBorder, "Favorites", "wishlist", 0), // Can be dynamic
+            NavigationItem(Icons.Default.FavoriteBorder, "Favorites", "wishlist", 0),
             NavigationItem(Icons.Default.Person, "Profile", "profile", 0)
         )
 
-        items.forEachIndexed { index, item ->
+        items.forEach { item ->
             val selected = when {
                 item.route == "home" && currentRouteBase == "home" -> true
                 item.route == "category" && currentRouteBase == "category" -> true
@@ -1765,83 +1575,43 @@ fun BottomNavigationBar(navController: NavController) {
                 else -> false
             }
 
-            // Animation for selection
-            val scale by animateFloatAsState(
-                targetValue = if (selected) 1.1f else 1f,
-                animationSpec = spring(
-                    dampingRatio = Spring.DampingRatioMediumBouncy,
-                    stiffness = Spring.StiffnessHigh
-                ),
-                label = "scale_$index"
-            )
-
+            // Simple color animations - no size changes
             val iconColor by animateColorAsState(
                 targetValue = if (selected) amberColor else Color.Gray,
                 animationSpec = tween(300),
-                label = "icon_color_$index"
+                label = "icon_color"
+            )
+
+            val labelColor by animateColorAsState(
+                targetValue = if (selected) amberColor else Color.Gray,
+                animationSpec = tween(300),
+                label = "label_color"
             )
 
             NavigationBarItem(
                 icon = {
-                    Box(
-                        modifier = Modifier
-                            .scale(scale)
-                            .size(32.dp), // Larger touch target
-                        contentAlignment = Alignment.Center
-                    ) {
-                        if (item.badgeCount > 0) {
-                            BadgedBox(
-                                badge = {
-                                    AnimatedBadge(
-                                        count = item.badgeCount,
-                                        isVisible = item.badgeCount > 0
-                                    )
-                                }
-                            ) {
-                                Icon(
-                                    item.icon,
-                                    contentDescription = item.label,
-                                    tint = iconColor,
-                                    modifier = Modifier.size(24.dp)
-                                )
-                            }
-                        } else {
-                            Icon(
-                                item.icon,
-                                contentDescription = item.label,
-                                tint = iconColor,
-                                modifier = Modifier.size(24.dp)
-                            )
-                        }
-                    }
+                    // Simple icon without scaling
+                    Icon(
+                        item.icon,
+                        contentDescription = item.label,
+                        tint = iconColor,
+                        modifier = Modifier.size(24.dp)  // Fixed size, no scaling
+                    )
                 },
                 label = {
-                    AnimatedVisibility(
-                        visible = selected,
-                        enter = slideInVertically(
-                            initialOffsetY = { it },
-                            animationSpec = tween(300)
-                        ) + fadeIn(),
-                        exit = slideOutVertically(
-                            targetOffsetY = { it },
-                            animationSpec = tween(200)
-                        ) + fadeOut()
-                    ) {
-                        Text(
-                            text = item.label,
-                            fontSize = 12.sp,
-                            color = amberColor,
-                            fontWeight = FontWeight.Medium
-                        )
-                    }
+                    // Always show label with color animation only
+                    Text(
+                        text = item.label,
+                        fontSize = 12.sp,
+                        color = labelColor,
+                        fontWeight = FontWeight.Normal  // Not bold, keeping it sleek
+                    )
                 },
-                selected = selected,
-                onClick = @androidx.annotation.RequiresPermission(android.Manifest.permission.VIBRATE) {
+                selected = false,  // Always false to remove selection effects
+                onClick = {
                     if (!selected) {
                         // Haptic feedback on selection
                         hapticManager.performHapticFeedback(HapticType.LIGHT_CLICK)
-
-                        // Additional system haptic feedback
                         hapticFeedback.performHapticFeedback(HapticFeedbackType.LongPress)
 
                         when (item.route) {
@@ -1849,7 +1619,6 @@ fun BottomNavigationBar(navController: NavController) {
                                 navController.navigate("home") {
                                     popUpTo("home") { inclusive = true }
                                 }
-                                // Success haptic for returning home
                                 hapticManager.performHapticFeedback(HapticType.SUCCESS)
                             }
                             "category" -> {
@@ -1871,24 +1640,16 @@ fun BottomNavigationBar(navController: NavController) {
                                     Log.d("Navigation", "Profile navigation successful")
                                 } catch (e: Exception) {
                                     Log.e("Navigation", "Profile navigation failed", e)
-                                    // Error haptic for failed navigation
                                     hapticManager.performHapticFeedback(HapticType.ERROR)
                                 }
                             }
                         }
                     } else {
-                        // Light haptic for already selected item
                         hapticManager.performHapticFeedback(HapticType.LIGHT_CLICK)
                     }
                 },
-                // Enhanced interaction source for better touch feedback
                 interactionSource = remember { MutableInteractionSource() },
-                modifier = Modifier
-                    .height(64.dp)
-                    .selectable(
-                        selected = selected,
-                        onClick = { /* handled in onClick above */ }
-                    )
+                modifier = Modifier.height(64.dp)  // Fixed height for label space
             )
         }
     }
@@ -2080,7 +1841,7 @@ fun RecentlyViewedItem(
                     text = formatPrice(product.price, product.currency),
                     fontSize = 13.sp,
                     color = Color(0xFFB78628),
-                    fontWeight = FontWeight.Bold
+                    fontWeight = FontWeight.Normal
                 )
             }
         }
@@ -2149,7 +1910,9 @@ fun AnimatedImageCarousel(items: List<CarouselItemModel>) {
     Box(
         modifier = Modifier
             .fillMaxWidth()
+            .padding(horizontal = 12.dp)  // Add horizontal padding
             .height(200.dp)
+            .clip(RoundedCornerShape(12.dp))  // Add rounded corners
     ) {
         val pagerState = rememberPagerState(pageCount = { items.size })
         val scope = rememberCoroutineScope()
@@ -2549,9 +2312,9 @@ fun AnimatedProductItem(
 
                 Text(
                     text = formatPrice(product.price, product.currency),
-                    fontSize = 16.sp,
+                    fontSize = 13.sp,
                     color = Color(0xFFB78628),
-                    fontWeight = FontWeight.Bold
+                    fontWeight = FontWeight.Normal
                 )
             }
         }
@@ -2570,8 +2333,10 @@ fun AnimatedThemedCollectionsSection(
     ) {
         Text(
             text = "Themed Collections",
-            fontSize = 24.sp,
-            fontWeight = FontWeight.Bold
+            fontSize = 20.sp,  // Reduced from 24.sp
+            fontWeight = FontWeight.Normal,  // Changed from Bold
+            modifier = Modifier.fillMaxWidth(),
+            textAlign = TextAlign.Center  // Center this title too
         )
 
         Spacer(modifier = Modifier.height(12.dp))
@@ -2699,7 +2464,9 @@ fun ShimmerCarouselPlaceholder() {
     Box(
         modifier = Modifier
             .fillMaxWidth()
+            .padding(horizontal = 16.dp)  // Add same padding as real carousel
             .height(200.dp)
+            .clip(RoundedCornerShape(12.dp))  // Add same rounded corners
             .shimmerEffect()
     )
 }
