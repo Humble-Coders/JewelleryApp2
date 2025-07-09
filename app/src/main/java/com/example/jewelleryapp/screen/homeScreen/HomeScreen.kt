@@ -29,6 +29,7 @@ import androidx.compose.animation.slideInVertically
 import androidx.compose.animation.slideOutVertically
 import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -84,7 +85,6 @@ import androidx.compose.material.icons.outlined.ChevronRight
 import androidx.compose.material.icons.outlined.Headset
 import androidx.compose.material.icons.outlined.LocationOn
 import androidx.compose.material.icons.outlined.Person
-import androidx.compose.material3.Badge
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
@@ -120,8 +120,8 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.composed
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.draw.scale
 import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.SolidColor
@@ -149,7 +149,6 @@ import coil.compose.AsyncImage
 import coil.request.ImageRequest
 import com.example.jewelleryapp.R
 import com.example.jewelleryapp.model.Category
-import com.example.jewelleryapp.model.UserProfile
 import com.example.jewelleryapp.repository.ProfileRepository
 import com.example.jewelleryapp.screen.profileScreen.ProfileViewModel
 import com.google.accompanist.swiperefresh.SwipeRefresh
@@ -171,7 +170,6 @@ import com.example.jewelleryapp.model.Product as ProductModel
 @Composable
 fun HomeScreen(
     viewModel: HomeViewModel,
-    onCategoryClick: (String) -> Unit = {},
     onProductClick: (String) -> Unit = {},
     onCollectionClick: (String) -> Unit = {},
     navController: NavController,
@@ -191,7 +189,6 @@ fun HomeScreen(
     val isSearchActive by viewModel.isSearchActive.collectAsState()
     val searchQuery by viewModel.searchQuery.collectAsState()
     val filteredCategories by viewModel.filteredCategories.collectAsState()
-    val currentProfile by profileViewModel.currentProfile.collectAsState()
 
     val recentlyViewedProducts by viewModel.recentlyViewedProducts.collectAsState()
     val isRecentlyViewedLoading by viewModel.isRecentlyViewedLoading.collectAsState()
@@ -261,7 +258,6 @@ fun HomeScreen(
                     onLogout = {
                         onLogout()
                     },
-                    userProfile = currentProfile,
                     homeViewModel = viewModel,
                     drawerViewModel = drawerViewModel
                 )
@@ -407,18 +403,70 @@ fun HomeScreen(
                                 }
                             }
 
-                            // Featured Products Title
+                            // Replace the existing "Featured Products Title" item with this:
                             item {
                                 if (featuredProducts.isNotEmpty()) {
-                                    Text(
-                                        text = "Featured Products",
-                                        fontSize = 22.sp,
-                                        fontWeight = FontWeight.Normal,
+                                    Column(
                                         modifier = Modifier
                                             .fillMaxWidth()
                                             .padding(horizontal = 16.dp, vertical = 8.dp),
-                                        textAlign = TextAlign.Center
-                                    )
+                                        horizontalAlignment = Alignment.CenterHorizontally
+                                    ) {
+                                        // Top divider
+                                        Canvas(
+                                            modifier = Modifier
+                                                .width(90.dp)
+                                                .height(1.dp)
+                                        ) {
+                                            val gradient = Brush.horizontalGradient(
+                                                colors = listOf(
+                                                    Color.Transparent,
+                                                    Color(0x30B78628),
+                                                    Color(0x60B78628),
+                                                    Color(0x30B78628),
+                                                    Color.Transparent
+                                                )
+                                            )
+                                            drawRect(
+                                                brush = gradient,
+                                                size = Size(size.width, size.height)
+                                            )
+                                        }
+
+                                        Spacer(modifier = Modifier.height(6.dp))
+
+                                        // Title text
+                                        Text(
+                                            text = "Featured Products",
+                                            fontSize = 16.sp,
+                                            fontWeight = FontWeight.Normal,
+                                            color = Color.Gray,
+                                            textAlign = TextAlign.Center
+                                        )
+
+                                        Spacer(modifier = Modifier.height(6.dp))
+
+                                        // Bottom divider
+                                        Canvas(
+                                            modifier = Modifier
+                                                .width(90.dp)
+                                                .height(1.dp)
+                                        ) {
+                                            val gradient = Brush.horizontalGradient(
+                                                colors = listOf(
+                                                    Color.Transparent,
+                                                    Color(0x30B78628),
+                                                    Color(0x60B78628),
+                                                    Color(0x30B78628),
+                                                    Color.Transparent
+                                                )
+                                            )
+                                            drawRect(
+                                                brush = gradient,
+                                                size = Size(size.width, size.height)
+                                            )
+                                        }
+                                    }
                                 }
                             }
 
@@ -518,7 +566,6 @@ fun DrawerContent(
     navController: NavController,
     onCloseDrawer: () -> Unit,
     onLogout: () -> Unit,
-    userProfile: UserProfile?,
     homeViewModel: HomeViewModel,
     drawerViewModel: DrawerViewModel // Add this parameter
 ) {
@@ -1409,7 +1456,6 @@ fun CategoryRow(categories: List<Category>, onCategoryClick: (String) -> Unit) {
 
                 if (timeSinceLastInteraction > 3000 && !listState.isScrollInProgress) {
                     try {
-                        val currentIndex = listState.firstVisibleItemIndex
                         val itemWidth = 84f
 
                         // Scroll one complete category set
@@ -1437,7 +1483,7 @@ fun CategoryRow(categories: List<Category>, onCategoryClick: (String) -> Unit) {
     }
 
     Column(
-        modifier = Modifier.padding(top = 8.dp, start = 16.dp, end = 16.dp, bottom = 16.dp)
+        modifier = Modifier.padding(top = 8.dp, start = 16.dp, end = 8.dp, bottom = 8.dp)
     ) {
         LazyRow(
             state = listState,
@@ -1651,7 +1697,7 @@ fun RecentlyViewedSection(
     if (products.isEmpty() && !isLoading) return
 
     Column(
-        modifier = Modifier.padding(16.dp)
+        modifier = Modifier.padding(8.dp)
     ) {
         Row(
             modifier = Modifier.fillMaxWidth(),

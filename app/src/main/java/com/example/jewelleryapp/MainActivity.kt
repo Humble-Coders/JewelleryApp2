@@ -26,7 +26,6 @@ import androidx.navigation.navArgument
 import com.example.jewelleryapp.repository.FirebaseAuthRepository
 import com.example.jewelleryapp.repository.JewelryRepository
 import com.example.jewelleryapp.repository.ProfileRepository
-import com.example.jewelleryapp.screen.allProducts.AllProductsScreen
 import com.example.jewelleryapp.screen.allProducts.AllProductsViewModel
 import com.example.jewelleryapp.screen.categoriesScreen.CategoriesViewModel
 import com.example.jewelleryapp.screen.categoriesScreen.CategoryScreenView
@@ -53,6 +52,7 @@ import android.Manifest
 import android.os.Build
 import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
+import com.example.jewelleryapp.screen.allProducts.AllProductsScreen
 import com.example.jewelleryapp.screen.homeScreen.StoreInfoScreen
 
 class MainActivity : ComponentActivity() {
@@ -416,10 +416,6 @@ fun AppNavigation(
             HomeScreen(
                 viewModel = homeViewModel,
                 navController = navController, // Pass navController for bottom bar and drawer
-                onCategoryClick = { categoryId ->
-                    // Navigate to category detail screen
-                    navController.navigate("category/$categoryId")
-                },
                 onProductClick = { productId ->
                     // Navigate to product detail screen
                     navController.navigate("itemDetail/$productId")

@@ -30,6 +30,8 @@ import androidx.compose.ui.unit.sp
 import androidx.navigation.NavController
 import com.example.jewelleryapp.R
 import android.content.Intent
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 
 
 val GoldenShade = Color(0xFFB8A164)
@@ -93,6 +95,7 @@ fun LoginScreen(viewModel: LoginViewModel,
             modifier = Modifier
                 .fillMaxSize()
                 .padding(16.dp)
+                .verticalScroll(rememberScrollState()) // Add this line
                 .background(Color.White)
                 .clickable(
                     indication = null,
