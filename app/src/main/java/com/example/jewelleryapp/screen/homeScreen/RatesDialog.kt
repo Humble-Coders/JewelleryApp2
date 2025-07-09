@@ -110,7 +110,7 @@ fun RatesDialog(
                         colors = CardDefaults.cardColors(
                             containerColor = Color.White.copy(alpha = 0.95f)
                         ),
-                        elevation = CardDefaults.cardElevation(defaultElevation = 20.dp)
+                        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
                     ) {
                         Column(
                             modifier = Modifier.padding(24.dp)
@@ -252,7 +252,7 @@ private fun ModernRateCard(
             colors = CardDefaults.cardColors(
                 containerColor = cardColor.copy(alpha = 0.08f)
             ),
-            elevation = CardDefaults.cardElevation(defaultElevation = 8.dp)
+            elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
         ) {
             Box {
                 // Gradient background
@@ -522,7 +522,7 @@ fun RatesDrawerItem(
             .clickable { onClick() },
         shape = RoundedCornerShape(12.dp),
         colors = CardDefaults.cardColors(containerColor = Color(0xFFB78628).copy(alpha = 0.1f)),
-        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
     ) {
         Column(
             modifier = Modifier.padding(16.dp)

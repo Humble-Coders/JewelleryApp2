@@ -116,7 +116,6 @@ fun CategoryRowView(categories: List<Category>, navController: NavController) {
             CategoryCardView(
                 imageUrl = category.imageUrl,
                 title = category.name,
-                itemCount = "150+ Items", // You might want to get this from your data
                 onClick = {
                     // Navigate to category products screen
                     navController.navigate("categoryProducts/${category.id}/${category.name}")
@@ -129,7 +128,6 @@ fun CategoryRowView(categories: List<Category>, navController: NavController) {
 fun CategoryCardView(
     imageUrl: String,
     title: String,
-    itemCount: String,
     onClick: () -> Unit
 ) {
     Card(
@@ -167,19 +165,6 @@ fun CategoryCardView(
                             color = Color.Black.copy(alpha = 0.7f),
                             offset = Offset(1f, 1f),
                             blurRadius = 2f
-                        )
-                    )
-                )
-
-                Text(
-                    text = itemCount,
-                    style = TextStyle(
-                        fontSize = 12.sp,
-                        color = Color.White.copy(alpha = 0.8f),
-                        shadow = Shadow(
-                            color = Color.Black.copy(alpha = 0.5f),
-                            offset = Offset(1f, 1f),
-                            blurRadius = 1f
                         )
                     )
                 )

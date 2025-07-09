@@ -898,42 +898,6 @@ fun DrawerItem(
 
 
 
-
-
-
-@Composable
-private fun VoiceWaveAnimation() {
-    val infiniteTransition = rememberInfiniteTransition(label = "voice_waves")
-
-    Row(
-        horizontalArrangement = Arrangement.spacedBy(3.dp),
-        verticalAlignment = Alignment.CenterVertically
-    ) {
-        repeat(4) { index ->
-            val animatedHeight by infiniteTransition.animateFloat(
-                initialValue = 4.dp.value,
-                targetValue = 20.dp.value,
-                animationSpec = infiniteRepeatable(
-                    animation = tween(600, delayMillis = index * 100),
-                    repeatMode = RepeatMode.Reverse
-                ),
-                label = "wave_$index"
-            )
-
-            Box(
-                modifier = Modifier
-                    .width(3.dp)
-                    .height(animatedHeight.dp)
-                    .background(
-                        Color(0xFF4CAF50),
-                        RoundedCornerShape(1.5.dp)
-                    )
-            )
-        }
-    }
-}
-
-
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun TopAppbar(
@@ -1664,36 +1628,6 @@ data class NavigationItem(
     val badgeCount: Int
 )
 
-@Composable
-private fun AnimatedBadge(
-    count: Int,
-    isVisible: Boolean
-) {
-    AnimatedVisibility(
-        visible = isVisible && count > 0,
-        enter = scaleIn(
-            animationSpec = spring(
-                dampingRatio = Spring.DampingRatioMediumBouncy,
-                stiffness = Spring.StiffnessHigh
-            )
-        ) + fadeIn(),
-        exit = scaleOut(
-            animationSpec = tween(200)
-        ) + fadeOut()
-    ) {
-        Badge(
-            modifier = Modifier.scale(0.8f),
-            containerColor = Color.Red,
-            contentColor = Color.White
-        ) {
-            Text(
-                text = if (count > 99) "99+" else count.toString(),
-                fontSize = 10.sp,
-                fontWeight = FontWeight.Bold
-            )
-        }
-    }
-}
 
 
 // Function to format price with currency
@@ -1726,19 +1660,7 @@ fun RecentlyViewedSection(
         ) {
             SectionTitle("Recently Viewed")
 
-            if (products.isNotEmpty()) {
-                Text(
-                    text = "View All",
-                    fontSize = 14.sp,
-                    color = Color(0xFFB78628),
-                    fontWeight = FontWeight.Medium,
-                    modifier = Modifier.clickable {
-                        // Optional: Navigate to a dedicated recently viewed screen
-                        // For now, just log
-                        Log.d("RecentlyViewed", "View All clicked")
-                    }
-                )
-            }
+
         }
 
         Spacer(modifier = Modifier.height(8.dp))
