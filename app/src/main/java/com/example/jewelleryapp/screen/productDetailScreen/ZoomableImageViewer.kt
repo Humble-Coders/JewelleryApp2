@@ -12,9 +12,8 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.pager.HorizontalPager
 import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.ArrowBackIos
-import androidx.compose.material.icons.automirrored.filled.ArrowForwardIos
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Fullscreen
 import androidx.compose.material3.Icon
@@ -28,7 +27,9 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.compose.ui.zIndex
 import coil.compose.AsyncImage
 import coil.request.ImageRequest
@@ -50,14 +51,12 @@ fun ZoomableImageViewer(
         pageCount = { imageUrls.size }
     )
 
-    // Sync pager state with external currentIndex
     LaunchedEffect(currentIndex) {
         if (pagerState.currentPage != currentIndex) {
             pagerState.animateScrollToPage(currentIndex)
         }
     }
 
-    // Notify parent when page changes
     LaunchedEffect(pagerState.currentPage) {
         if (pagerState.currentPage != currentIndex) {
             onImageChange(pagerState.currentPage)
@@ -81,62 +80,56 @@ fun ZoomableImageViewer(
                     .fillMaxSize()
                     .snapBackZoomable(zoomState)
                     .clickable { onFullScreenToggle() },
-                contentScale = ContentScale.Fit
+                contentScale = ContentScale.Crop
             )
         }
 
-        // Navigation arrows (only show if multiple images)
+        // Image counter in top-left
         if (imageUrls.size > 1) {
-            // Previous button
-            IconButton(
-                onClick = {
-                    val newIndex = if (currentIndex == 0) imageUrls.size - 1 else currentIndex - 1
-                    onImageChange(newIndex)
-                },
+            Text(
+                text = "${currentIndex + 1}/${imageUrls.size}",
+                color = Color.White,
+                fontSize = 14.sp,
+                fontWeight = FontWeight.Medium,
                 modifier = Modifier
-                    .align(Alignment.CenterStart)
+                    .align(Alignment.TopStart)
                     .padding(16.dp)
-                    .size(48.dp)
-                    .background(Color.Black.copy(alpha = 0.5f), CircleShape)
+                    .background(
+                        Color.Black.copy(alpha = 0.6f),
+                        RoundedCornerShape(12.dp)
+                    )
+                    .padding(horizontal = 12.dp, vertical = 6.dp)
                     .zIndex(1f)
-            ) {
-                Icon(
-                    Icons.AutoMirrored.Filled.ArrowBackIos,
-                    contentDescription = "Previous Image",
-                    tint = Color.White
-                )
-            }
-
-            // Next button
-            IconButton(
-                onClick = {
-                    val newIndex = (currentIndex + 1) % imageUrls.size
-                    onImageChange(newIndex)
-                },
-                modifier = Modifier
-                    .align(Alignment.CenterEnd)
-                    .padding(16.dp)
-                    .size(48.dp)
-                    .background(Color.Black.copy(alpha = 0.5f), CircleShape)
-                    .zIndex(1f)
-            ) {
-                Icon(
-                    Icons.AutoMirrored.Filled.ArrowForwardIos,
-                    contentDescription = "Next Image",
-                    tint = Color.White
-                )
-            }
+            )
         }
 
-        // Image indicators (dots)
+        // Fullscreen button in top-right
+        IconButton(
+            onClick = onFullScreenToggle,
+            modifier = Modifier
+                .align(Alignment.TopEnd)
+                .padding(16.dp)
+                .size(40.dp)
+                .background(Color.Black.copy(alpha = 0.6f), CircleShape)
+                .zIndex(1f)
+        ) {
+            Icon(
+                Icons.Default.Fullscreen,
+                contentDescription = "Fullscreen",
+                tint = Color.White,
+                modifier = Modifier.size(20.dp)
+            )
+        }
+
+        // Image indicators at the bottom
         if (imageUrls.size > 1) {
             Row(
                 modifier = Modifier
                     .align(Alignment.BottomCenter)
                     .padding(16.dp)
                     .background(
-                        Color.Black.copy(alpha = 0.5f),
-                        CircleShape
+                        Color.Black.copy(alpha = 0.6f),
+                        RoundedCornerShape(16.dp)
                     )
                     .padding(horizontal = 12.dp, vertical = 8.dp),
                 horizontalArrangement = Arrangement.spacedBy(8.dp)
@@ -153,39 +146,6 @@ fun ZoomableImageViewer(
                     )
                 }
             }
-        }
-
-        // Fullscreen button
-        IconButton(
-            onClick = onFullScreenToggle,
-            modifier = Modifier
-                .align(Alignment.TopEnd)
-                .padding(16.dp)
-                .size(40.dp)
-                .background(Color.Black.copy(alpha = 0.5f), CircleShape)
-                .zIndex(1f)
-        ) {
-            Icon(
-                Icons.Default.Fullscreen,
-                contentDescription = "Fullscreen",
-                tint = Color.White
-            )
-        }
-
-        // Image counter
-        if (imageUrls.size > 1) {
-            Text(
-                text = "${currentIndex + 1}/${imageUrls.size}",
-                color = Color.White,
-                modifier = Modifier
-                    .align(Alignment.TopStart)
-                    .padding(16.dp)
-                    .background(
-                        Color.Black.copy(alpha = 0.5f),
-                        CircleShape
-                    )
-                    .padding(horizontal = 12.dp, vertical = 6.dp)
-            )
         }
     }
 }
@@ -204,14 +164,12 @@ fun FullScreenImageDialog(
         pageCount = { imageUrls.size }
     )
 
-    // Sync pager state with external currentIndex
     LaunchedEffect(currentIndex) {
         if (pagerState.currentPage != currentIndex) {
             pagerState.animateScrollToPage(currentIndex)
         }
     }
 
-    // Notify parent when page changes
     LaunchedEffect(pagerState.currentPage) {
         if (pagerState.currentPage != currentIndex) {
             onImageChange(pagerState.currentPage)
@@ -260,58 +218,15 @@ fun FullScreenImageDialog(
             )
         }
 
-        // Navigation controls (same as above but for fullscreen)
+        // Image indicators at the bottom
         if (imageUrls.size > 1) {
-            // Previous button
-            IconButton(
-                onClick = {
-                    val newIndex = if (currentIndex == 0) imageUrls.size - 1 else currentIndex - 1
-                    onImageChange(newIndex)
-                },
-                modifier = Modifier
-                    .align(Alignment.CenterStart)
-                    .padding(24.dp)
-                    .size(56.dp)
-                    .background(Color.Black.copy(alpha = 0.7f), CircleShape)
-                    .zIndex(1f)
-            ) {
-                Icon(
-                    Icons.AutoMirrored.Filled.ArrowBackIos,
-                    contentDescription = "Previous Image",
-                    tint = Color.White,
-                    modifier = Modifier.size(28.dp)
-                )
-            }
-
-            // Next button
-            IconButton(
-                onClick = {
-                    val newIndex = (currentIndex + 1) % imageUrls.size
-                    onImageChange(newIndex)
-                },
-                modifier = Modifier
-                    .align(Alignment.CenterEnd)
-                    .padding(24.dp)
-                    .size(56.dp)
-                    .background(Color.Black.copy(alpha = 0.7f), CircleShape)
-                    .zIndex(1f)
-            ) {
-                Icon(
-                    Icons.AutoMirrored.Filled.ArrowForwardIos,
-                    contentDescription = "Next Image",
-                    tint = Color.White,
-                    modifier = Modifier.size(28.dp)
-                )
-            }
-
-            // Image indicators
             Row(
                 modifier = Modifier
                     .align(Alignment.BottomCenter)
                     .padding(24.dp)
                     .background(
                         Color.Black.copy(alpha = 0.7f),
-                        CircleShape
+                        RoundedCornerShape(20.dp)
                     )
                     .padding(horizontal = 16.dp, vertical = 12.dp),
                 horizontalArrangement = Arrangement.spacedBy(12.dp)

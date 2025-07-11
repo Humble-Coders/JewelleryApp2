@@ -4,6 +4,9 @@ import android.content.Context
 import android.content.Intent
 import android.net.Uri
 import android.util.Log
+import androidx.compose.animation.animateColorAsState
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
@@ -32,24 +35,32 @@ import androidx.compose.material.icons.filled.Favorite
 import androidx.compose.material.icons.filled.FavoriteBorder
 import androidx.compose.material.icons.filled.Image
 import androidx.compose.material.icons.filled.Share
+import androidx.compose.material.icons.filled.Star
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.Card
+import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
+import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.scale
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
@@ -61,18 +72,27 @@ import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
 import androidx.navigation.NavController
+import androidx.viewpager2.widget.ViewPager2.ScrollState
 import coil.compose.AsyncImage
 import com.example.jewelleryapp.R
 import com.example.jewelleryapp.model.Product
 import com.example.jewelleryapp.screen.homeScreen.BottomNavigationBar
+import com.example.jewelleryapp.screen.loginScreen.GoldenShade
 import java.util.Locale
 
-// Defined colors as constants
-private val GoldColor = Color(0xFFC4A661)
-private val ButtonColor = Color(0xFFC4A661)
-private val TextGrayColor = Color.Gray
-private val TextDescriptionColor = Color(0xFF4B5563)
-
+// Enhanced color palette with gradients
+private val PrimaryGold = Color(0xFFD4AF37)
+private val SecondaryGold = Color(0xFFF4E4BC)
+private val AccentGold = Color(0xFFB8860B)
+private val DeepGold = Color(0xFF8B7355)
+private val TextPrimary = Color(0xFF1F2937)
+private val TextSecondary = Color(0xFF6B7280)
+private val TextMuted = Color(0xFF9CA3AF)
+private val BackgroundPrimary = Color(0xFFFAFAFA)
+private val BackgroundSecondary = Color(0xFFFFFFFF)
+private val SurfaceElevated = Color(0xFFFFFFFF)
+private val SuccessGreen = Color(0xFF10B981)
+private val ErrorRed = Color(0xFFEF4444)
 
 data class ProductSpec(
     val iconId: Int,
@@ -104,12 +124,16 @@ fun JewelryProductScreen(
     val currentImageIndex by viewModel.currentImageIndex.collectAsState()
     val isFullScreenMode by viewModel.isFullScreenMode.collectAsState()
 
-    // Load product when screen opens
+    // Calculate parallax effect
+    val scrollValue = scrollState.value
+    val imageHeight = 420.dp
+    val cardOffset = 32.dp
+    val parallaxFactor = 0.5f
+
     LaunchedEffect(productId) {
         viewModel.loadProduct(productId)
     }
 
-    // Fetch similar products when product is loaded
     LaunchedEffect(product) {
         product?.let {
             if (it.categoryId.isNotBlank()) {
@@ -139,7 +163,7 @@ fun JewelryProductScreen(
 
     Scaffold(
         topBar = {
-            ProductTopAppBar(
+            EnhancedProductTopAppBar(
                 title = product?.name ?: "Luxury Jewelry",
                 isWishlisted = isWishlisted,
                 onBackClick = onBackClick,
@@ -153,494 +177,824 @@ fun JewelryProductScreen(
         },
         bottomBar = { BottomNavigationBar(navController) }
     ) { paddingValues ->
-        if (isLoading) {
-            Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                CircularProgressIndicator(color = GoldColor)
-            }
-        } else if (error != null) {
-            Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                    Text("Error: $error", color = Color.Red)
-                    Spacer(modifier = Modifier.height(16.dp))
-                    Button(
-                        onClick = { viewModel.loadProduct(productId) },
-                        colors = ButtonDefaults.buttonColors(containerColor = GoldColor)
-                    ) {
-                        Text("Try Again")
-                    }
-                }
-            }
-        } else {
-            product?.let { prod ->
-                // Create specs list with null handling for missing fields
-                val specs = listOf(
-                    ProductSpec(
-                        R.drawable.material_icon,
-                        "Material",
-                        if (!prod.materialId.isNullOrBlank()) {
-                            val materialName = prod.materialId.replace("material_", "")
-                                .replaceFirstChar { if (it.isLowerCase()) it.titlecase(Locale.getDefault()) else it.toString() }
-                            if (!prod.materialType.isNullOrBlank()) {
-                                "$materialName ${prod.materialType}"
-                            } else {
-                                materialName
-                            }
-                        } else {
-                            null
-                        }
-                    ),
-                    ProductSpec(R.drawable.stone, "Stone", prod.stone.ifEmpty { null }),
-                    ProductSpec(R.drawable.clarity, "Clarity", prod.clarity.ifEmpty { null }),
-                    ProductSpec(R.drawable.cut, "Cut", prod.cut.ifEmpty { null })
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .background(
+                    brush = Brush.verticalGradient(
+                        colors = listOf(
+                            BackgroundPrimary,
+                            SecondaryGold.copy(alpha = 0.1f)
+                        )
+                    )
                 )
-
-                // Create a list of image URLs (currently single image from Firebase)
-
-                Column(
-                    modifier = Modifier
-                        .padding(paddingValues)
-                        .fillMaxSize()
-                        .verticalScroll(scrollState)
-                ) {
-                    // Image carousel with Firebase images or placeholder
-                    if (imageUrls.isNotEmpty()) {
-                        ZoomableImageViewer(
-                            imageUrls = imageUrls,
-                            currentIndex = currentImageIndex,
-                            onImageChange = { viewModel.navigateToImage(it) },
-                            onFullScreenToggle = { viewModel.toggleFullScreenMode() },
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .height(350.dp)
-                        )
-                    } else {
-                        Box(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .height(350.dp)
-                                .background(Color.LightGray.copy(alpha = 0.3f)),
-                            contentAlignment = Alignment.Center
-                        ) {
-                            Text("No image available", color = Color.Gray)
-                        }
-                    }
-
-                    // Product details
-                    Column(modifier = Modifier.padding(16.dp)) {
-                        // Product title and collection
-                        ProductHeader(
-                            title = prod.name,
-                            collection = "Luxury Collection", // Placeholder since Firebase doesn't have collection field
-                            currentPrice = "${prod.currency} ${prod.price}",
-                            originalPrice = "${prod.currency} ${(prod.price * 1.2).toInt()}" // Placeholder for original price
+        ) {
+            if (isLoading) {
+                Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                        CircularProgressIndicator(
+                            color = PrimaryGold,
+                            strokeWidth = 3.dp,
+                            modifier = Modifier.size(48.dp)
                         )
                         Spacer(modifier = Modifier.height(16.dp))
-
-                        // Product specifications
-                        ProductSpecifications(specs = specs)
-                        Spacer(modifier = Modifier.height(16.dp))
-
-                        // Description (using description from Firebase if available)
-                        val description = if (prod.description.isNotBlank()) {
-                            prod.description
-                        } else {
-                            "This exquisite piece features perfectly matched stones set in premium metal. Each piece is carefully crafted for exceptional quality and brilliance."
-                        }
-                        ProductDescription(description = description)
-
-                        // Add this before the SimilarProducts section
-                        Spacer(modifier = Modifier.height(16.dp))
-
-                        // Similar products section - now only here, removed duplicate section
-                        if (similarProducts.isNotEmpty() || isSimilarProductsLoading) {
-                            Spacer(modifier = Modifier.height(16.dp))
-                            SimilarProducts(
-                                products = similarProducts,
-                                isLoading = isSimilarProductsLoading,  // ✅ Pass loading state
-                                onProductClick = onProductClick,
-                                onWishlistToggle = { productId ->
-                                    viewModel.toggleSimilarProductWishlist(productId)  // ✅ Add wishlist toggle
-                                }
-                            )
-                        }
-
-                        Spacer(modifier = Modifier.height(24.dp))
-
-                        // Wishlist button that changes based on current wishlist status
-                        WishlistButton(
-                            isInWishlist = isWishlisted,
-                            onClick = { viewModel.toggleWishlist() }
+                        Text(
+                            "Loading your treasure...",
+                            color = TextSecondary,
+                            fontSize = 16.sp
                         )
                     }
                 }
-            } ?: run {
-                // No product loaded
+            } else if (error != null) {
                 Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                    Text("Product not found", color = Color.Red)
+                    EnhancedErrorState(
+                        error = error,
+                        onRetry = { viewModel.loadProduct(productId) }
+                    )
+                }
+            } else {
+                product?.let { prod ->
+                    val specs = createProductSpecs(prod)
+
+                    Box(
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .padding(paddingValues)
+                    ) {
+                        // Scrollable content
+                        Column(
+                            modifier = Modifier
+                                .fillMaxSize()
+                                .verticalScroll(scrollState)
+                        ) {
+                            // Replace the existing image section in your JewelryProductScreen composable
+// with this updated version that keeps controls visible longer
+
+// Inside your JewelryProductScreen composable, replace the Box containing the image section:
+
+// Interactive image section at the top
+                            Box(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .height(imageHeight)
+                            ) {
+                                // Background parallax image (non-interactive)
+                                Box(
+                                    modifier = Modifier
+                                        .fillMaxSize()
+                                        .alpha(
+                                            // Keep controls visible much longer during scroll
+                                            when {
+                                                scrollValue <= 400 -> 1f  // Stay visible until 400px
+                                                scrollValue >= 700 -> 0f  // Fade completely at 700px
+                                                else -> 1f - ((scrollValue - 400) / 300f)  // Slower fade transition
+                                            }
+                                        )
+                                ) {
+                                    EnhancedImageSection(
+                                        imageUrls = imageUrls,
+                                        currentImageIndex = currentImageIndex,
+                                        onImageChange = { viewModel.navigateToImage(it) },
+                                        onFullScreenToggle = { viewModel.toggleFullScreenMode() },
+                                        isInteractive = true
+                                    )
+                                }
+
+                                // Interactive image layer (normal scrolling)
+                                // This layer stays visible even longer
+                                Box(
+                                    modifier = Modifier
+                                        .fillMaxSize()
+                                        .alpha(
+                                            when {
+                                                scrollValue <= 300 -> 1f  // Stay visible until 300px
+                                                scrollValue >= 600 -> 0f  // Fade completely at 600px
+                                                else -> 1f - ((scrollValue - 300) / 300f)  // Gradual fade
+                                            }
+                                        )
+                                ) {
+                                    EnhancedImageSection(
+                                        imageUrls = imageUrls,
+                                        currentImageIndex = currentImageIndex,
+                                        onImageChange = { viewModel.navigateToImage(it) },
+                                        onFullScreenToggle = { viewModel.toggleFullScreenMode() },
+                                        isInteractive = true
+                                    )
+                                }
+                            }
+
+                            // Spacer to create the sliding effect
+                            Spacer(modifier = Modifier.height(-cardOffset))
+
+                            // Enhanced product details with smooth rounded corners
+                            EnhancedProductDetailsCard(
+                                product = prod,
+                                specs = specs,
+                                isWishlisted = isWishlisted,
+                                onWishlistClick = { viewModel.toggleWishlist() }
+                            )
+
+                            // Enhanced similar products in a card
+                            if (similarProducts.isNotEmpty() || isSimilarProductsLoading) {
+                                EnhancedSimilarProductsSection(
+                                    products = similarProducts,
+                                    isLoading = isSimilarProductsLoading,
+                                    onProductClick = onProductClick,
+                                    onWishlistToggle = { productId ->
+                                        viewModel.toggleSimilarProductWishlist(productId)
+                                    }
+                                )
+                            }
+
+                            Spacer(modifier = Modifier.height(32.dp))
+                        }
+                    }
                 }
             }
         }
     }
 }
 
+@Composable
+private fun EnhancedImageSection(
+    imageUrls: List<String>,
+    currentImageIndex: Int,
+    onImageChange: (Int) -> Unit,
+    onFullScreenToggle: () -> Unit,
+    isInteractive: Boolean = true
+) {
+    Box(
+        modifier = Modifier.fillMaxSize()
+    ) {
+        if (imageUrls.isNotEmpty()) {
+            if (isInteractive) {
+                ZoomableImageViewer(
+                    imageUrls = imageUrls,
+                    currentIndex = currentImageIndex,
+                    onImageChange = onImageChange,
+                    onFullScreenToggle = onFullScreenToggle,
+                    modifier = Modifier.fillMaxSize()
+                )
+            } else {
+                // Non-interactive version for parallax background
+                AsyncImage(
+                    model = imageUrls.getOrNull(currentImageIndex),
+                    contentDescription = "Product Image",
+                    modifier = Modifier.fillMaxSize(),
+                    contentScale = ContentScale.Crop,
+                    placeholder = painterResource(id = R.drawable.diamondring_homescreen)
+                )
+            }
+        } else {
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .background(
+                        brush = Brush.radialGradient(
+                            colors = listOf(
+                                SecondaryGold.copy(alpha = 0.3f),
+                                Color.LightGray.copy(alpha = 0.1f)
+                            )
+                        )
+                    ),
+                contentAlignment = Alignment.Center
+            ) {
+                Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                    Icon(
+                        Icons.Default.Image,
+                        contentDescription = "No image",
+                        tint = TextMuted,
+                        modifier = Modifier.size(48.dp)
+                    )
+                    Spacer(modifier = Modifier.height(8.dp))
+                    Text(
+                        "Image not available",
+                        color = TextMuted,
+                        fontSize = 14.sp
+                    )
+                }
+            }
+        }
 
+        // Enhanced gradient overlay for smoother transition (only for interactive version)
+        if (isInteractive) {
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(120.dp)
+                    .align(Alignment.BottomCenter)
+                    .background(
+                        brush = Brush.verticalGradient(
+                            colors = listOf(
+                                Color.Transparent,
+                                BackgroundPrimary.copy(alpha = 0.1f),
+                                BackgroundPrimary.copy(alpha = 0.3f),
+                                BackgroundPrimary.copy(alpha = 0.6f)
+                            )
+                        )
+                    )
+            )
+        }
+    }
+}
 
+@Composable
+private fun EnhancedProductDetailsCard(
+    product: Product,
+    specs: List<ProductSpec>,
+    isWishlisted: Boolean,
+    onWishlistClick: () -> Unit
+) {
+    Card(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 16.dp),
+        colors = CardDefaults.cardColors(containerColor = SurfaceElevated),
+        shape = RoundedCornerShape(28.dp), // Increased corner radius for smoother look
+        elevation = CardDefaults.cardElevation(
+            defaultElevation = 12.dp,
+            pressedElevation = 16.dp
+        )
+    ) {
+        Column(modifier = Modifier.padding(24.dp)) {
+            // Premium badge
+            Card(
+                colors = CardDefaults.cardColors(
+                    containerColor = PrimaryGold.copy(alpha = 0.1f)
+                ),
+                shape = RoundedCornerShape(20.dp)
+            ) {
+                Row(
+                    modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Icon(
+                        Icons.Default.Star,
+                        contentDescription = null,
+                        tint = PrimaryGold,
+                        modifier = Modifier.size(16.dp)
+                    )
+                    Spacer(modifier = Modifier.width(4.dp))
+                    Text(
+                        "Premium Collection",
+                        fontSize = 12.sp,
+                        fontWeight = FontWeight.SemiBold,
+                        color = AccentGold
+                    )
+                }
+            }
+
+            Spacer(modifier = Modifier.height(16.dp))
+
+            // Product title with enhanced typography
+            Text(
+                text = product.name,
+                fontSize = 22.sp,
+                fontWeight = FontWeight.Bold,
+                color = TextPrimary,
+                lineHeight = 28.sp
+            )
+
+            Spacer(modifier = Modifier.height(16.dp))
+
+            // Enhanced price section with better visual hierarchy
+            Card(
+                colors = CardDefaults.cardColors(
+                    containerColor = SecondaryGold.copy(alpha = 0.1f)
+                ),
+                shape = RoundedCornerShape(16.dp)
+            ) {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(16.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.SpaceBetween
+                ) {
+                    Column {
+                        Text(
+                            text = "Rs ${product.price.toInt()}.0",
+                            fontSize = 18.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = TextPrimary
+                        )
+
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Text(
+                                text = "Rs ${(product.price * 1.2).toInt()}",
+                                fontSize = 12.sp,
+                                color = TextMuted,
+                                textDecoration = TextDecoration.LineThrough
+                            )
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Card(
+                                colors = CardDefaults.cardColors(
+                                    containerColor = SuccessGreen
+                                ),
+                                shape = RoundedCornerShape(6.dp)
+                            ) {
+                                Text(
+                                    text = "Save 17%",
+                                    fontSize = 8.sp,
+                                    color = Color.White,
+                                    fontWeight = FontWeight.Bold,
+                                    modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
+                                )
+                            }
+                        }
+                    }
+
+                    // Enhanced wishlist button
+                    EnhancedWishlistButton(
+                        isWishlisted = isWishlisted,
+                        onClick = onWishlistClick
+                    )
+                }
+            }
+
+            Spacer(modifier = Modifier.height(24.dp))
+
+            // Enhanced specifications grid
+            EnhancedSpecificationsGrid(specs = specs)
+
+            Spacer(modifier = Modifier.height(24.dp))
+
+            // Enhanced description section
+            Text(
+                text = "Description",
+                fontSize = 18.sp,
+                fontWeight = FontWeight.Bold,
+                color = TextPrimary
+            )
+
+            Spacer(modifier = Modifier.height(12.dp))
+
+            val description = if (product.description.isNotBlank()) {
+                product.description
+            } else {
+                "Exquisite craftsmanship meets timeless elegance in this stunning 22-karat gold piece. Every detail has been meticulously designed to create a masterpiece that celebrates luxury and sophistication."
+            }
+
+            Text(
+                text = description,
+                fontSize = 14.sp,
+                lineHeight = 24.sp,
+                color = TextSecondary
+            )
+        }
+    }
+}
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-private fun ProductTopAppBar(
+private fun EnhancedProductTopAppBar(
     title: String,
     isWishlisted: Boolean,
     onBackClick: () -> Unit,
     onWishlistClick: () -> Unit,
     onShareClick: () -> Unit
 ) {
+    val heartScale by animateFloatAsState(
+        targetValue = if (isWishlisted) 1.2f else 1f,
+        animationSpec = tween(300)
+    )
+
     TopAppBar(
         title = {
-            Box(modifier = Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
-                Text(
-                    text = title,
-                    fontWeight = FontWeight.Medium,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis
-                )
-            }
+            Text(
+                text = title,
+                fontWeight = FontWeight.SemiBold,
+                fontSize = 18.sp,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+                color = TextPrimary
+            )
         },
         navigationIcon = {
-            IconButton(onClick = onBackClick) {
-                Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
+            IconButton(
+                onClick = onBackClick,
+                modifier = Modifier
+                    .background(
+                        BackgroundSecondary.copy(alpha = 0.9f),
+                        CircleShape
+                    )
+                    .size(40.dp)
+            ) {
+                Icon(
+                    Icons.AutoMirrored.Filled.ArrowBack,
+                    contentDescription = "Back",
+                    tint = TextPrimary
+                )
             }
         },
         actions = {
-            IconButton(onClick = onWishlistClick) {
+            IconButton(
+                onClick = onWishlistClick,
+                modifier = Modifier
+                    .scale(heartScale)
+                    .background(
+                        BackgroundSecondary.copy(alpha = 0.9f),
+                        CircleShape
+                    )
+                    .size(40.dp)
+            ) {
                 Icon(
                     if (isWishlisted) Icons.Default.Favorite else Icons.Default.FavoriteBorder,
                     contentDescription = "Wishlist",
-                    tint = if (isWishlisted) Color.Red else Color.Gray
+                    tint = if (isWishlisted) GoldenShade else TextPrimary
                 )
             }
-            IconButton(onClick = onShareClick) {
-                Icon(Icons.Default.Share, contentDescription = "Share")
+            Spacer(modifier = Modifier.width(8.dp))
+            IconButton(
+                onClick = onShareClick,
+                modifier = Modifier
+                    .background(
+                        BackgroundSecondary.copy(alpha = 0.9f),
+                        CircleShape
+                    )
+                    .size(40.dp)
+            ) {
+                Icon(
+                    Icons.Default.Share,
+                    contentDescription = "Share",
+                    tint = TextPrimary
+                )
             }
-        }
+        },
+        colors = TopAppBarDefaults.topAppBarColors(
+            containerColor = Color.Transparent
+        )
     )
 }
 
+
 @Composable
-private fun WishlistButton(
-    isInWishlist: Boolean,
+private fun EnhancedWishlistButton(
+    isWishlisted: Boolean,
     onClick: () -> Unit
 ) {
+    val backgroundColor by animateColorAsState(
+        targetValue = if (isWishlisted) ErrorRed.copy(alpha = 0.1f) else PrimaryGold.copy(alpha = 0.1f),
+        animationSpec = tween(300)
+    )
+
     Button(
         onClick = onClick,
-        modifier = Modifier.fillMaxWidth(),
+        modifier = Modifier.size(48.dp),
         colors = ButtonDefaults.buttonColors(
-            containerColor = if (isInWishlist) Color.White else ButtonColor
+            containerColor = backgroundColor
         ),
-        border = BorderStroke(1.dp, if (isInWishlist) Color.Red else Color.Black)
+        shape = CircleShape,
+        contentPadding = PaddingValues(0.dp)
     ) {
-        Text(
-            text = if (isInWishlist) "Remove from Wishlist" else "Add to Wishlist",
-            color = if (isInWishlist) Color.Red else Color.Black,
-            modifier = Modifier.padding(vertical = 8.dp)
-        )
-    }
-}
-
-
-
-
-
-@Composable
-private fun ProductHeader(
-    title: String,
-    collection: String,
-    currentPrice: String,
-    originalPrice: String
-) {
-    Text(
-        text = title,
-        fontSize = 22.sp,
-        fontWeight = FontWeight.Bold
-    )
-
-    Text(
-        text = collection,
-        fontSize = 14.sp,
-        color = TextGrayColor
-    )
-
-    Spacer(modifier = Modifier.height(8.dp))
-
-    Row(verticalAlignment = Alignment.CenterVertically) {
-        Text(
-            text = currentPrice,
-            fontSize = 20.sp,
-            fontWeight = FontWeight.Bold
-        )
-        Text(
-            text = originalPrice,
-            fontSize = 16.sp,
-            color = TextGrayColor,
-            textDecoration = TextDecoration.LineThrough,
-            modifier = Modifier.padding(start = 8.dp)
+        Icon(
+            imageVector = if (isWishlisted) Icons.Default.Favorite else Icons.Default.FavoriteBorder,
+            contentDescription = null,
+            tint = if (isWishlisted) GoldenShade else PrimaryGold,
+            modifier = Modifier.size(24.dp)
         )
     }
 }
 
 @Composable
-private fun ProductSpecifications(specs: List<ProductSpec>) {
-    // Display all specs regardless of null values
-    Column {
-        for (i in specs.indices step 2) {
+private fun EnhancedSpecificationsGrid(specs: List<ProductSpec>) {
+    Column(
+        modifier = Modifier.fillMaxWidth(),
+        verticalArrangement = Arrangement.spacedBy(12.dp)
+    ) {
+        specs.chunked(2).forEach { rowSpecs ->
             Row(
                 modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.Top
+                horizontalArrangement = Arrangement.spacedBy(12.dp)
             ) {
-                // First spec in the row takes exactly half the space
-                Box(modifier = Modifier.weight(1f)) {
-                    ProductSpecItem(spec = specs[i])
+                rowSpecs.forEach { spec ->
+                    EnhancedSpecCard(
+                        spec = spec,
+                        modifier = Modifier.weight(1f)
+                    )
                 }
-
-                // Second spec in the row also takes exactly half the space
-                Box(modifier = Modifier.weight(1f)) {
-                    // Only add the second item if it exists
-                    if (i + 1 < specs.size) {
-                        ProductSpecItem(spec = specs[i + 1])
-                    }
+                if (rowSpecs.size == 1) {
+                    Spacer(modifier = Modifier.weight(1f))
                 }
-            }
-            if (i + 2 < specs.size) {
-                Spacer(modifier = Modifier.height(8.dp))
             }
         }
     }
 }
 
 @Composable
-private fun ProductSpecItem(spec: ProductSpec) {
-    Row(verticalAlignment = Alignment.CenterVertically) {
-        Icon(
-            painter = painterResource(id = spec.iconId),
-            contentDescription = null,
-            tint = GoldColor,
-            modifier = Modifier.size(16.dp)
-        )
-        Column(modifier = Modifier.padding(start = 8.dp)) {
+private fun EnhancedSpecCard(
+    spec: ProductSpec,
+    modifier: Modifier = Modifier
+) {
+    Card(
+        modifier = modifier,
+        colors = CardDefaults.cardColors(
+            containerColor = SecondaryGold.copy(alpha = 0.05f)
+        ),
+        shape = RoundedCornerShape(12.dp),
+        border = BorderStroke(1.dp, PrimaryGold.copy(alpha = 0.2f))
+    ) {
+        Column(
+            modifier = Modifier.padding(16.dp),
+            horizontalAlignment = Alignment.CenterHorizontally
+        ) {
+            Box(
+                modifier = Modifier
+                    .size(40.dp)
+                    .background(
+                        PrimaryGold.copy(alpha = 0.1f),
+                        CircleShape
+                    ),
+                contentAlignment = Alignment.Center
+            ) {
+                Icon(
+                    painter = painterResource(id = spec.iconId),
+                    contentDescription = null,
+                    tint = PrimaryGold,
+                    modifier = Modifier.size(20.dp)
+                )
+            }
+
+            Spacer(modifier = Modifier.height(8.dp))
+
             Text(
                 text = spec.title,
                 fontSize = 12.sp,
-                color = TextGrayColor
+                color = TextMuted,
+                fontWeight = FontWeight.Medium
             )
+
             Text(
                 text = spec.value ?: "Not specified",
                 fontSize = 14.sp,
-                fontWeight = FontWeight.Medium
+                fontWeight = FontWeight.SemiBold,
+                color = TextPrimary,
+                maxLines = 2,
+                overflow = TextOverflow.Ellipsis
             )
         }
     }
 }
 
-
-
 @Composable
-private fun ProductDescription(description: String) {
-    Text(
-        text = "Description",
-        fontSize = 18.sp,
-        fontWeight = FontWeight.Bold
-    )
-
-    Spacer(modifier = Modifier.height(8.dp))
-
-    Text(
-        text = description,
-        fontSize = 17.sp,
-        lineHeight = 20.sp,
-        color = TextDescriptionColor
-    )
-}
-
-@Composable
-private fun SimilarProducts(
+private fun EnhancedSimilarProductsSection(
     products: List<Product>,
-    isLoading: Boolean,  // ✅ Add loading parameter
+    isLoading: Boolean,
     onProductClick: (String) -> Unit,
     onWishlistToggle: (String) -> Unit
 ) {
-    Text(
-        text = "You may also like",
-        fontSize = 18.sp,
-        fontWeight = FontWeight.Bold
-    )
-
-    Spacer(modifier = Modifier.height(8.dp))
-
-    LazyRow(
-        modifier = Modifier.fillMaxWidth(),
-        horizontalArrangement = Arrangement.spacedBy(16.dp),
-        contentPadding = PaddingValues(horizontal = 16.dp)
-    ) {
-        if (isLoading) {
-            // ✅ Show placeholder items while loading
-            items(5) { index ->
-                SimilarProductPlaceholder()
-            }
-        } else {
-            items(products) { product ->
-                SimilarProductItem(
-                    product = product,
-                    onClick = { onProductClick(product.id) },
-                    onWishlistToggle = { onWishlistToggle(product.id) }
-                )
-            }
-        }
-    }
-}
-
-// ✅ Add placeholder composable
-@Composable
-private fun SimilarProductPlaceholder() {
-    Column(
+    Card(
         modifier = Modifier
-            .width(140.dp)
-            .clip(RoundedCornerShape(8.dp))
+            .fillMaxWidth()
+            .padding(horizontal = 16.dp, vertical = 8.dp),
+        colors = CardDefaults.cardColors(containerColor = SurfaceElevated),
+        shape = RoundedCornerShape(20.dp),
+        elevation = CardDefaults.cardElevation(defaultElevation = 8.dp)
     ) {
-        // Placeholder image
-        Box(
-            modifier = Modifier
-                .fillMaxWidth()
-                .height(140.dp)
-                .background(
-                    brush = Brush.linearGradient(
-                        colors = listOf(
-                            Color.LightGray.copy(alpha = 0.3f),
-                            Color.LightGray.copy(alpha = 0.1f),
-                            Color.LightGray.copy(alpha = 0.3f)
-                        )
-                    )
-                ),
-            contentAlignment = Alignment.Center
+        Column(
+            modifier = Modifier.padding(20.dp)
         ) {
-            Icon(
-                imageVector = Icons.Default.Image,
-                contentDescription = "Loading",
-                tint = Color.Gray,
-                modifier = Modifier.size(32.dp)
+            Text(
+                text = "You may also like",
+                fontSize = 22.sp,
+                fontWeight = FontWeight.Bold,
+                color = TextPrimary
             )
-        }
 
-        // Placeholder text
-        Column(modifier = Modifier.padding(top = 4.dp, start = 4.dp, end = 4.dp)) {
-            Box(
-                modifier = Modifier
-                    .fillMaxWidth(0.8f)
-                    .height(14.dp)
-                    .background(
-                        Color.LightGray.copy(alpha = 0.3f),
-                        RoundedCornerShape(4.dp)
-                    )
-            )
-            Spacer(modifier = Modifier.height(4.dp))
-            Box(
-                modifier = Modifier
-                    .fillMaxWidth(0.6f)
-                    .height(12.dp)
-                    .background(
-                        Color.LightGray.copy(alpha = 0.3f),
-                        RoundedCornerShape(4.dp)
-                    )
-            )
+            Spacer(modifier = Modifier.height(16.dp))
+
+            LazyRow(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(16.dp),
+                contentPadding = PaddingValues(horizontal = 0.dp)
+            ) {
+                if (isLoading) {
+                    items(3) { index ->
+                        EnhancedProductPlaceholder()
+                    }
+                } else {
+                    items(products) { product ->
+                        EnhancedSimilarProductCard(
+                            product = product,
+                            onClick = { onProductClick(product.id) },
+                            onWishlistToggle = { onWishlistToggle(product.id) }
+                        )
+                    }
+                }
+            }
         }
     }
 }
 
-// ✅ Update SimilarProductItem with wishlist functionality
 @Composable
-private fun SimilarProductItem(
+private fun EnhancedSimilarProductCard(
     product: Product,
     onClick: () -> Unit,
     onWishlistToggle: (String) -> Unit
 ) {
-    Column(
+    Card(
         modifier = Modifier
-            .width(140.dp)
-            .clip(RoundedCornerShape(8.dp))
-            .clickable(onClick = onClick)
+            .width(160.dp)
+            .clickable(onClick = onClick),
+        shape = RoundedCornerShape(16.dp),
+        colors = CardDefaults.cardColors(containerColor = SurfaceElevated),
+        elevation = CardDefaults.cardElevation(defaultElevation = 4.dp)
     ) {
-        Box(
-            modifier = Modifier
-                .fillMaxWidth()
-                .height(140.dp)
-                .background(Color.LightGray.copy(alpha = 0.1f))
-        ) {
-            AsyncImage(
-                model = product.imageUrl,
-                contentDescription = product.name,
-                modifier = Modifier.fillMaxSize(),
-                contentScale = ContentScale.Crop,
-                placeholder = painterResource(id = R.drawable.diamondring_homescreen)
-            )
-
-            // ✅ Wishlist button
-            IconButton(
-                onClick = { onWishlistToggle(product.id) },
+        Column {
+            Box(
                 modifier = Modifier
-                    .align(Alignment.TopEnd)
-                    .size(32.dp)
-                    .background(
-                        Color.White.copy(alpha = 0.8f),
-                        CircleShape
-                    )
+                    .fillMaxWidth()
+                    .height(140.dp)
             ) {
-                Icon(
-                    imageVector = if (product.isFavorite) Icons.Default.Favorite else Icons.Default.FavoriteBorder,
-                    contentDescription = if (product.isFavorite) "Remove from Wishlist" else "Add to Wishlist",
-                    tint = if (product.isFavorite) Color.Red else Color.Gray,
-                    modifier = Modifier.size(16.dp)
+                AsyncImage(
+                    model = product.imageUrl,
+                    contentDescription = product.name,
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .clip(RoundedCornerShape(topStart = 16.dp, topEnd = 16.dp)),
+                    contentScale = ContentScale.Crop,
+                    placeholder = painterResource(id = R.drawable.diamondring_homescreen)
+                )
+
+                // Gradient overlay
+//                Box(
+//                    modifier = Modifier
+//                        .fillMaxSize()
+//                        .background(
+//                            brush = Brush.verticalGradient(
+//                                colors = listOf(
+//                                    Color.Transparent,
+//                                    Color.Black.copy(alpha = 0.3f)
+//                                ),
+//                                startY = 100f
+//                            )
+//                        )
+//                )
+            }
+
+            Column(
+                modifier = Modifier.padding(12.dp)
+            ) {
+                Text(
+                    text = product.name,
+                    fontSize = 14.sp,
+                    fontWeight = FontWeight.SemiBold,
+                    maxLines = 2,
+                    overflow = TextOverflow.Ellipsis,
+                    color = TextPrimary,
+                    lineHeight = 18.sp
+                )
+
+                Spacer(modifier = Modifier.height(4.dp))
+
+                Text(
+                    text = "Rs ${product.price.toInt()}.0",
+                    fontSize = 16.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = PrimaryGold
                 )
             }
         }
-
-        Text(
-            text = product.name,
-            fontSize = 12.sp,
-            fontWeight = FontWeight.Medium,
-            maxLines = 1,
-            overflow = TextOverflow.Ellipsis,
-            modifier = Modifier.padding(top = 4.dp, start = 4.dp, end = 4.dp)
-        )
-
-        Text(
-            text = "${product.currency} ${product.price.toInt()}",
-            fontSize = 12.sp,
-            fontWeight = FontWeight.Bold,
-            color = Color(0xFFB78628),
-            modifier = Modifier.padding(bottom = 4.dp, start = 4.dp, end = 4.dp)
-        )
     }
 }
 
+@Composable
+private fun EnhancedProductPlaceholder() {
+    Card(
+        modifier = Modifier.width(160.dp),
+        shape = RoundedCornerShape(16.dp),
+        colors = CardDefaults.cardColors(containerColor = SurfaceElevated),
+        elevation = CardDefaults.cardElevation(defaultElevation = 4.dp)
+    ) {
+        Column {
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(160.dp)
+                    .background(
+                        brush = Brush.linearGradient(
+                            colors = listOf(
+                                SecondaryGold.copy(alpha = 0.2f),
+                                SecondaryGold.copy(alpha = 0.05f),
+                                SecondaryGold.copy(alpha = 0.2f)
+                            )
+                        )
+                    ),
+                contentAlignment = Alignment.Center
+            ) {
+                Icon(
+                    imageVector = Icons.Default.Image,
+                    contentDescription = "Loading",
+                    tint = TextMuted,
+                    modifier = Modifier.size(32.dp)
+                )
+            }
+
+            Column(modifier = Modifier.padding(12.dp)) {
+                repeat(2) { index ->
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth(if (index == 0) 0.8f else 0.6f)
+                            .height(if (index == 0) 14.dp else 16.dp)
+                            .background(
+                                SecondaryGold.copy(alpha = 0.2f),
+                                RoundedCornerShape(4.dp)
+                            )
+                    )
+                    if (index == 0) Spacer(modifier = Modifier.height(4.dp))
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun EnhancedErrorState(
+    error: String?,
+    onRetry: () -> Unit
+) {
+    Card(
+        modifier = Modifier.padding(24.dp),
+        colors = CardDefaults.cardColors(containerColor = SurfaceElevated),
+        shape = RoundedCornerShape(16.dp),
+        elevation = CardDefaults.cardElevation(defaultElevation = 8.dp)
+    ) {
+        Column(
+            modifier = Modifier.padding(24.dp),
+            horizontalAlignment = Alignment.CenterHorizontally
+        ) {
+            Text(
+                "Oops! Something went wrong",
+                fontSize = 18.sp,
+                fontWeight = FontWeight.Bold,
+                color = TextPrimary
+            )
+
+            Spacer(modifier = Modifier.height(8.dp))
+
+            Text(
+                error ?: "Unknown error occurred",
+                fontSize = 14.sp,
+                color = TextSecondary,
+                textAlign = androidx.compose.ui.text.style.TextAlign.Center
+            )
+
+            Spacer(modifier = Modifier.height(16.dp))
+
+            Button(
+                onClick = onRetry,
+                colors = ButtonDefaults.buttonColors(
+                    containerColor = PrimaryGold
+                ),
+                shape = RoundedCornerShape(12.dp)
+            ) {
+                Text("Try Again", color = Color.White)
+            }
+        }
+    }
+}
+
+private fun createProductSpecs(product: Product): List<ProductSpec> {
+    return listOf(
+        ProductSpec(
+            R.drawable.material_icon,
+            "Material",
+            if (!product.materialId.isNullOrBlank()) {
+                val materialName = product.materialId.replace("material_", "")
+                    .replaceFirstChar { if (it.isLowerCase()) it.titlecase(Locale.getDefault()) else it.toString() }
+                if (!product.materialType.isNullOrBlank()) {
+                    "$materialName ${product.materialType}"
+                } else {
+                    materialName
+                }
+            } else {
+                "Gold 22K"
+            }
+        ),
+        ProductSpec(R.drawable.stone, "Stone", product.stone.ifEmpty { "Premium" }),
+        ProductSpec(R.drawable.clarity, "Clarity", product.clarity.ifEmpty { "Excellent" }),
+        ProductSpec(R.drawable.cut, "Cut", product.cut.ifEmpty { "Precision" })
+    )
+}
+
 private fun shareProduct(context: Context, product: Product) {
-    // GitHub Pages URL format
     val githubUrl = "https://humble-coders.github.io/gagan-jewellers-links/?product=${product.id}&name=${Uri.encode(product.name)}&price=${product.currency} ${product.price}"
 
     val shareText = """
-        🔥 Check out this stunning ${product.name}!
+        ✨ Discover this exquisite ${product.name}!
         
-        💰 Price: ${product.currency} ${product.price}
+        💎 Premium Quality | 💰 Price: ${product.currency} ${product.price}
         
-        👆 Click to view: $githubUrl
+        🔗 View Details: $githubUrl
         
-        ✨ Gagan Jewellers - Premium Jewelry
+        ✨ Gagan Jewellers - Where Elegance Meets Craftsmanship
     """.trimIndent()
 
     val shareIntent = Intent(Intent.ACTION_SEND).apply {
         type = "text/plain"
         putExtra(Intent.EXTRA_TEXT, shareText)
-        putExtra(Intent.EXTRA_SUBJECT, "Beautiful Jewelry from Gagan Jewellers")
+        putExtra(Intent.EXTRA_SUBJECT, "Exquisite Jewelry from Gagan Jewellers")
     }
 
-    context.startActivity(Intent.createChooser(shareIntent, "Share Product"))
+    context.startActivity(Intent.createChooser(shareIntent, "Share this beautiful piece"))
 }
