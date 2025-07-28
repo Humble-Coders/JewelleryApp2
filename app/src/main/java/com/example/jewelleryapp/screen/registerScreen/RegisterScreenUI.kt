@@ -104,7 +104,6 @@ fun RegisterScreen(viewModel: RegisterViewModel
                 modifier = Modifier
                     .fillMaxSize()
                     .verticalScroll(rememberScrollState()) // Add this line
-                    .verticalScroll(rememberScrollState())
                     .padding(bottom = 16.dp)
                     .clickable(
                         indication = null,

@@ -14,6 +14,30 @@
       },
       "oauth_client": [
         {
+          "client_id": "836804403458-219sgch478dljfrgp8s5bqubel655hjl.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.example.jewelleryapp",
+            "certificate_hash": "f70586698907915da6f9575848c1890abfabbfe0"
+          }
+        },
+        {
+          "client_id": "836804403458-5m4a01enqd7l3kb0hb6ss1rk691cnovu.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.example.jewelleryapp",
+            "certificate_hash": "100c56ff6522749a13b0c6fb74178cccae962a53"
+          }
+        },
+        {
+          "client_id": "836804403458-q97imqkircua04ohv851f8671en8e2fb.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.example.jewelleryapp",
+            "certificate_hash": "7162b5546c6a0c1353786b15669db25269ab9163"
+          }
+        },
+        {
           "client_id": "836804403458-uckl2pkcsoiaipfhsclckmh6b3ie7pdp.apps.googleusercontent.com",
           "client_type": 1,
           "android_info": {

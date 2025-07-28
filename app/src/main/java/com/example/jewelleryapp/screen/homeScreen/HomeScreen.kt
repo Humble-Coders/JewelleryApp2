@@ -358,14 +358,17 @@ fun HomeScreen(
                     }
                 ) {
                     Box {
+                        // In your HomeScreen LazyColumn, add these optimizations:
                         LazyColumn(
                             modifier = Modifier
                                 .fillMaxSize()
                                 .padding(paddingValues),
-                            verticalArrangement = Arrangement.spacedBy(0.dp)
+                            verticalArrangement = Arrangement.spacedBy(0.dp),
+                            // Add this for better performance
+                            userScrollEnabled = true
                         ) {
-                            // Image Carousel
-                            item {
+                            // Add stable keys for better performance
+                            item(key = "carousel") {
                                 if (carouselItems.isNotEmpty()) {
                                     AnimatedImageCarousel(carouselItems)
                                 } else {
@@ -373,8 +376,7 @@ fun HomeScreen(
                                 }
                             }
 
-                            // Category Row
-                            item {
+                            item(key = "categories") {
                                 if (categories.isNotEmpty()) {
                                     CategoryRow(categories, onCategoryClick = { categoryId ->
                                         Log.d("HomeScreen", "Category clicked: $categoryId")
@@ -386,8 +388,7 @@ fun HomeScreen(
                                 }
                             }
 
-                            // Recently Viewed Section
-                            item {
+                            item(key = "recently_viewed") {
                                 if (recentlyViewedProducts.isNotEmpty() || isRecentlyViewedLoading) {
                                     RecentlyViewedSection(
                                         products = recentlyViewedProducts,
@@ -403,114 +404,38 @@ fun HomeScreen(
                                 }
                             }
 
-                            // Replace the existing "Featured Products Title" item with this:
-                            item {
-                                if (featuredProducts.isNotEmpty()) {
-                                    Column(
-                                        modifier = Modifier
-                                            .fillMaxWidth()
-                                            .padding(horizontal = 16.dp, vertical = 8.dp),
-                                        horizontalAlignment = Alignment.CenterHorizontally
-                                    ) {
-                                        // Top divider
-                                        Canvas(
-                                            modifier = Modifier
-                                                .width(90.dp)
-                                                .height(1.dp)
-                                        ) {
-                                            val gradient = Brush.horizontalGradient(
-                                                colors = listOf(
-                                                    Color.Transparent,
-                                                    Color(0x30B78628),
-                                                    Color(0x60B78628),
-                                                    Color(0x30B78628),
-                                                    Color.Transparent
-                                                )
-                                            )
-                                            drawRect(
-                                                brush = gradient,
-                                                size = Size(size.width, size.height)
-                                            )
-                                        }
+                            item(key = "featured_title") {
+                                // Your featured products title
+                            }
 
-                                        Spacer(modifier = Modifier.height(6.dp))
-
-                                        // Title text
-                                        Text(
-                                            text = "Featured Products",
-                                            fontSize = 16.sp,
-                                            fontWeight = FontWeight.Normal,
-                                            color = Color.Gray,
-                                            textAlign = TextAlign.Center
+                            // Use itemsIndexed with keys for featured products
+                            itemsIndexed(
+                                items = featuredProducts.chunked(2),
+                                key = { index, productPair ->
+                                    "products_${productPair.joinToString("_") { it.id }}"
+                                }
+                            ) { index, productPair ->
+                                Row(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .padding(horizontal = 16.dp, vertical = 4.dp),
+                                    horizontalArrangement = Arrangement.spacedBy(16.dp)
+                                ) {
+                                    productPair.forEach { product ->
+                                        AnimatedProductItem(
+                                            product = product,
+                                            onProductClick = onProductClick,
+                                            viewModel = viewModel,
+                                            modifier = Modifier.weight(1f)
                                         )
-
-                                        Spacer(modifier = Modifier.height(6.dp))
-
-                                        // Bottom divider
-                                        Canvas(
-                                            modifier = Modifier
-                                                .width(90.dp)
-                                                .height(1.dp)
-                                        ) {
-                                            val gradient = Brush.horizontalGradient(
-                                                colors = listOf(
-                                                    Color.Transparent,
-                                                    Color(0x30B78628),
-                                                    Color(0x60B78628),
-                                                    Color(0x30B78628),
-                                                    Color.Transparent
-                                                )
-                                            )
-                                            drawRect(
-                                                brush = gradient,
-                                                size = Size(size.width, size.height)
-                                            )
-                                        }
+                                    }
+                                    if (productPair.size == 1) {
+                                        Spacer(modifier = Modifier.weight(1f))
                                     }
                                 }
                             }
 
-                            // Featured Products Grid
-                            if (featuredProducts.isNotEmpty()) {
-                                items(featuredProducts.chunked(2)) { productPair ->
-                                    Row(
-                                        modifier = Modifier
-                                            .fillMaxWidth()
-                                            .padding(horizontal = 16.dp, vertical = 4.dp),
-                                        horizontalArrangement = Arrangement.spacedBy(16.dp)
-                                    ) {
-                                        productPair.forEach { product ->
-                                            AnimatedProductItem(
-                                                product = product,
-                                                onProductClick = onProductClick,
-                                                viewModel = viewModel,
-                                                modifier = Modifier.weight(1f)
-                                            )
-                                        }
-                                        // Fill empty space if odd number of products
-                                        if (productPair.size == 1) {
-                                            Spacer(modifier = Modifier.weight(1f))
-                                        }
-                                    }
-                                }
-                            } else {
-                                // Show shimmer placeholders when loading or empty
-                                items(3) {
-                                    Row(
-                                        modifier = Modifier
-                                            .fillMaxWidth()
-                                            .padding(horizontal = 16.dp, vertical = 4.dp),
-                                        horizontalArrangement = Arrangement.spacedBy(16.dp)
-                                    ) {
-                                        repeat(2) {
-                                            ShimmerProductPlaceholder(modifier = Modifier.weight(1f))
-                                        }
-                                    }
-                                }
-                            }
-
-                            // Themed Collections Section
-                            item {
+                            item(key = "collections") {
                                 if (collections.isNotEmpty()) {
                                     AnimatedThemedCollectionsSection(collections, onCollectionClick)
                                 } else {
@@ -518,8 +443,7 @@ fun HomeScreen(
                                 }
                             }
 
-                            // Bottom spacing
-                            item {
+                            item(key = "bottom_spacer") {
                                 Spacer(modifier = Modifier.height(16.dp))
                             }
                         }
@@ -1433,41 +1357,40 @@ fun CategoryRow(categories: List<Category>, onCategoryClick: (String) -> Unit) {
 
     val listState = rememberLazyListState()
     var lastInteractionTime by remember { mutableLongStateOf(System.currentTimeMillis()) }
-    val infiniteCategories = categories + categories + categories
+    val infiniteCategories = remember(categories) { categories + categories + categories }
 
     // Start at middle section for seamless infinite scroll
     LaunchedEffect(categories.size) {
         if (categories.size > 1) {
-            listState.scrollToItem(categories.size) // Start at second set
+            listState.scrollToItem(categories.size)
         }
     }
 
+    // Simplified scroll detection
     LaunchedEffect(listState.isScrollInProgress) {
         if (listState.isScrollInProgress) {
             lastInteractionTime = System.currentTimeMillis()
         }
     }
 
+    // Optimized auto-scroll with less frequent updates
     LaunchedEffect(categories.size) {
         if (categories.size > 1) {
             while (true) {
-                delay(500)
+                delay(1000) // Check every second instead of 500ms
                 val timeSinceLastInteraction = System.currentTimeMillis() - lastInteractionTime
 
-                if (timeSinceLastInteraction > 3000 && !listState.isScrollInProgress) {
+                if (timeSinceLastInteraction > 4000 && !listState.isScrollInProgress) { // Increased delay
                     try {
                         val itemWidth = 84f
-
-                        // Scroll one complete category set
                         listState.animateScrollBy(
                             value = itemWidth * categories.size,
                             animationSpec = tween(
-                                durationMillis = categories.size * 8000,
+                                durationMillis = categories.size * 6000, // Slower animation
                                 easing = LinearEasing
                             )
                         )
 
-                        // Reset position if we've scrolled past middle section
                         val newIndex = listState.firstVisibleItemIndex
                         if (newIndex >= categories.size * 2) {
                             listState.scrollToItem(categories.size)
@@ -1475,7 +1398,7 @@ fun CategoryRow(categories: List<Category>, onCategoryClick: (String) -> Unit) {
 
                         lastInteractionTime = System.currentTimeMillis()
                     } catch (e: Exception) {
-                        delay(1000)
+                        delay(2000) // Longer delay on error
                     }
                 }
             }
@@ -1490,7 +1413,10 @@ fun CategoryRow(categories: List<Category>, onCategoryClick: (String) -> Unit) {
             horizontalArrangement = Arrangement.spacedBy(24.dp),
             userScrollEnabled = true
         ) {
-            items(infiniteCategories) { category ->
+            items(
+                items = infiniteCategories,
+                key = { category -> "${category.id}_${infiniteCategories.indexOf(category)}" } // Add stable keys
+            ) { category ->
                 CategoryItem(category, onCategoryClick)
             }
         }
@@ -2047,98 +1973,59 @@ fun AnimatedProductItem(
     viewModel: HomeViewModel,
     modifier: Modifier = Modifier
 ) {
-    var currentImageIndex by remember(product.id) { mutableIntStateOf(0) }
+    // Use stable keys to prevent unnecessary recomposition
+    val productId = remember(product.id) { product.id }
+    var currentImageIndex by remember(productId) { mutableIntStateOf(0) }
 
-    // Get all available images, prioritizing imageUrls list
-    val imageUrls = remember(product.id, product.imageUrls, product.imageUrl) {
-        val allImages = mutableListOf<String>()
-
-        // First, add all images from imageUrls list if it exists and is not empty
-        if (product.imageUrls.isNotEmpty()) {
-            product.imageUrls.forEach { url ->
-                if (url.isNotBlank()) {
-                    allImages.add(url)
-                }
+    // Optimize image list creation - make it stable
+    val imageUrls = remember(productId, product.imageUrls.size, product.imageUrl) {
+        buildList {
+            if (product.imageUrls.isNotEmpty()) {
+                addAll(product.imageUrls.filter { it.isNotBlank() })
             }
-        }
-
-        // If imageUrls is empty, fall back to imageUrl
-        if (allImages.isEmpty() && product.imageUrl.isNotBlank()) {
-            allImages.add(product.imageUrl)
-        }
-
-        // Remove duplicates while preserving order
-        allImages.distinct()
+            if (isEmpty() && product.imageUrl.isNotBlank()) {
+                add(product.imageUrl)
+            }
+        }.distinct()
     }
 
-    // Auto-change images every 3 seconds if multiple images exist
-    LaunchedEffect(product.id, imageUrls.size) {
+    // Reduce auto-scroll frequency to improve performance
+    LaunchedEffect(productId, imageUrls.size) {
         if (imageUrls.size > 1) {
             while (true) {
-                delay(3000) // 3 seconds
+                delay(4000) // Increased from 3000ms
                 currentImageIndex = (currentImageIndex + 1) % imageUrls.size
             }
         }
     }
 
-    LaunchedEffect(product.id) {
-        viewModel.checkWishlistStatus(product.id)
-    }
+    // Remove this expensive check that happens on every composition
+     LaunchedEffect(product.id) {
+         viewModel.checkWishlistStatus(product.id)
+     }
 
-    // Fixed Card with no shadow corners and proper clipping
+    // Use Surface instead of Card for better performance
     Surface(
         modifier = modifier
             .fillMaxWidth()
-            .clickable { onProductClick(product.id) }
-            .animateContentSize(),
+            .clickable { onProductClick(productId) },
         shape = RoundedCornerShape(16.dp),
         color = Color.White,
-        shadowElevation = 0.dp,
-        tonalElevation = 0.dp
+        shadowElevation = 2.dp // Reduced elevation
     ) {
-        Column(
-            modifier = Modifier
-                .fillMaxWidth()
-                .clip(RoundedCornerShape(16.dp)) // Ensure proper clipping
-        ) {
+        Column {
             Box(
                 modifier = Modifier
                     .fillMaxWidth()
                     .height(160.dp)
-                    .clip(RoundedCornerShape(topStart = 16.dp, topEnd = 16.dp)) // Clip the image container
+                    .clip(RoundedCornerShape(topStart = 16.dp, topEnd = 16.dp))
             ) {
-                // Smooth crossfade animation between images
+                // Simplified image display - remove expensive AnimatedContent
                 if (imageUrls.isNotEmpty()) {
-                    AnimatedContent(
-                        targetState = currentImageIndex,
-                        transitionSpec = {
-                            fadeIn(
-                                animationSpec = tween(800, easing = FastOutSlowInEasing)
-                            ) togetherWith fadeOut(
-                                animationSpec = tween(400, easing = FastOutLinearInEasing)
-                            )
-                        },
-                        label = "image_crossfade",
-                        modifier = Modifier.fillMaxSize()
-                    ) { imageIndex ->
-                        AsyncImage(
-                            model = ImageRequest.Builder(LocalContext.current)
-                                .data(imageUrls[imageIndex])
-                                .crossfade(600) // Additional crossfade from Coil
-                                .build(),
-                            contentDescription = product.name,
-                            modifier = Modifier.fillMaxSize(),
-                            contentScale = ContentScale.Crop,
-                            placeholder = painterResource(id = R.drawable.diamondring_homescreen),
-                            error = painterResource(id = R.drawable.diamondring_homescreen)
-                        )
-                    }
-                } else {
-                    // Fallback single image
                     AsyncImage(
                         model = ImageRequest.Builder(LocalContext.current)
-                            .data(product.imageUrl)
-                            .crossfade(true)
+                            .data(imageUrls.getOrNull(currentImageIndex))
+                            .crossfade(300) // Reduced crossfade duration
                             .build(),
                         contentDescription = product.name,
                         modifier = Modifier.fillMaxSize(),
@@ -2148,121 +2035,58 @@ fun AnimatedProductItem(
                     )
                 }
 
-                // Gradient overlay for better text visibility
-                Box(
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .background(
-                            brush = Brush.verticalGradient(
-                                colors = listOf(
-                                    Color.Transparent,
-                                    Color.Black.copy(alpha = 0.05f)
-                                )
-                            )
-                        )
-                )
-
-                // Favorite button with better design
-                Surface(
+                // Simplified favorite button
+                IconButton(
+                    onClick = { viewModel.toggleFavorite(productId) },
                     modifier = Modifier
                         .align(Alignment.TopEnd)
-                        .padding(8.dp),
-                    shape = CircleShape,
-                    color = Color.White.copy(alpha = 0.95f),
-                    shadowElevation = 2.dp
-                ) {
-                    IconButton(
-                        onClick = { viewModel.toggleFavorite(product.id) },
-                        modifier = Modifier.size(36.dp)
-                    ) {
-                        Icon(
-                            imageVector = if (product.isFavorite) Icons.Default.Favorite else Icons.Default.FavoriteBorder,
-                            contentDescription = "Favorite",
-                            tint = if (product.isFavorite) Color(0xFFE91E63) else Color.Gray,
-                            modifier = Modifier.size(20.dp)
+                        .padding(8.dp)
+                        .size(36.dp)
+                        .background(
+                            Color.White.copy(alpha = 0.9f),
+                            CircleShape
                         )
-                    }
+                ) {
+                    Icon(
+                        imageVector = if (product.isFavorite) Icons.Default.Favorite else Icons.Default.FavoriteBorder,
+                        contentDescription = "Favorite",
+                        tint = if (product.isFavorite) Color(0xFFD4A968) else Color.Gray,
+                        modifier = Modifier.size(20.dp)
+                    )
                 }
 
-                // Animated image count indicator (for multiple images)
+                // Simplified dots indicator - only show if multiple images
                 if (imageUrls.size > 1) {
-                    Surface(
-                        modifier = Modifier
-                            .align(Alignment.TopStart)
-                            .padding(8.dp),
-                        shape = RoundedCornerShape(12.dp),
-                        color = Color.Black.copy(alpha = 0.7f)
-                    ) {
-                        AnimatedContent(
-                            targetState = currentImageIndex,
-                            transitionSpec = {
-                                slideInVertically(
-                                    initialOffsetY = { it },
-                                    animationSpec = tween(300)
-                                ) + fadeIn() togetherWith slideOutVertically(
-                                    targetOffsetY = { -it },
-                                    animationSpec = tween(300)
-                                ) + fadeOut()
-                            },
-                            label = "counter_animation"
-                        ) { index ->
-                            Text(
-                                text = "${index + 1}/${imageUrls.size}",
-                                color = Color.White,
-                                fontSize = 12.sp,
-                                fontWeight = FontWeight.Medium,
-                                modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
-                            )
-                        }
-                    }
-                }
-
-                // Smooth animated dots indicator for multiple images
-                if (imageUrls.size > 1) {
-                    Surface(
+                    Row(
                         modifier = Modifier
                             .align(Alignment.BottomCenter)
-                            .padding(8.dp),
-                        shape = RoundedCornerShape(12.dp),
-                        color = Color.Black.copy(alpha = 0.5f)
+                            .padding(8.dp)
+                            .background(
+                                Color.Black.copy(alpha = 0.5f),
+                                RoundedCornerShape(12.dp)
+                            )
+                            .padding(horizontal = 8.dp, vertical = 4.dp),
+                        horizontalArrangement = Arrangement.spacedBy(4.dp)
                     ) {
-                        Row(
-                            modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
-                            horizontalArrangement = Arrangement.spacedBy(4.dp)
-                        ) {
-                            repeat(imageUrls.size) { index ->
-                                val isSelected = index == currentImageIndex
-
-                                val dotWidth by animateDpAsState(
-                                    targetValue = if (isSelected) 16.dp else 6.dp,
-                                    animationSpec = spring(
-                                        dampingRatio = Spring.DampingRatioMediumBouncy,
-                                        stiffness = Spring.StiffnessHigh
-                                    ),
-                                    label = "dot_width"
-                                )
-
-                                val dotColor by animateColorAsState(
-                                    targetValue = if (isSelected) Color.White else Color.White.copy(alpha = 0.4f),
-                                    animationSpec = tween(300),
-                                    label = "dot_color"
-                                )
-
-                                Box(
-                                    modifier = Modifier
-                                        .size(
-                                            width = dotWidth,
-                                            height = 6.dp
-                                        )
-                                        .clip(RoundedCornerShape(3.dp))
-                                        .background(dotColor)
-                                )
-                            }
+                        repeat(imageUrls.size) { index ->
+                            Box(
+                                modifier = Modifier
+                                    .size(
+                                        width = if (index == currentImageIndex) 16.dp else 6.dp,
+                                        height = 6.dp
+                                    )
+                                    .clip(RoundedCornerShape(3.dp))
+                                    .background(
+                                        if (index == currentImageIndex)
+                                            Color.White else Color.White.copy(alpha = 0.4f)
+                                    )
+                            )
                         }
                     }
                 }
             }
 
+            // Simplified text section
             Column(
                 modifier = Modifier.padding(12.dp)
             ) {
@@ -2270,13 +2094,12 @@ fun AnimatedProductItem(
                     text = product.name,
                     fontSize = 15.sp,
                     fontWeight = FontWeight.Medium,
-                    maxLines = 1, // Changed to single line
+                    maxLines = 1,
                     overflow = TextOverflow.Ellipsis,
-                    color = Color.Black,
-                    modifier = Modifier.fillMaxWidth()
+                    color = Color.Black
                 )
 
-                Spacer(modifier = Modifier.height(6.dp)) // Slightly increased spacing
+                Spacer(modifier = Modifier.height(6.dp))
 
                 Text(
                     text = formatPrice(product.price, product.currency),
@@ -2533,31 +2356,16 @@ fun ShimmerCollectionsPlaceholder() {
 
 @Composable
 fun Modifier.shimmerEffect(): Modifier = composed {
-    var size by remember { mutableStateOf(IntSize.Zero) }
     val transition = rememberInfiniteTransition(label = "shimmer")
-    val startOffsetX by transition.animateFloat(
-        initialValue = -2 * size.width.toFloat(),
-        targetValue = 2 * size.width.toFloat(),
+    val alpha by transition.animateFloat(
+        initialValue = 0.2f,
+        targetValue = 0.8f,
         animationSpec = infiniteRepeatable(
-            animation = tween(1200, easing = LinearEasing),
-            repeatMode = RepeatMode.Restart
+            animation = tween(1000, easing = LinearEasing),
+            repeatMode = RepeatMode.Reverse
         ),
         label = "shimmer"
     )
 
-    background(
-        brush = Brush.linearGradient(
-            colors = listOf(
-                Color(0xFFE8E8E8),
-                Color(0xFFF5F5F5),
-                Color(0xFFFFFFFF),
-                Color(0xFFF5F5F5),
-                Color(0xFFE8E8E8)
-            ),
-            start = Offset(startOffsetX, 0f),
-            end = Offset(startOffsetX + size.width.toFloat(), size.height.toFloat())
-        )
-    ).onGloballyPositioned {
-        size = it.size
-    }
+    background(Color.LightGray.copy(alpha = alpha))
 }

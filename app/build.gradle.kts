@@ -19,6 +19,17 @@ android {
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
 
+    // Add signing configurations
+    signingConfigs {
+        create("release") {
+            storeFile  =file("my-app-release.keystore") // Put your keystore file in the app/ folder
+            storePassword = "ishank"   // Replace with your actual password
+            keyAlias = "key0"                 // Replace with your key alias
+            keyPassword=  "ishank"       // Replace with your key password
+        }
+    }
+
+
     // Add this packaging block to exclude the problematic META-INF file
     packaging {
         resources {
@@ -33,6 +44,8 @@ android {
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro"
             )
+            // Add signing config to release build
+            signingConfig = signingConfigs.getByName("release")
         }
     }
     compileOptions {
@@ -123,6 +136,4 @@ dependencies {
     androidTestImplementation(libs.androidx.ui.test.junit4)
     debugImplementation(libs.androidx.ui.tooling)
     debugImplementation(libs.androidx.ui.test.manifest)
-
-
 }

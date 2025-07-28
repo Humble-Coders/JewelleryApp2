@@ -285,6 +285,7 @@ fun JewelryProductScreen(
 
                             // Spacer to create the sliding effect
                             Spacer(modifier = Modifier.height(-cardOffset))
+                            Spacer(modifier = Modifier.height(12.dp))
 
                             // Enhanced product details with smooth rounded corners
                             EnhancedProductDetailsCard(
@@ -376,25 +377,7 @@ private fun EnhancedImageSection(
             }
         }
 
-        // Enhanced gradient overlay for smoother transition (only for interactive version)
-        if (isInteractive) {
-            Box(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(120.dp)
-                    .align(Alignment.BottomCenter)
-                    .background(
-                        brush = Brush.verticalGradient(
-                            colors = listOf(
-                                Color.Transparent,
-                                BackgroundPrimary.copy(alpha = 0.1f),
-                                BackgroundPrimary.copy(alpha = 0.3f),
-                                BackgroundPrimary.copy(alpha = 0.6f)
-                            )
-                        )
-                    )
-            )
-        }
+
     }
 }
 
@@ -849,7 +832,7 @@ private fun EnhancedSimilarProductCard(
 
                 Text(
                     text = "Rs ${product.price.toInt()}.0",
-                    fontSize = 16.sp,
+                    fontSize = 12.sp,
                     fontWeight = FontWeight.Bold,
                     color = PrimaryGold
                 )
