@@ -9,6 +9,7 @@ import com.example.jewelleryapp.model.CarouselItem
 import com.example.jewelleryapp.model.GoldSilverRates
 import com.example.jewelleryapp.model.Material
 import com.example.jewelleryapp.model.StoreInfo
+import com.example.jewelleryapp.model.Video
 import com.google.firebase.auth.FirebaseAuth
 import kotlinx.coroutines.tasks.await
 import kotlinx.coroutines.flow.Flow
@@ -317,13 +318,20 @@ class JewelryRepository(
             val collections = coroutineScope {
                 snapshot.documents.map { doc ->
                     async(Dispatchers.Default) {
-                        // Direct HTTPS URL - no conversion needed
-                        val imageUrl = doc.getString("imageUrl") ?: ""
+                        // Get all images from the imageUrls array
+                        val images = doc.get("imageUrls") as? List<*>
+                        val imageUrls = images?.mapNotNull { it as? String }?.filter { it.isNotBlank() } ?: emptyList()
+                        
+                        // Use first image as primary, but store all images
+                        val primaryImageUrl = imageUrls.firstOrNull() ?: doc.getString("imageUrl") ?: ""
+
+                        Log.d(tag, "Collection ${doc.id}: Found ${imageUrls.size} images: $imageUrls")
 
                         Collection(
                             id = doc.id,
                             name = doc.getString("name") ?: "",
-                            imageUrl = imageUrl,
+                            imageUrl = primaryImageUrl,
+                            imageUrls = imageUrls,
                             description = doc.getString("description") ?: ""
                         )
                     }
@@ -1089,6 +1097,65 @@ class JewelryRepository(
     }.catch { e ->
         Log.e(tag, "Error fetching recently viewed products", e)
         emit(emptyList())
+    }
+
+    /**
+     * Get video from Header collection
+     */
+    fun getVideo(): Flow<Video?> = flow {
+        try {
+            val snapshot = withContext(Dispatchers.IO) {
+                firestore.collection("Header")
+                    .document("Video")
+                    .get()
+                    .await()
+            }
+
+            if (snapshot.exists()) {
+                val videoUrl = snapshot.getString("link") ?: ""
+                val title = snapshot.getString("title") ?: ""
+                val description = snapshot.getString("description") ?: ""
+                val thumbnailUrl = snapshot.getString("thumbnail_url") ?: ""
+                val duration = snapshot.getLong("duration") ?: 0L
+                val isActive = snapshot.getBoolean("is_active") ?: true
+
+                val video = Video(
+                    id = "header_video",
+                    title = title,
+                    description = description,
+                    videoUrl = videoUrl,
+                    thumbnailUrl = thumbnailUrl,
+                    duration = duration,
+                    isActive = isActive,
+                    createdAt = snapshot.getLong("created_at") ?: System.currentTimeMillis(),
+                    updatedAt = snapshot.getLong("updated_at") ?: System.currentTimeMillis()
+                )
+
+                Log.d(tag, "Fetched video: $video")
+                emit(video)
+            } else {
+                Log.d(tag, "Video document does not exist")
+                emit(null)
+            }
+        } catch (e: Exception) {
+            Log.e(tag, "Error fetching video", e)
+            emit(null)
+        }
+    }
+
+    /**
+     * Preload video for background caching
+     */
+    suspend fun preloadVideo(videoUrl: String): Boolean {
+        return try {
+            Log.d(tag, "Starting video preload for: $videoUrl")
+            // This will be handled by ExoPlayer's cache mechanism
+            // We'll implement this in the VideoPlayer composable
+            true
+        } catch (e: Exception) {
+            Log.e(tag, "Error preloading video", e)
+            false
+        }
     }
 
 }

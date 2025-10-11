@@ -41,10 +41,12 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.systemBarsPadding
@@ -134,11 +136,14 @@ import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.TextStyle
+import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -164,6 +169,11 @@ import com.example.jewelleryapp.model.CarouselItem as CarouselItemModel
 import com.example.jewelleryapp.model.Category as CategoryModel
 import com.example.jewelleryapp.model.Collection as CollectionModel
 import com.example.jewelleryapp.model.Product as ProductModel
+import com.example.jewelleryapp.screen.homeScreen.VideoSection
+import com.example.jewelleryapp.screen.homeScreen.CustomerTestimonialsWithCurvedString
+import com.example.jewelleryapp.screen.homeScreen.Testimonial
+import com.example.jewelleryapp.screen.homeScreen.ExactPatternJewelryGrid
+import com.example.jewelleryapp.screen.homeScreen.JewelryItem
 
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -192,6 +202,66 @@ fun HomeScreen(
 
     val recentlyViewedProducts by viewModel.recentlyViewedProducts.collectAsState()
     val isRecentlyViewedLoading by viewModel.isRecentlyViewedLoading.collectAsState()
+
+    // Video state
+    val video by viewModel.video.collectAsState()
+    val isVideoLoading by viewModel.isVideoLoading.collectAsState()
+    
+    // Hardcoded testimonials data
+    val testimonials = listOf(
+        Testimonial(
+            name = "Akanksha Khanna",
+            age = 27,
+            imageRes = R.drawable.goldbracelet_homescreen,
+            text = "Obsessed with my engagement ring, my husband chose perfectly and it's everything I wanted in a ring. Handcrafted with love!",
+            rotation = -6f,
+            clipPosition = 0.3f,
+            stringDepth = 0.25f
+        ),
+        Testimonial(
+            name = "Nutan Mishra",
+            age = 33,
+            imageRes = R.drawable.goldbracelet_homescreen,
+            text = "I got a necklace for my baby boy from this brand and it's so beautiful! It gave me happiness and security knowing it's pure.",
+            rotation = 4f,
+            clipPosition = 0.7f,
+            stringDepth = 0.35f
+        ),
+        Testimonial(
+            name = "Sarah Johnson",
+            age = 28,
+            imageRes = R.drawable.goldbracelet_homescreen,
+            text = "Amazing quality and beautiful designs. The customer service was exceptional and I couldn't be happier!",
+            rotation = -2f,
+            clipPosition = 0.4f,
+            stringDepth = 0.2f
+        ),
+        Testimonial(
+            name = "Priya Sharma",
+            age = 25,
+            imageRes = R.drawable.goldbracelet_homescreen,
+            text = "The jewelry is stunning and exactly what I was looking for. Fast delivery and beautiful packaging too!",
+            rotation = 5f,
+            clipPosition = 0.6f,
+            stringDepth = 0.4f
+        )
+    )
+
+    // Hardcoded jewelry items data for the grid
+    val jewelryGridItems = listOf(
+        JewelryItem(R.drawable.goldbracelet_homescreen, isLarge = true),
+        JewelryItem(R.drawable.necklace_homescreen),
+        JewelryItem(R.drawable.goldbracelet_homescreen),
+        JewelryItem(R.drawable.necklace_homescreen),
+        JewelryItem(R.drawable.goldbracelet_homescreen),
+        JewelryItem(R.drawable.necklace_homescreen),
+        JewelryItem(R.drawable.goldbracelet_homescreen),
+        JewelryItem(R.drawable.necklace_homescreen, isLarge = true),
+        JewelryItem(R.drawable.goldbracelet_homescreen),
+        JewelryItem(R.drawable.necklace_homescreen),
+        JewelryItem(R.drawable.goldbracelet_homescreen),
+        JewelryItem(R.drawable.necklace_homescreen)
+    )
 
     // Key fix: Use a stable key for drawer state to prevent recreation
     val currentRoute = navController.currentDestination?.route
@@ -273,7 +343,7 @@ fun HomeScreen(
         Scaffold(
             topBar = {
                 TopAppbar(
-                    title = "Gagan Jewellers",
+                    title = "    Gagan Jewellers",
                     onMenuClick = {
                         if (currentRoute == "home") {
                             scope.launch {
@@ -322,7 +392,7 @@ fun HomeScreen(
                         Button(
                             onClick = { viewModel.refreshData() },
                             colors = ButtonDefaults.buttonColors(
-                                containerColor = Color(0xFFB78628)
+                                containerColor = Color(0xFF896C6C)
                             )
                         ) {
                             Text("Try Again")
@@ -352,7 +422,7 @@ fun HomeScreen(
                         SwipeRefreshIndicator(
                             state = state,
                             refreshTriggerDistance = refreshTrigger,
-                            backgroundColor = Color(0xFFB78628),
+                            backgroundColor = Color(0xFF896C6C),
                             contentColor = Color.White
                         )
                     }
@@ -367,15 +437,19 @@ fun HomeScreen(
                             // Add this for better performance
                             userScrollEnabled = true
                         ) {
-                            // Add stable keys for better performance
-                            item(key = "carousel") {
-                                if (carouselItems.isNotEmpty()) {
-                                    AnimatedImageCarousel(carouselItems)
-                                } else {
-                                    ShimmerCarouselPlaceholder()
-                                }
+                            // Gradient header with bangles image and promotional text
+                            item(key = "gradient_header") {
+                                GradientHeaderWithBangles(
+                                    categories = categories,
+                                    onCategoryClick = { categoryId ->
+                                        Log.d("HomeScreen", "Category clicked: $categoryId")
+                                        val categoryName = categories.find { it.id == categoryId }?.name ?: "Products"
+                                        navController.navigate("categoryProducts/$categoryId/$categoryName")
+                                    }
+                                )
                             }
 
+                            // Add stable keys for better performance
                             item(key = "categories") {
                                 if (categories.isNotEmpty()) {
                                     CategoryRow(categories, onCategoryClick = { categoryId ->
@@ -404,8 +478,26 @@ fun HomeScreen(
                                 }
                             }
 
+                            item(key = "video_section") {
+                                VideoSection(
+                                    video = video,
+                                    isLoading = isVideoLoading
+                                )
+                            }
+                            item{
+                                Spacer(modifier = Modifier.height(32.dp))
+                            }
+
+                            item(key = "carousel") {
+                                if (carouselItems.isNotEmpty()) {
+                                    ElegantCarouselSection(carouselItems)
+                                } else {
+                                    ShimmerCarouselPlaceholder()
+                                }
+                            }
+
                             item(key = "featured_title") {
-                                // Your featured products title
+                                FeaturedProductsTitle()
                             }
 
                             // Use itemsIndexed with keys for featured products
@@ -422,7 +514,7 @@ fun HomeScreen(
                                     horizontalArrangement = Arrangement.spacedBy(16.dp)
                                 ) {
                                     productPair.forEach { product ->
-                                        AnimatedProductItem(
+                                        FeaturedProductCard(
                                             product = product,
                                             onProductClick = onProductClick,
                                             viewModel = viewModel,
@@ -437,10 +529,24 @@ fun HomeScreen(
 
                             item(key = "collections") {
                                 if (collections.isNotEmpty()) {
-                                    AnimatedThemedCollectionsSection(collections, onCollectionClick)
+                                    ThemedCollectionsSection(collections, onCollectionClick)
                                 } else {
                                     ShimmerCollectionsPlaceholder()
                                 }
+                            }
+
+                            item(key = "customer_testimonials") {
+                                CustomerTestimonialsWithCurvedString(
+                                    testimonials = testimonials,
+                                    clipDrawableRes = R.drawable.paper_clip
+                                )
+                            }
+
+                            item(key = "jewelry_grid") {
+                                ExactPatternJewelryGrid(
+                                    items = jewelryGridItems,
+                                    modifier = Modifier.fillMaxWidth()
+                                )
                             }
 
                             item(key = "bottom_spacer") {
@@ -493,7 +599,7 @@ fun DrawerContent(
     homeViewModel: HomeViewModel,
     drawerViewModel: DrawerViewModel // Add this parameter
 ) {
-    val amberColor = Color(0xFFB78628)
+    val amberColor = Color(0xFF896C6C)
     val context = LocalContext.current
 
     // Collect drawer state
@@ -881,15 +987,15 @@ fun TopAppbar(
     onSearchQueryChange: (String) -> Unit = {},
     onWishlistClick: () -> Unit = {}
 ) {
-    val amberColor = Color(0xFFB78628)
+    val amberColor = Color(0xFF896C6C)
     val focusManager = LocalFocusManager.current
     val context = LocalContext.current
     val view = LocalView.current
 
-    // Set status bar color to white
+    // Set status bar color to C59E9E
     SideEffect {
         val window = (view.context as ComponentActivity).window
-        window.statusBarColor = Color.White.toArgb()
+        window.statusBarColor = Color(0xFFC59E9E).toArgb()
         WindowCompat.getInsetsController(window, view).isAppearanceLightStatusBars = true
     }
 
@@ -988,8 +1094,8 @@ fun TopAppbar(
             modifier = Modifier
                 .fillMaxWidth()
                 .height(currentHeight),
-            color = Color.White,
-            shadowElevation = if (isSearchActive) 0.dp else 0.5.dp
+            color = Color(0xFFC59E9E),
+            shadowElevation = 0.dp
         ) {
             Column {
                 // Main app bar
@@ -1005,14 +1111,14 @@ fun TopAppbar(
                     Surface(
                         modifier = Modifier.size(38.dp),
                         shape = CircleShape,
-                        color = amberColor.copy(alpha = 0.06f),
+                        color = Color(0xFFEEDDCA).copy(alpha = 0.2f),
                         onClick = onBackClick ?: onMenuClick
                     ) {
                         Box(contentAlignment = Alignment.Center) {
                             Icon(
                                 imageVector = if (onBackClick != null) Icons.AutoMirrored.Filled.ArrowBack else Icons.Default.Menu,
                                 contentDescription = if (onBackClick != null) "Back" else "Menu",
-                                tint = amberColor,
+                                tint = Color(0xFFEEDDCA),
                                 modifier = Modifier.size(20.dp)
                             )
                         }
@@ -1026,7 +1132,7 @@ fun TopAppbar(
                     ) {
                         Text(
                             text = title,
-                            color = amberColor,
+                            color = Color(0xFFEEDDCA),
                             fontWeight = FontWeight.Normal,
                             fontSize = 18.sp
                         )
@@ -1041,7 +1147,7 @@ fun TopAppbar(
                         Surface(
                             modifier = Modifier.size(38.dp),
                             shape = CircleShape,
-                            color = if (isSearchActive) amberColor else amberColor.copy(alpha = 0.06f),
+                            color = if (isSearchActive) Color(0xFFEEDDCA).copy(alpha = 0.3f) else Color(0xFFEEDDCA).copy(alpha = 0.2f),
                             onClick = {
                                 onSearchToggle()
                                 if (!isSearchActive) {
@@ -1057,7 +1163,7 @@ fun TopAppbar(
                                 Icon(
                                     imageVector = if (isSearchActive) Icons.Default.Close else Icons.Default.Search,
                                     contentDescription = if (isSearchActive) "Close Search" else "Search",
-                                    tint = if (isSearchActive) Color.White else amberColor,
+                                    tint = Color(0xFFEEDDCA),
                                     modifier = Modifier.size(20.dp)
                                 )
                             }
@@ -1067,14 +1173,14 @@ fun TopAppbar(
                         Surface(
                             modifier = Modifier.size(38.dp),
                             shape = CircleShape,
-                            color = amberColor.copy(alpha = 0.06f),
+                            color = Color(0xFFEEDDCA).copy(alpha = 0.2f),
                             onClick = onWishlistClick
                         ) {
                             Box(contentAlignment = Alignment.Center) {
                                 Icon(
                                     imageVector = Icons.Default.FavoriteBorder,
                                     contentDescription = "Wishlist",
-                                    tint = amberColor,
+                                    tint = Color(0xFFEEDDCA),
                                     modifier = Modifier.size(20.dp)
                                 )
                             }
@@ -1344,7 +1450,7 @@ fun CategorySearchItem(
             Icon(
                 imageVector = Icons.Default.ChevronRight,
                 contentDescription = "Go to category",
-                tint = Color(0xFFB78628),
+                tint = Color(0xFF896C6C),
                 modifier = Modifier.size(20.dp)
             )
         }
@@ -1406,7 +1512,10 @@ fun CategoryRow(categories: List<Category>, onCategoryClick: (String) -> Unit) {
     }
 
     Column(
-        modifier = Modifier.padding(top = 8.dp, start = 16.dp, end = 8.dp, bottom = 8.dp)
+        modifier = Modifier
+            .fillMaxWidth()
+            .background(Color.White)
+            .padding(top = 8.dp, bottom = 8.dp,start=2.dp,end=2.dp)
     ) {
         LazyRow(
             state = listState,
@@ -1471,7 +1580,7 @@ fun SectionTitle(title: String) {
 
 @Composable
 fun BottomNavigationBar(navController: NavController) {
-    val amberColor = Color(0xFFB4A06C)
+    val amberColor = Color(0xFF896C6C)
     val context = LocalContext.current
     val hapticFeedback = LocalHapticFeedback.current
     val hapticManager = remember { HapticFeedbackManager(context) }
@@ -1481,15 +1590,15 @@ fun BottomNavigationBar(navController: NavController) {
     val currentRouteBase = currentRoute?.split("/")?.firstOrNull()
 
     NavigationBar(
-        containerColor = Color.White,
+        containerColor = Color(0xFF896C6C),
         modifier = Modifier
             .fillMaxWidth()
             .height(80.dp)  // Increased height to accommodate labels
             .background(
                 brush = Brush.verticalGradient(
                     colors = listOf(
-                        Color.White,
-                        Color.White.copy(alpha = 0.98f)
+                        Color(0xFF896C6C),
+                        Color(0xFF896C6C).copy(alpha = 0.98f)
                     )
                 )
             ),
@@ -1513,13 +1622,13 @@ fun BottomNavigationBar(navController: NavController) {
 
             // Simple color animations - no size changes
             val iconColor by animateColorAsState(
-                targetValue = if (selected) amberColor else Color.Gray,
+                targetValue = if (selected) Color.White else Color.White.copy(alpha = 0.7f),
                 animationSpec = tween(300),
                 label = "icon_color"
             )
 
             val labelColor by animateColorAsState(
-                targetValue = if (selected) amberColor else Color.Gray,
+                targetValue = if (selected) Color.White else Color.White.copy(alpha = 0.7f),
                 animationSpec = tween(300),
                 label = "label_color"
             )
@@ -1627,15 +1736,18 @@ fun RecentlyViewedSection(
     ) {
         Row(
             modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.SpaceBetween,
+            horizontalArrangement = Arrangement.Center,
             verticalAlignment = Alignment.CenterVertically
         ) {
-            SectionTitle("Recently Viewed")
-
-
+            Text(
+                text = "Recently Viewed",
+                fontSize = 14.sp,
+                fontWeight = FontWeight.Medium,
+                color = Color(0xFF8B4513)
+            )
         }
 
-        Spacer(modifier = Modifier.height(8.dp))
+        Spacer(modifier = Modifier.height(12.dp))
 
         if (isLoading) {
             // Loading state
@@ -1663,7 +1775,7 @@ fun RecentlyViewedSection(
             }
         }
 
-        Spacer(modifier = Modifier.height(16.dp))
+        Spacer(modifier = Modifier.height(8.dp))
     }
 }
 
@@ -1680,15 +1792,16 @@ fun RecentlyViewedItem(
             .width(140.dp)
             .height(180.dp)
             .clickable { onProductClick(product.id) },
-        shape = RoundedCornerShape(8.dp),
-        colors = CardDefaults.cardColors(containerColor = Color.White),
-        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+        shape = RoundedCornerShape(12.dp),
+        colors = CardDefaults.cardColors(containerColor = Color(0xFFEEDDCA)),
+        elevation = CardDefaults.cardElevation(defaultElevation = 4.dp)
     ) {
         Column {
             Box(
                 modifier = Modifier
                     .fillMaxWidth()
                     .height(100.dp)
+                    .clip(RoundedCornerShape(topStart = 12.dp, topEnd = 12.dp))
             ) {
                 AsyncImage(
                     model = ImageRequest.Builder(LocalContext.current)
@@ -1707,11 +1820,15 @@ fun RecentlyViewedItem(
                     modifier = Modifier
                         .align(Alignment.TopEnd)
                         .size(28.dp)
+                        .background(
+                            Color.White.copy(alpha = 0.8f),
+                            CircleShape
+                        )
                 ) {
                     Icon(
                         imageVector = if (product.isFavorite) Icons.Default.Favorite else Icons.Default.FavoriteBorder,
                         contentDescription = "Favorite",
-                        tint = if (product.isFavorite) Color(0xFFD4A968) else Color(0xFFD4A968),
+                        tint = if (product.isFavorite) Color(0xFF8B4513) else Color(0xFF8B4513),
                         modifier = Modifier.size(16.dp)
                     )
                 }
@@ -1726,7 +1843,8 @@ fun RecentlyViewedItem(
                     fontWeight = FontWeight.Medium,
                     maxLines = 2,
                     overflow = TextOverflow.Ellipsis,
-                    modifier = Modifier.height(32.dp)
+                    modifier = Modifier.height(32.dp),
+                    color = Color(0xFF8B4513)
                 )
 
                 Spacer(modifier = Modifier.height(4.dp))
@@ -1734,8 +1852,8 @@ fun RecentlyViewedItem(
                 Text(
                     text = formatPrice(product.price, product.currency),
                     fontSize = 13.sp,
-                    color = Color(0xFFB78628),
-                    fontWeight = FontWeight.Normal
+                    color = Color(0xFF8B4513),
+                    fontWeight = FontWeight.Bold
                 )
             }
         }
@@ -1750,9 +1868,9 @@ fun RecentlyViewedPlaceholder() {
         modifier = Modifier
             .width(140.dp)
             .height(180.dp),
-        shape = RoundedCornerShape(8.dp),
-        colors = CardDefaults.cardColors(containerColor = Color.White),
-        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+        shape = RoundedCornerShape(12.dp),
+        colors = CardDefaults.cardColors(containerColor = Color(0xFFEEDDCA)),
+        elevation = CardDefaults.cardElevation(defaultElevation = 4.dp)
     ) {
         Column {
             // Placeholder image
@@ -1760,12 +1878,13 @@ fun RecentlyViewedPlaceholder() {
                 modifier = Modifier
                     .fillMaxWidth()
                     .height(100.dp)
+                    .clip(RoundedCornerShape(topStart = 12.dp, topEnd = 12.dp))
                     .background(
                         brush = Brush.linearGradient(
                             colors = listOf(
-                                Color.LightGray.copy(alpha = 0.3f),
-                                Color.LightGray.copy(alpha = 0.1f),
-                                Color.LightGray.copy(alpha = 0.3f)
+                                Color(0xFF8B4513).copy(alpha = 0.2f),
+                                Color(0xFF8B4513).copy(alpha = 0.1f),
+                                Color(0xFF8B4513).copy(alpha = 0.2f)
                             )
                         )
                     )
@@ -1778,7 +1897,7 @@ fun RecentlyViewedPlaceholder() {
                         .fillMaxWidth(0.8f)
                         .height(12.dp)
                         .background(
-                            Color.LightGray.copy(alpha = 0.3f),
+                            Color(0xFF8B4513).copy(alpha = 0.3f),
                             RoundedCornerShape(4.dp)
                         )
                 )
@@ -1788,7 +1907,7 @@ fun RecentlyViewedPlaceholder() {
                         .fillMaxWidth(0.6f)
                         .height(10.dp)
                         .background(
-                            Color.LightGray.copy(alpha = 0.3f),
+                            Color(0xFF8B4513).copy(alpha = 0.3f),
                             RoundedCornerShape(4.dp)
                         )
                 )
@@ -1798,169 +1917,182 @@ fun RecentlyViewedPlaceholder() {
 }
 
 @Composable
-fun AnimatedImageCarousel(items: List<CarouselItemModel>) {
+fun ElegantCarouselSection(items: List<CarouselItemModel>) {
     if (items.isEmpty()) return
 
-    Box(
+    val pagerState = rememberPagerState(pageCount = { items.size })
+    val scope = rememberCoroutineScope()
+
+    // Auto-scroll effect
+    LaunchedEffect(pagerState) {
+        while (true) {
+            delay(4000) // 4 seconds
+            val nextPage = (pagerState.currentPage + 1) % items.size
+            pagerState.animateScrollToPage(
+                page = nextPage,
+                animationSpec = tween(
+                    durationMillis = 800,
+                    easing = FastOutSlowInEasing
+                )
+            )
+        }
+    }
+
+    Column(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(horizontal = 12.dp)  // Add horizontal padding
-            .height(200.dp)
-            .clip(RoundedCornerShape(12.dp))  // Add rounded corners
+            .padding(horizontal = 16.dp)
     ) {
-        val pagerState = rememberPagerState(pageCount = { items.size })
-        val scope = rememberCoroutineScope()
+        // "Discover Our Finest Collections" heading
+        Text(
+            text = "Discover Our Finest Collections",
+            fontSize = 18.sp,
+            fontWeight = FontWeight.Medium,
+            color = Color(0xFF8B4513),
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(bottom = 8.dp),
+            textAlign = TextAlign.Center
+        )
 
-        // Auto-scroll effect
-        LaunchedEffect(pagerState) {
-            while (true) {
-                delay(3000) // 3 seconds
-                val nextPage = (pagerState.currentPage + 1) % items.size
-                pagerState.animateScrollToPage(
-                    page = nextPage,
-                    animationSpec = tween(
-                        durationMillis = 500,
-                        easing = FastOutSlowInEasing
-                    )
-                )
-            }
-        }
+        // Horizontal line
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(1.dp)
+                .background(Color(0xFF8B4513).copy(alpha = 0.3f))
+                .padding(bottom = 16.dp)
+        )
 
+        // Main carousel content
         HorizontalPager(
             state = pagerState,
-            modifier = Modifier.fillMaxSize()
+            modifier = Modifier.height(200.dp)
         ) { page ->
             val item = items[page]
-            Box(modifier = Modifier.fillMaxSize()) {
-                AsyncImage(
-                    model = ImageRequest.Builder(LocalContext.current)
-                        .data(item.imageUrl)
-                        .crossfade(true)
-                        .build(),
-                    contentDescription = item.title,
-                    modifier = Modifier.fillMaxSize(),
-                    contentScale = ContentScale.Crop,
-                    placeholder = painterResource(id = R.drawable.swipeable_img1)
-                )
-
-                // Enhanced gradient overlay
-                Box(
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .background(
-                            brush = Brush.verticalGradient(
-                                colors = listOf(
-                                    Color.Transparent,
-                                    Color.Black.copy(alpha = 0.3f),
-                                    Color.Black.copy(alpha = 0.7f)
-                                )
-                            )
-                        )
-                )
-
-                // Animated text overlay
-                Column(
-                    modifier = Modifier
-                        .align(Alignment.BottomStart)
-                        .padding(20.dp)
-                        .animateContentSize()
-                ) {
-                    AnimatedVisibility(
-                        visible = true,
-                        enter = slideInVertically(
-                            initialOffsetY = { it },
-                            animationSpec = tween(600, delayMillis = 200)
-                        ) + fadeIn(animationSpec = tween(600, delayMillis = 200))
-                    ) {
-                        Text(
-                            text = item.subtitle,
-                            color = Color.White.copy(alpha = 0.9f),
-                            fontSize = 14.sp,
-                            fontWeight = FontWeight.Light
-                        )
-                    }
-
-                    Spacer(modifier = Modifier.height(8.dp))
-
-                    AnimatedVisibility(
-                        visible = true,
-                        enter = slideInVertically(
-                            initialOffsetY = { it },
-                            animationSpec = tween(600, delayMillis = 400)
-                        ) + fadeIn(animationSpec = tween(600, delayMillis = 400))
-                    ) {
-                        Text(
-                            text = item.title,
-                            color = Color.White,
-                            fontSize = 26.sp,
-                            fontWeight = FontWeight.Bold,
-                            lineHeight = 30.sp
-                        )
-                    }
-
-                    Spacer(modifier = Modifier.height(16.dp))
-
-                    AnimatedVisibility(
-                        visible = true,
-                        enter = slideInVertically(
-                            initialOffsetY = { it },
-                            animationSpec = tween(600, delayMillis = 600)
-                        ) + fadeIn(animationSpec = tween(600, delayMillis = 600))
-                    ) {
-                        Button(
-                            onClick = { /* Handle click */ },
-                            shape = RoundedCornerShape(25.dp),
-                            colors = ButtonDefaults.buttonColors(
-                                containerColor = Color.White.copy(alpha = 0.2f)
-                            ),
-                            border = BorderStroke(1.dp, Color.White),
-                            modifier = Modifier.height(45.dp)
-                        ) {
-                            Text(
-                                text = item.buttonText,
-                                color = Color.White,
-                                fontSize = 14.sp,
-                                fontWeight = FontWeight.Medium
-                            )
-                        }
-                    }
-                }
-            }
+            ElegantCarouselItem(item = item)
         }
 
-        // Modern dots indicator
+        // Pagination dots
         Row(
             modifier = Modifier
-                .align(Alignment.BottomEnd)
-                .padding(20.dp)
-                .background(
-                    Color.Black.copy(alpha = 0.3f),
-                    RoundedCornerShape(20.dp)
-                )
-                .padding(horizontal = 12.dp, vertical = 8.dp),
-            horizontalArrangement = Arrangement.spacedBy(6.dp)
+                .fillMaxWidth()
+                .padding(top = 16.dp),
+            horizontalArrangement = Arrangement.Center,
+            verticalAlignment = Alignment.CenterVertically
         ) {
             repeat(items.size) { index ->
                 val isSelected = index == pagerState.currentPage
                 Box(
                     modifier = Modifier
-                        .size(
-                            width = if (isSelected) 20.dp else 8.dp,
-                            height = 8.dp
-                        )
-                        .clip(RoundedCornerShape(4.dp))
+                        .size(if (isSelected) 10.dp else 8.dp)
                         .background(
-                            if (isSelected) Color.White else Color.White.copy(alpha = 0.5f)
+                            color = if (isSelected) Color(0xFF8B4513) else Color(0xFFCCCCCC),
+                            shape = CircleShape
                         )
-                        .animateContentSize(
-                            animationSpec = tween(300)
-                        )
-                        .clickable {
-                            scope.launch {
-                                pagerState.animateScrollToPage(index)
-                            }
-                        }
                 )
+                
+                // Add spacing between dots (except for the last one)
+                if (index < items.size - 1) {
+                    Spacer(modifier = Modifier.width(8.dp))
+                }
+            }
+        }
+    }
+}
+
+@Composable
+fun ElegantCarouselItem(item: CarouselItemModel) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .height(200.dp),
+        horizontalArrangement = Arrangement.spacedBy(20.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        // Left side - Smaller circular image
+        Box(
+            modifier = Modifier
+                .size(160.dp)
+        ) {
+            AsyncImage(
+                model = ImageRequest.Builder(LocalContext.current)
+                    .data(item.imageUrl)
+                    .crossfade(true)
+                    .build(),
+                contentDescription = item.title,
+                modifier = Modifier
+                    .fillMaxSize()
+                    .clip(CircleShape),
+                contentScale = ContentScale.Crop,
+                placeholder = painterResource(id = R.drawable.swipeable_img1)
+            )
+        }
+
+        // Right side - Text and button
+        Column(
+            modifier = Modifier
+                .weight(1f)
+                .fillMaxHeight()
+                .padding(vertical = 20.dp),
+            verticalArrangement = Arrangement.Center
+        ) {
+            Text(
+                text = item.title,
+                fontSize = 20.sp,
+                fontWeight = FontWeight.Bold,
+                color = Color(0xFF8B4513),
+                lineHeight = 24.sp
+            )
+            
+            Text(
+                text = item.subtitle,
+                fontSize = 20.sp,
+                fontWeight = FontWeight.Bold,
+                color = Color(0xFF8B4513),
+                lineHeight = 24.sp,
+                modifier = Modifier.padding(bottom = 16.dp)
+            )
+
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                // Dynamic button with Firebase text
+                Button(
+                    onClick = { /* Handle click */ },
+                    shape = RoundedCornerShape(20.dp),
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = Color.Transparent
+                    ),
+                    border = BorderStroke(1.dp, Color(0xFFD2B48C)),
+                    modifier = Modifier.height(40.dp)
+                ) {
+                    Text(
+                        text = item.buttonText,
+                        color = Color(0xFF8B4513),
+                        fontSize = 14.sp,
+                        fontWeight = FontWeight.Medium
+                    )
+                }
+
+                // Navigation arrow
+                IconButton(
+                    onClick = { /* Handle next */ },
+                    modifier = Modifier
+                        .size(40.dp)
+                        .background(
+                            Color(0xFF8B4513),
+                            CircleShape
+                        )
+                ) {
+                    Icon(
+                        imageVector = Icons.AutoMirrored.Filled.ArrowForward,
+                        contentDescription = "Next",
+                        tint = Color.White,
+                        modifier = Modifier.size(20.dp)
+                    )
+                }
             }
         }
     }
@@ -2050,7 +2182,7 @@ fun AnimatedProductItem(
                     Icon(
                         imageVector = if (product.isFavorite) Icons.Default.Favorite else Icons.Default.FavoriteBorder,
                         contentDescription = "Favorite",
-                        tint = if (product.isFavorite) Color(0xFFD4A968) else Color.Gray,
+                        tint = if (product.isFavorite) Color(0xFF896C6C) else Color.Gray,
                         modifier = Modifier.size(20.dp)
                     )
                 }
@@ -2104,7 +2236,7 @@ fun AnimatedProductItem(
                 Text(
                     text = formatPrice(product.price, product.currency),
                     fontSize = 13.sp,
-                    color = Color(0xFFB78628),
+                    color = Color(0xFF896C6C),
                     fontWeight = FontWeight.Normal
                 )
             }
@@ -2113,7 +2245,7 @@ fun AnimatedProductItem(
 }
 
 @Composable
-fun AnimatedThemedCollectionsSection(
+fun ThemedCollectionsSection(
     collections: List<CollectionModel>,
     onCollectionClick: (String) -> Unit
 ) {
@@ -2122,25 +2254,18 @@ fun AnimatedThemedCollectionsSection(
     Column(
         modifier = Modifier.padding(16.dp)
     ) {
-        Text(
-            text = "Themed Collections",
-            fontSize = 20.sp,  // Reduced from 24.sp
-            fontWeight = FontWeight.Normal,  // Changed from Bold
-            modifier = Modifier.fillMaxWidth(),
-            textAlign = TextAlign.Center  // Center this title too
-        )
 
-        Spacer(modifier = Modifier.height(12.dp))
+
+        Spacer(modifier = Modifier.height(16.dp))
 
         LazyRow(
             horizontalArrangement = Arrangement.spacedBy(16.dp),
             contentPadding = PaddingValues(horizontal = 0.dp)
         ) {
             itemsIndexed(collections) { index, collection ->
-                AnimatedCollectionItem(
+                CollectionItem(
                     collection = collection,
-                    onCollectionClick = onCollectionClick,
-                    index = index
+                    onCollectionClick = onCollectionClick
                 )
             }
         }
@@ -2148,105 +2273,137 @@ fun AnimatedThemedCollectionsSection(
 }
 
 @Composable
-fun AnimatedCollectionItem(
+fun CollectionItem(
     collection: CollectionModel,
-    onCollectionClick: (String) -> Unit,
-    index: Int
+    onCollectionClick: (String) -> Unit
 ) {
-    var isVisible by remember { mutableStateOf(false) }
-
-    LaunchedEffect(collection.id) {
-        delay(index * 100L) // Staggered animation
-        isVisible = true
-    }
-
-    AnimatedVisibility(
-        visible = isVisible,
-        enter = slideInHorizontally(
-            initialOffsetX = { it },
-            animationSpec = tween(600, easing = FastOutSlowInEasing)
-        ) + fadeIn(animationSpec = tween(600))
-    ) {
-        Box(
+        Card(
             modifier = Modifier
-                .width(300.dp)
-                .height(160.dp)
-                .clip(RoundedCornerShape(16.dp))
-                .clickable { onCollectionClick(collection.id) }
+                .width(320.dp)
+                .height(280.dp)
+                .clickable { onCollectionClick(collection.id) },
+            elevation = CardDefaults.cardElevation(defaultElevation = 8.dp),
+            colors = CardDefaults.cardColors(containerColor = Color(0xFFF8F1E9)) // Light beige background
         ) {
-            AsyncImage(
-                model = ImageRequest.Builder(LocalContext.current)
-                    .data(collection.imageUrl)
-                    .crossfade(true)
-                    .build(),
-                contentDescription = collection.name,
-                modifier = Modifier.fillMaxSize(),
-                contentScale = ContentScale.Crop,
-                placeholder = painterResource(id = R.drawable.collectioin_img1)
-            )
-
-            // Enhanced gradient overlay
-            Box(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .background(
-                        brush = Brush.verticalGradient(
-                            colors = listOf(
-                                Color.Transparent,
-                                Color.Black.copy(alpha = 0.3f),
-                                Color.Black.copy(alpha = 0.8f)
-                            )
-                        )
-                    )
-            )
-
             Column(
                 modifier = Modifier
-                    .align(Alignment.BottomStart)
+                    .fillMaxSize()
                     .padding(16.dp)
-                    .fillMaxWidth(0.9f)
             ) {
+                // Collection Title
                 Text(
                     text = collection.name,
-                    color = Color.White,
-                    fontSize = 20.sp,
-                    fontWeight = FontWeight.Bold
+                    fontSize = 22.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = Color(0xFF896C6C), // Dark brown color
+                    modifier = Modifier.fillMaxWidth(),
+                    textAlign = TextAlign.Center
                 )
 
-                Spacer(modifier = Modifier.height(6.dp))
+                Spacer(modifier = Modifier.height(12.dp))
 
+                // Three Images Row
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(120.dp),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    // Display up to 3 images from imageUrls, fallback to imageUrl if needed
+                    val imagesToShow = if (collection.imageUrls.isNotEmpty()) {
+                        collection.imageUrls.take(3)
+                    } else {
+                        listOf(collection.imageUrl).take(3)
+                    }
+                    
+                    // Debug logging
+                    Log.d("CollectionCard", "Collection ${collection.name}: imageUrls=${collection.imageUrls.size}, imagesToShow=${imagesToShow.size}")
+
+                    imagesToShow.forEachIndexed { imageIndex, imageUrl ->
+                        Card(
+                            modifier = Modifier
+                                .weight(1f)
+                                .height(120.dp),
+                            elevation = CardDefaults.cardElevation(defaultElevation = 4.dp),
+                            shape = RoundedCornerShape(8.dp)
+                        ) {
+                            AsyncImage(
+                                model = ImageRequest.Builder(LocalContext.current)
+                                    .data(imageUrl)
+                                    .crossfade(true)
+                                    .build(),
+                                contentDescription = "${collection.name} image ${imageIndex + 1}",
+                                modifier = Modifier.fillMaxSize(),
+                                contentScale = ContentScale.Crop,
+                                placeholder = painterResource(id = R.drawable.collectioin_img1)
+                            )
+                        }
+                    }
+
+                    // Fill remaining space if less than 3 images
+                    repeat(3 - imagesToShow.size) {
+                        Spacer(modifier = Modifier.weight(1f))
+                    }
+                }
+
+                Spacer(modifier = Modifier.height(12.dp))
+
+                // Description
                 Text(
                     text = collection.description,
-                    color = Color.White.copy(alpha = 0.9f),
-                    fontSize = 13.sp,
-                    maxLines = 2,
-                    overflow = TextOverflow.Ellipsis,
-                    lineHeight = 18.sp
+                    fontSize = 14.sp,
+                    color = Color(0xFF896C6C), // Dark brown color
+                    modifier = Modifier.fillMaxWidth(),
+                    textAlign = TextAlign.Center,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
                 )
 
-                Spacer(modifier = Modifier.height(10.dp))
+                Spacer(modifier = Modifier.height(16.dp))
 
-                Row(
-                    verticalAlignment = Alignment.CenterVertically
+                // See All Products Button
+                Button(
+                    onClick = { onCollectionClick(collection.id) },
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(44.dp),
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = Color(0xFF896C6C) // Theme color background
+                    ),
+                    shape = RoundedCornerShape(22.dp)
                 ) {
                     Text(
-                        text = "View Collection",
-                        color = Color(0xFFFFD700),
-                        fontSize = 13.sp,
+                        text = "See All Products",
+                        color = Color(0xFFF8F1E9),
+                        fontSize = 14.sp,
                         fontWeight = FontWeight.Medium
                     )
-                    Spacer(modifier = Modifier.width(4.dp))
-                    Icon(
-                        imageVector = Icons.AutoMirrored.Filled.ArrowForward,
-                        contentDescription = "Arrow",
-                        tint = Color(0xFFFFD700),
-                        modifier = Modifier.size(16.dp)
-                    )
+                }
+
+                Spacer(modifier = Modifier.height(8.dp))
+
+                // Pagination dots (simplified version)
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.Center
+                ) {
+                    repeat(3) { dotIndex ->
+                        Box(
+                            modifier = Modifier
+                                .size(8.dp)
+                                .background(
+                                    color = if (dotIndex == 0) Color(0xFF8B4513) else Color(0xFFD3D3D3),
+                                    shape = CircleShape
+                                )
+                        )
+                        if (dotIndex < 2) {
+                            Spacer(modifier = Modifier.width(8.dp))
+                        }
+                    }
                 }
             }
         }
     }
-}
 
 // SHIMMER PLACEHOLDERS
 
@@ -2290,41 +2447,7 @@ fun ShimmerCategoryPlaceholder() {
     }
 }
 
-@Composable
-fun ShimmerProductPlaceholder(modifier: Modifier = Modifier) {
-    Card(
-        modifier = modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(16.dp),
-        colors = CardDefaults.cardColors(containerColor = Color.White),
-        elevation = CardDefaults.cardElevation(defaultElevation = 6.dp)
-    ) {
-        Column {
-            Box(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(160.dp)
-                    .shimmerEffect()
-            )
-            Column(
-                modifier = Modifier.padding(12.dp)
-            ) {
-                Box(
-                    modifier = Modifier
-                        .fillMaxWidth(0.8f)
-                        .height(16.dp)
-                        .shimmerEffect()
-                )
-                Spacer(modifier = Modifier.height(8.dp))
-                Box(
-                    modifier = Modifier
-                        .fillMaxWidth(0.6f)
-                        .height(14.dp)
-                        .shimmerEffect()
-                )
-            }
-        }
-    }
-}
+
 
 @Composable
 fun ShimmerCollectionsPlaceholder() {
@@ -2368,4 +2491,429 @@ fun Modifier.shimmerEffect(): Modifier = composed {
     )
 
     background(Color.LightGray.copy(alpha = alpha))
+}
+
+
+@Composable
+fun GradientHeaderWithBangles(
+    categories: List<Category>,
+    onCategoryClick: (String) -> Unit = {}
+) {
+    var isGradientSearchActive by remember { mutableStateOf(false) }
+    var gradientSearchQuery by remember { mutableStateOf("") }
+    val focusManager = LocalFocusManager.current
+    
+    // Filter categories based on search query
+    val filteredCategories = remember(gradientSearchQuery, categories) {
+        if (gradientSearchQuery.isEmpty()) {
+            categories
+        } else {
+            categories.filter { category ->
+                category.name.contains(gradientSearchQuery, ignoreCase = true)
+            }
+        }
+    }
+    val gradientColors = listOf(
+        Color(0xFFC59E9E), // Top: C59E9E
+        Color(0xFFE5BEB5), // Middle: E5BEB5
+        Color(0xFFEEDDCA)  // Bottom: EEDDCA
+    )
+
+    Column {
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(250.dp)
+                .background(
+                    brush = Brush.verticalGradient(colors = gradientColors)
+                )
+        ) {
+            Spacer(modifier = Modifier.height(16.dp))
+            Image(
+                painter = painterResource(id = R.drawable.bangles),
+                contentDescription = "Bangles Header",
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(250.dp)
+                    .align(Alignment.BottomCenter),
+                contentScale = ContentScale.Crop
+            )
+            Column(modifier = Modifier.fillMaxWidth()) {
+                Row(modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.Center) {
+                    Spacer(modifier = Modifier.height(32.dp))
+                    Text(
+                        text="Pick the                 ",
+                        fontSize = 22.sp,
+                        color = Color(0xFF564444),
+                        fontWeight = FontWeight.SemiBold
+                    )
+                }
+                Row (modifier = Modifier.fillMaxWidth().padding(end = 48.dp),
+                    horizontalArrangement = Arrangement.End) {
+                    Text(
+                        text = buildAnnotatedString {
+                            withStyle(style = SpanStyle(fontSize = 22.sp, fontWeight = FontWeight.SemiBold)) {
+                                append("Perfect")
+                            }
+                            withStyle(style = SpanStyle(fontSize = 32.sp, fontWeight = FontWeight.ExtraBold)) {
+                                append(" Gift")
+                            }
+                            withStyle(style = SpanStyle(fontSize = 22.sp, fontWeight = FontWeight.SemiBold)) {
+                                append(" for your")
+                            }
+                        },
+                        color = Color(0xFF564444)
+                    )
+                }
+                Row(modifier = Modifier.fillMaxWidth().padding(end=24.dp),
+                    horizontalArrangement = Arrangement.End) {
+                    Text(
+                        text="loved ones",
+                        fontSize = 22.sp,
+                        color = Color(0xFF564444),
+                        fontWeight = FontWeight.SemiBold
+                    )
+                }
+            }
+        }
+        
+        // Search bar with smooth gradient transition
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(80.dp)
+                .background(
+                    brush = Brush.verticalGradient(
+                        colors = listOf(
+                            Color(0xFFEEDDCA), // Start from gradient end
+                            Color(0xFFF5F5F5), // Light transition
+                            Color.White        // End with white
+                        )
+                    )
+                )
+        ) {
+            // Search bar positioned in the center
+            Card(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(56.dp)
+                    .padding(horizontal = 16.dp)
+                    .align(Alignment.Center)
+                    .clickable { isGradientSearchActive = !isGradientSearchActive },
+                shape = RoundedCornerShape(12.dp),
+                colors = CardDefaults.cardColors(containerColor = Color.White),
+                elevation = CardDefaults.cardElevation(defaultElevation = 4.dp),
+                border = BorderStroke(1.dp, Color(0xFF564444).copy(alpha = 0.8f))
+            ) {
+                Row(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .padding(horizontal = 16.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Icon(
+                        imageVector = if (isGradientSearchActive) Icons.Default.Close else Icons.Default.Search,
+                        contentDescription = if (isGradientSearchActive) "Close Search" else "Search",
+                        tint = Color(0xFF564444),
+                        modifier = Modifier.size(20.dp)
+                    )
+
+                    if (isGradientSearchActive) {
+                        Spacer(modifier = Modifier.width(12.dp))
+                        BasicTextField(
+                            value = gradientSearchQuery,
+                            onValueChange = { gradientSearchQuery = it },
+                            modifier = Modifier.weight(1f),
+                            singleLine = true,
+                            textStyle = TextStyle(
+                                fontSize = 16.sp,
+                                color = Color(0xFF564444),
+                                fontWeight = FontWeight.Normal
+                            ),
+                            cursorBrush = SolidColor(Color(0xFF564444)),
+                            keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
+                            keyboardActions = KeyboardActions(
+                                onSearch = { focusManager.clearFocus() }
+                            ),
+                            decorationBox = { innerTextField ->
+                                if (gradientSearchQuery.isEmpty()) {
+                                    Text(
+                                        text = "Search by Category",
+                                        color = Color(0xFF564444).copy(alpha = 0.6f),
+                                        fontSize = 16.sp,
+                                        fontWeight = FontWeight.Normal
+                                    )
+                                }
+                                innerTextField()
+                            }
+                        )
+                    } else {
+                        Text(
+                            text = "Search by Category",
+                            color = Color(0xFF564444),
+                            fontSize = 16.sp,
+                            fontWeight = FontWeight.Normal,
+                            modifier = Modifier.weight(1f)
+                        )
+                    }
+                }
+            }
+        }
+        
+        // Search results section
+        AnimatedVisibility(
+            visible = isGradientSearchActive,
+            enter = slideInVertically(
+                initialOffsetY = { -it },
+                animationSpec = tween(300)
+            ) + fadeIn(animationSpec = tween(300)),
+            exit = slideOutVertically(
+                targetOffsetY = { -it },
+                animationSpec = tween(200)
+            ) + fadeOut(animationSpec = tween(200))
+        ) {
+            Surface(
+                modifier = Modifier.fillMaxWidth(),
+                color = Color.White,
+                shadowElevation = 4.dp
+            ) {
+                Column {
+                    if (gradientSearchQuery.isNotEmpty()) {
+                        LazyColumn(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .heightIn(max = 300.dp),
+                            verticalArrangement = Arrangement.spacedBy(1.dp),
+                            contentPadding = PaddingValues(vertical = 8.dp)
+                        ) {
+                            items(filteredCategories) { category ->
+                                GradientSearchItem(
+                                    category = category,
+                                    onClick = { 
+                                        onCategoryClick(category.id)
+                                        isGradientSearchActive = false
+                                        gradientSearchQuery = ""
+                                    }
+                                )
+                            }
+                            
+                            if (filteredCategories.isEmpty()) {
+                                item {
+                                    Box(
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .padding(vertical = 32.dp),
+                                        contentAlignment = Alignment.Center
+                                    ) {
+                                        Column(
+                                            horizontalAlignment = Alignment.CenterHorizontally
+                                        ) {
+                                            Icon(
+                                                imageVector = Icons.Default.Search,
+                                                contentDescription = "No results",
+                                                tint = Color.Gray.copy(alpha = 0.5f),
+                                                modifier = Modifier.size(32.dp)
+                                            )
+                                            Spacer(modifier = Modifier.height(8.dp))
+                                            Text(
+                                                text = "No categories found",
+                                                color = Color.Gray,
+                                                fontSize = 14.sp
+                                            )
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    } else {
+                        // Show empty state when search is active but no query
+//                        Box(
+//                            modifier = Modifier
+//                                .fillMaxWidth()
+//                                .padding(vertical = 32.dp),
+//                            contentAlignment = Alignment.Center
+//                        ) {
+//                            Column(
+//                                horizontalAlignment = Alignment.CenterHorizontally
+//                            ) {
+//                                Icon(
+//                                    imageVector = Icons.Default.Search,
+//                                    contentDescription = "Search",
+//                                    tint = Color.Gray.copy(alpha = 0.5f),
+//                                    modifier = Modifier.size(32.dp)
+//                                )
+//                                Spacer(modifier = Modifier.height(8.dp))
+//                                Text(
+//                                    text = "Start typing to search categories",
+//                                    color = Color.Gray,
+//                                    fontSize = 14.sp
+//                                )
+//                            }
+//                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+// Featured Products Title Composable
+@Composable
+fun FeaturedProductsTitle() {
+    Text(
+        text = "Featured Products",
+        fontSize = 20.sp,
+        fontWeight = FontWeight.SemiBold,
+        color = Color(0xFF333333),
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 16.dp, vertical = 16.dp),
+        textAlign = TextAlign.Center
+    )
+}
+
+// Featured Product Card Composable matching RecentlyViewedItem structure exactly
+@Composable
+fun FeaturedProductCard(
+    product: ProductModel,
+    onProductClick: (String) -> Unit,
+    viewModel: HomeViewModel,
+    modifier: Modifier = Modifier
+) {
+    val productId = remember(product.id) { product.id }
+    var currentImageIndex by remember(productId) { mutableIntStateOf(0) }
+
+    // Optimize image list creation
+    val imageUrls = remember(productId, product.imageUrls.size, product.imageUrl) {
+        buildList {
+            if (product.imageUrls.isNotEmpty()) {
+                addAll(product.imageUrls.filter { it.isNotBlank() })
+            }
+            if (isEmpty() && product.imageUrl.isNotBlank()) {
+                add(product.imageUrl)
+            }
+        }.distinct()
+    }
+
+    // Auto-scroll images
+    LaunchedEffect(productId, imageUrls.size) {
+        if (imageUrls.size > 1) {
+            while (true) {
+                delay(4000)
+                currentImageIndex = (currentImageIndex + 1) % imageUrls.size
+            }
+        }
+    }
+
+    LaunchedEffect(product.id) {
+        viewModel.checkWishlistStatus(product.id)
+    }
+
+    // Card matching RecentlyViewedItem structure exactly with blue background
+    Card(
+        modifier = modifier
+            .fillMaxWidth()
+            .height(220.dp)
+            .clickable { onProductClick(productId) },
+        shape = RoundedCornerShape(12.dp),
+        colors = CardDefaults.cardColors(
+            containerColor = Color(0xFFD8F6FF) // Light blue background
+        ),
+        elevation = CardDefaults.cardElevation(defaultElevation = 4.dp)
+    ) {
+        Column {
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(140.dp)
+                    .clip(RoundedCornerShape(topStart = 12.dp, topEnd = 12.dp))
+            ) {
+                if (imageUrls.isNotEmpty()) {
+                    AsyncImage(
+                        model = ImageRequest.Builder(LocalContext.current)
+                            .data(imageUrls.getOrNull(currentImageIndex))
+                            .crossfade(true)
+                            .build(),
+                        contentDescription = product.name,
+                        modifier = Modifier.fillMaxSize(),
+                        contentScale = ContentScale.Crop,
+                        placeholder = painterResource(id = R.drawable.diamondring_homescreen)
+                    )
+                }
+
+                // Favorite icon
+                IconButton(
+                    onClick = { viewModel.toggleFavorite(productId) },
+                    modifier = Modifier
+                        .align(Alignment.TopEnd)
+                        .size(28.dp)
+                        .background(
+                            Color.White.copy(alpha = 0.8f),
+                            CircleShape
+                        )
+                ) {
+                    Icon(
+                        imageVector = if (product.isFavorite) Icons.Default.Favorite else Icons.Default.FavoriteBorder,
+                        contentDescription = "Favorite",
+                        tint = if (product.isFavorite) Color(0xFF8B4513) else Color(0xFF8B4513),
+                        modifier = Modifier.size(16.dp)
+                    )
+                }
+
+                // Image dots indicator
+                if (imageUrls.size > 1) {
+                    Row(
+                        modifier = Modifier
+                            .align(Alignment.BottomCenter)
+                            .padding(6.dp)
+                            .background(
+                                Color.Black.copy(alpha = 0.5f),
+                                RoundedCornerShape(8.dp)
+                            )
+                            .padding(horizontal = 6.dp, vertical = 3.dp),
+                        horizontalArrangement = Arrangement.spacedBy(3.dp)
+                    ) {
+                        repeat(imageUrls.size) { index ->
+                            Box(
+                                modifier = Modifier
+                                    .size(
+                                        width = if (index == currentImageIndex) 8.dp else 4.dp,
+                                        height = 4.dp
+                                    )
+                                    .clip(RoundedCornerShape(2.dp))
+                                    .background(
+                                        if (index == currentImageIndex)
+                                            Color.White else Color.White.copy(alpha = 0.4f)
+                                    )
+                            )
+                        }
+                    }
+                }
+            }
+
+            Column(
+                modifier = Modifier.padding(8.dp)
+            ) {
+                Text(
+                    text = product.name,
+                    fontSize = 12.sp,
+                    fontWeight = FontWeight.Medium,
+                    maxLines = 2,
+                    overflow = TextOverflow.Ellipsis,
+                    modifier = Modifier.height(32.dp),
+                    color = Color(0xFF8B4513)
+                )
+
+                Spacer(modifier = Modifier.height(4.dp))
+
+                Text(
+                    text = formatPrice(product.price, product.currency),
+                    fontSize = 13.sp,
+                    color = Color(0xFF8B4513),
+                    fontWeight = FontWeight.Bold
+                )
+            }
+        }
+    }
 }

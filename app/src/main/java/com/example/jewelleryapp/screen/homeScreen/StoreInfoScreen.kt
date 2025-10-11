@@ -97,7 +97,7 @@ fun StoreInfoScreen(
                     modifier = Modifier.fillMaxSize(),
                     contentAlignment = Alignment.Center
                 ) {
-                    CircularProgressIndicator(color = Color(0xFFB78628))
+                    CircularProgressIndicator(color = Color(0xFF896C6C))
                 }
             }
             error != null -> {
@@ -180,7 +180,7 @@ private fun StoreDetailsCard(storeInfo: StoreInfo, onGetDirectionsClick: () -> U
                 text = storeInfo.name,
                 fontSize = 24.sp,
                 fontWeight = FontWeight.Bold,
-                color = Color(0xFFB78628)
+                color = Color(0xFF896C6C)
             )
 
             if (storeInfo.establishedYear.isNotEmpty()) {
@@ -200,7 +200,7 @@ private fun StoreDetailsCard(storeInfo: StoreInfo, onGetDirectionsClick: () -> U
             Button(
                 onClick = onGetDirectionsClick,
                 modifier = Modifier.fillMaxWidth(),
-                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFB78628)),
+                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF896C6C)),
                 shape = RoundedCornerShape(8.dp)
             ) {
                 Icon(
@@ -341,7 +341,7 @@ private fun StoreHoursCard(storeInfo: StoreInfo, todayHours: String?) {
                     Icon(
                         imageVector = Icons.Default.AccessTime,
                         contentDescription = "Store Hours",
-                        tint = Color(0xFFB78628),
+                        tint = Color(0xFF896C6C),
                         modifier = Modifier.size(24.dp)
                     )
                     Spacer(modifier = Modifier.width(8.dp))
@@ -364,7 +364,7 @@ private fun StoreHoursCard(storeInfo: StoreInfo, todayHours: String?) {
             Card(
                 modifier = Modifier.fillMaxWidth(),
                 colors = CardDefaults.cardColors(
-                    containerColor = Color(0xFFB78628).copy(alpha = 0.1f)
+                    containerColor = Color(0xFF896C6C).copy(alpha = 0.1f)
                 ),
                 shape = RoundedCornerShape(12.dp)
             ) {
@@ -385,7 +385,7 @@ private fun StoreHoursCard(storeInfo: StoreInfo, todayHours: String?) {
                             text = SimpleDateFormat("h:mm a", Locale.getDefault()).format(currentTime.time),
                             fontSize = 18.sp,
                             fontWeight = FontWeight.Bold,
-                            color = Color(0xFFB78628)
+                            color = Color(0xFF896C6C)
                         )
                     }
 
@@ -470,7 +470,7 @@ private fun StoreHoursCard(storeInfo: StoreInfo, todayHours: String?) {
                     Card(
                         modifier = Modifier.fillMaxWidth(),
                         colors = CardDefaults.cardColors(
-                            containerColor = if (isToday) Color(0xFFB78628).copy(alpha = 0.05f)
+                            containerColor = if (isToday) Color(0xFF896C6C).copy(alpha = 0.05f)
                             else Color.Transparent
                         ),
                         elevation = if (isToday) CardDefaults.cardElevation(defaultElevation = 2.dp)
@@ -490,21 +490,21 @@ private fun StoreHoursCard(storeInfo: StoreInfo, todayHours: String?) {
                                     Box(
                                         modifier = Modifier
                                             .size(8.dp)
-                                            .background(Color(0xFFB78628), CircleShape)
+                                            .background(Color(0xFF896C6C), CircleShape)
                                     )
                                     Spacer(modifier = Modifier.width(8.dp))
                                 }
                                 Text(
                                     text = dayName,
                                     fontWeight = if (isToday) FontWeight.Bold else FontWeight.Normal,
-                                    color = if (isToday) Color(0xFFB78628) else Color.Black,
+                                    color = if (isToday) Color(0xFF896C6C) else Color.Black,
                                     fontSize = if (isToday) 16.sp else 15.sp
                                 )
                             }
                             Text(
                                 text = hours,
                                 fontWeight = if (isToday) FontWeight.Bold else FontWeight.Normal,
-                                color = if (isToday) Color(0xFFB78628) else Color.Gray,
+                                color = if (isToday) Color(0xFF896C6C) else Color.Gray,
                                 fontSize = if (isToday) 16.sp else 15.sp
                             )
                         }
@@ -592,7 +592,7 @@ private fun LiveClockIndicator() {
 
         // Clock circle
         drawCircle(
-            color = Color(0xFFB78628),
+            color = Color(0xFF896C6C),
             radius = radius,
             center = center,
             style = Stroke(width = 2.dp.toPx())
@@ -600,7 +600,7 @@ private fun LiveClockIndicator() {
 
         // Hour hand (rotates slowly)
         drawLine(
-            color = Color(0xFFB78628),
+            color = Color(0xFF896C6C),
             start = center,
             end = center.copy(
                 x = center.x + (radius * 0.5f * kotlin.math.cos(Math.toRadians((rotation / 12).toDouble())).toFloat()),
@@ -611,7 +611,7 @@ private fun LiveClockIndicator() {
 
         // Minute hand (rotates faster)
         drawLine(
-            color = Color(0xFFB78628),
+            color = Color(0xFF896C6C),
             start = center,
             end = center.copy(
                 x = center.x + (radius * 0.7f * kotlin.math.cos(Math.toRadians(rotation.toDouble())).toFloat()),
@@ -622,7 +622,7 @@ private fun LiveClockIndicator() {
 
         // Center dot
         drawCircle(
-            color = Color(0xFFB78628),
+            color = Color(0xFF896C6C),
             radius = 3.dp.toPx(),
             center = center
         )
@@ -734,7 +734,7 @@ private fun InfoRow(
         Icon(
             imageVector = icon,
             contentDescription = label,
-            tint = Color(0xFFB78628),
+            tint = Color(0xFF896C6C),
             modifier = Modifier.size(20.dp)
         )
         Column {

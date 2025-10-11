@@ -153,7 +153,7 @@ fun AllProductsScreen(
                         modifier = Modifier.fillMaxSize(),
                         contentAlignment = Alignment.Center
                     ) {
-                        CircularProgressIndicator(color = Color(0xFFB78628))
+                        CircularProgressIndicator(color = Color(0xFF896C6C))
                     }
                 }
                 state.error != null -> {
@@ -202,7 +202,7 @@ fun AllProductsScreen(
                                     contentAlignment = Alignment.Center
                                 ) {
                                     CircularProgressIndicator(
-                                        color = Color(0xFFB78628),
+                                        color = Color(0xFF896C6C),
                                         modifier = Modifier.size(24.dp)
                                     )
                                 }
@@ -235,7 +235,7 @@ private fun AllProductsTopBar(
     onSearchQueryChange: (String) -> Unit
 ) {
     val focusManager = LocalFocusManager.current
-    val goldColor = Color(0xFFB78628)
+    val goldColor = Color(0xFF896C6C)
 
     TopAppBar(
         title = {
@@ -329,7 +329,7 @@ private fun CategoryFilterButton(
     Box(
         modifier = Modifier
             .clip(RoundedCornerShape(20.dp))
-            .background(if (isSelected) Color(0xFFB78628) else Color(0xFFF5F5F5))
+            .background(if (isSelected) Color(0xFF896C6C) else Color(0xFFF5F5F5))
             .clickable { onClick() }
             .padding(horizontal = 16.dp, vertical = 8.dp),
         contentAlignment = Alignment.Center
@@ -387,7 +387,7 @@ private fun FilterSortBar(
             onClick = onFilterSortClick,
             modifier = Modifier.height(36.dp),
             colors = ButtonDefaults.outlinedButtonColors(
-                contentColor = Color(0xFFB78628)
+                contentColor = Color(0xFF896C6C)
             )
         ) {
             Icon(
@@ -411,7 +411,7 @@ private fun FilterChip(
 ) {
     androidx.compose.material3.Surface(
         shape = RoundedCornerShape(16.dp),
-        color = Color(0xFFB78628).copy(alpha = 0.1f),
+        color = Color(0xFF896C6C).copy(alpha = 0.1f),
         modifier = Modifier.height(32.dp)
     ) {
         Row(
@@ -421,7 +421,7 @@ private fun FilterChip(
             Text(
                 text = text,
                 fontSize = 12.sp,
-                color = Color(0xFFB78628)
+                color = Color(0xFF896C6C)
             )
         }
     }
@@ -468,7 +468,7 @@ private fun ProductCard(
                     Icon(
                         imageVector = if (product.isFavorite) Icons.Default.Favorite else Icons.Default.FavoriteBorder,
                         contentDescription = if (product.isFavorite) "Remove from Wishlist" else "Add to Wishlist",
-                        tint = if (product.isFavorite) Color(0xFFD4A968) else Color(0xFFD4A968),
+                        tint = if (product.isFavorite) Color(0xFF896C6C) else Color(0xFF896C6C),
                         modifier = Modifier.size(20.dp)
                     )
                 }
@@ -490,7 +490,7 @@ private fun ProductCard(
                 Text(
                     text = formatPrice(product.price, product.currency),
                     fontSize = 14.sp,
-                    color = Color(0xFFB78628),
+                    color = Color(0xFF896C6C),
                     fontWeight = FontWeight.Bold
                 )
             }
@@ -521,7 +521,7 @@ private fun ErrorView(
             Button(
                 onClick = onRetry,
                 colors = ButtonDefaults.buttonColors(
-                    containerColor = Color(0xFFB78628)
+                    containerColor = Color(0xFF896C6C)
                 )
             ) {
                 Text("Try Again")

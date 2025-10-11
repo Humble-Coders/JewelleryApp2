@@ -20,11 +20,13 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.input.VisualTransformation
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.navigation.NavController
@@ -34,7 +36,10 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 
 
-val GoldenShade = Color(0xFFB8A164)
+// Updated theme colors
+val ThemeColor = Color(0xFF896C6C)
+val NavyBlue = Color(0xFF0E1A3D)
+val Gold = Color(0xFFE4BE67)
 @Composable
 fun LoginScreen(viewModel: LoginViewModel,
                 navController: NavController,
@@ -51,7 +56,7 @@ fun LoginScreen(viewModel: LoginViewModel,
     LaunchedEffect(Unit) {
         if (viewModel.isUserLoggedIn()) {
             navController.navigate("home") {
-                popUpTo("login") { inclusive = true }
+                popUpTo("welcome") { inclusive = true }
             }
         }
     }
@@ -62,7 +67,7 @@ fun LoginScreen(viewModel: LoginViewModel,
         when (loginState) {
             is LoginState.Success -> {
                 navController.navigate("home") {
-                    popUpTo("login") { inclusive = true }
+                    popUpTo("welcome") { inclusive = true }
                 }
                 viewModel.resetState()
             }
@@ -151,14 +156,7 @@ fun LoginScreen(viewModel: LoginViewModel,
                 }
             )
 
-            Spacer(modifier = Modifier.padding(22.dp))
 
-            SignUpPrompt(
-                onSignUpClick = {
-                    // Navigate to sign up screen
-                    navController.navigate("register")
-                }
-            )
         }
     }
 }
@@ -170,15 +168,33 @@ fun BrandHeader() {
     Image(
         painter = painterResource(id = R.drawable.crown),
         contentDescription = "Crown Logo",
-        modifier = Modifier.size(80.dp)
+        modifier = Modifier.size(60.dp)
+    )
+
+    Spacer(modifier = Modifier.height(8.dp))
+    
+    // GAGAN - Bodoni/Didot style (high-contrast serif)
+    Text(
+        text = "GAGAN",
+        fontSize = 32.sp,
+        fontWeight = FontWeight.Bold,
+        fontFamily = FontFamily.Serif,
+        color = NavyBlue,
+        letterSpacing = 1.sp,
+        textAlign = TextAlign.Center
     )
 
     Spacer(modifier = Modifier.height(4.dp))
+
+    // JEWELLERS - Futura Light style (thin, spaced sans-serif)
     Text(
-        text = "Gagan Jewellers",
-        fontSize = 35.sp,
-        fontWeight = FontWeight.SemiBold,
-        color = GoldenShade
+        text = "JEWELLERS",
+        fontSize = 14.sp,
+        fontWeight = FontWeight.Light,
+        fontFamily = FontFamily.SansSerif,
+        color = Gold,
+        letterSpacing = 8.sp,
+        textAlign = TextAlign.Center
     )
 }
 
@@ -188,14 +204,14 @@ private fun WelcomeSection() {
         text = "Welcome Back",
         fontSize = 33.sp,
         fontWeight = FontWeight.Medium,
-        color = Color.Black
+        color = ThemeColor
     )
     Spacer(modifier = Modifier.padding(8.dp))
 
     Text(
         text = "Please sign in to continue",
         fontSize = 16.sp,
-        color = Color.Gray,
+        color = ThemeColor,
         modifier = Modifier.padding(bottom = 24.dp)
     )
 }
@@ -203,12 +219,12 @@ private fun WelcomeSection() {
 @Composable
 private fun EmailInput(email: String, onEmailChange: (String) -> Unit) {
     Column(modifier = Modifier.fillMaxWidth()) {
-        Text("Email or Phone Number", fontSize = 14.sp, color = Color.Black)
+        Text("Email or Phone Number", fontSize = 14.sp, color = ThemeColor)
 
         OutlinedTextField(
             value = email,
             onValueChange = onEmailChange,
-            placeholder = { Text("Enter your email or phone") },
+            placeholder = { Text("Enter your email or phone", color = ThemeColor) },
             singleLine = true,
             modifier = Modifier.fillMaxWidth(),
             keyboardOptions = KeyboardOptions(
@@ -231,12 +247,12 @@ private fun PasswordInput(
 
 ) {
     Column(modifier = Modifier.fillMaxWidth()) {
-        Text("Password", fontSize = 14.sp, color = Color.Black)
+        Text("Password", fontSize = 14.sp, color = ThemeColor)
 
         OutlinedTextField(
             value = password,
             onValueChange = onPasswordChange,
-            placeholder = { Text("Enter your password") },
+            placeholder = { Text("Enter your password", color = ThemeColor) },
             singleLine = true,
             visualTransformation = if (isPasswordVisible) VisualTransformation.None else PasswordVisualTransformation(),
             keyboardOptions = KeyboardOptions(
@@ -262,7 +278,7 @@ private fun PasswordInput(
             Text(
                 text = "Forgot Password?",
                 fontSize = 12.sp,
-                color = Color(0xFFC4A661), // Gold color
+                color = ThemeColor, // Theme color
                 modifier = Modifier.clickable(onClick = onForgotPasswordClick)
             )
         }
@@ -291,7 +307,7 @@ private fun SignInButton(isLoading: Boolean, onClick: () -> Unit) {
             .fillMaxWidth()
             .height(56.dp),
         colors = ButtonDefaults.buttonColors(
-            backgroundColor = GoldenShade
+            backgroundColor = ThemeColor
         ),
         shape = RoundedCornerShape(8.dp),
         enabled = !isLoading
@@ -324,9 +340,9 @@ private fun AlternativeSignInOptions(
         verticalAlignment = Alignment.CenterVertically,
         modifier = Modifier.fillMaxWidth()
     ) {
-        Divider(modifier = Modifier.weight(1f), color = Color.LightGray)
-        Text("Or continue with", fontSize = 14.sp, color = Color.Gray, modifier = Modifier.padding(horizontal = 8.dp))
-        Divider(modifier = Modifier.weight(1f), color = Color.LightGray)
+        Divider(modifier = Modifier.weight(1f), color = ThemeColor.copy(alpha = 0.3f))
+        Text("Or continue with", fontSize = 14.sp, color = ThemeColor, modifier = Modifier.padding(horizontal = 8.dp))
+        Divider(modifier = Modifier.weight(1f), color = ThemeColor.copy(alpha = 0.3f))
     }
 
     Spacer(modifier = Modifier.height(29.dp))
@@ -348,12 +364,12 @@ private fun AlternativeSignInOptions(
             // Show loading indicator specifically for Google Sign-In
             if (isGoogleLoading) {
                 CircularProgressIndicator(
-                    color = Color(0xFFC4A661), // Match your golden theme
+                    color = ThemeColor, // Match new theme color
                     modifier = Modifier.size(20.dp),
                     strokeWidth = 2.dp
                 )
                 Spacer(modifier = Modifier.width(8.dp))
-                Text("Signing in...", color = Color.Gray, fontSize = 16.sp)
+                Text("Signing in...", color = ThemeColor, fontSize = 16.sp)
             } else {
                 Image(
                     painter = painterResource(id = R.drawable.google_icon),
@@ -361,7 +377,7 @@ private fun AlternativeSignInOptions(
                     modifier = Modifier.size(24.dp)
                 )
                 Spacer(modifier = Modifier.width(8.dp))
-                Text("Continue with Google", color = Color.Black, fontSize = 16.sp)
+                Text("Continue with Google", color = ThemeColor, fontSize = 16.sp)
             }
         }
     }
@@ -379,7 +395,7 @@ private fun SignUpPrompt(onSignUpClick: () -> Unit) {
             text = "Sign Up",
             fontSize = 14.sp,
             fontWeight = FontWeight.W600,
-            color = Color(0xFFC4A661),
+            color = ThemeColor,
             modifier = Modifier.clickable(onClick = onSignUpClick)
         )
     }
@@ -387,6 +403,11 @@ private fun SignUpPrompt(onSignUpClick: () -> Unit) {
 
 @Composable
 private fun getTextFieldColors() = TextFieldDefaults.outlinedTextFieldColors(
-    focusedBorderColor = Color(0xFFC4A661),
-    unfocusedBorderColor = Color.LightGray
+    focusedBorderColor = ThemeColor,
+    unfocusedBorderColor = ThemeColor.copy(alpha = 0.5f),
+    textColor = ThemeColor,
+    cursorColor = ThemeColor,
+    placeholderColor = ThemeColor.copy(alpha = 0.7f),
+    focusedLabelColor = ThemeColor,
+    unfocusedLabelColor = ThemeColor.copy(alpha = 0.7f)
 )

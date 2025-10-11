@@ -32,6 +32,7 @@ data class Collection(
     val id: String,
     val name: String,
     val imageUrl: String,
+    val imageUrls: List<String> = emptyList(),
     val description: String = ""
 )
 

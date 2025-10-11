@@ -128,7 +128,7 @@ fun RatesDialog(
                                     Surface(
                                         modifier = Modifier.size(48.dp),
                                         shape = CircleShape,
-                                        color = Color(0xFFB78628).copy(alpha = 0.1f)
+                                        color = Color(0xFF896C6C).copy(alpha = 0.1f)
                                     ) {
                                         Box(
                                             contentAlignment = Alignment.Center
@@ -136,7 +136,7 @@ fun RatesDialog(
                                             Icon(
                                                 imageVector = Icons.Outlined.AttachMoney,
                                                 contentDescription = "Rates",
-                                                tint = Color(0xFFB78628),
+                                                tint = Color(0xFF896C6C),
                                                 modifier = Modifier.size(24.dp)
                                             )
                                         }
@@ -147,7 +147,7 @@ fun RatesDialog(
                                             text = "Today's Rates",
                                             fontSize = 22.sp,
                                             fontWeight = FontWeight.Bold,
-                                            color = Color(0xFFB78628)
+                                            color = Color(0xFF896C6C)
                                         )
                                         Text(
                                             text = "Live precious metal prices",
@@ -193,7 +193,7 @@ fun RatesDialog(
                                     rate = rates.goldRatePerGram,
                                     currency = rates.currency,
                                     changePercentage = rates.rateChangePercentage["gold"] ?: "0%",
-                                    cardColor = Color(0xFFFFD700),
+                                    cardColor = Color(0xFF896C6C),
                                     delay = 100L
                                 )
 
@@ -445,14 +445,14 @@ private fun ModernLoadingState() {
                 modifier = Modifier
                     .size(60.dp)
                     .rotate(rotationAngle),
-                color = Color(0xFFB78628),
+                color = Color(0xFF896C6C),
                 strokeWidth = 3.dp
             )
             CircularProgressIndicator(
                 modifier = Modifier
                     .size(40.dp)
                     .rotate(-rotationAngle),
-                color = Color(0xFFFFD700),
+                color = Color(0xFF896C6C),
                 strokeWidth = 2.dp
             )
         }
@@ -521,7 +521,7 @@ fun RatesDrawerItem(
             .padding(horizontal = 16.dp, vertical = 8.dp)
             .clickable { onClick() },
         shape = RoundedCornerShape(12.dp),
-        colors = CardDefaults.cardColors(containerColor = Color(0xFFB78628).copy(alpha = 0.1f)),
+        colors = CardDefaults.cardColors(containerColor = Color(0xFF896C6C).copy(alpha = 0.1f)),
         elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
     ) {
         Column(
@@ -538,7 +538,7 @@ fun RatesDrawerItem(
                     Icon(
                         imageVector = Icons.Outlined.AttachMoney,
                         contentDescription = "Rates",
-                        tint = Color(0xFFB78628),
+                        tint = Color(0xFF896C6C),
                         modifier = Modifier.size(20.dp)
                     )
                     Spacer(modifier = Modifier.width(8.dp))
@@ -552,7 +552,7 @@ fun RatesDrawerItem(
                 Icon(
                     imageVector = Icons.Outlined.ChevronRight,
                     contentDescription = "View Details",
-                    tint = Color(0xFFB78628),
+                    tint = Color(0xFF896C6C),
                     modifier = Modifier.size(16.dp)
                 )
             }
@@ -565,7 +565,7 @@ fun RatesDrawerItem(
                     horizontalArrangement = Arrangement.Center
                 ) {
                     CircularProgressIndicator(
-                        color = Color(0xFFB78628),
+                        color = Color(0xFF896C6C),
                         modifier = Modifier.size(20.dp),
                         strokeWidth = 2.dp
                     )
@@ -585,7 +585,7 @@ fun RatesDrawerItem(
                             Box(
                                 modifier = Modifier
                                     .size(8.dp)
-                                    .background(Color(0xFFFFD700), CircleShape)
+                                    .background(Color(0xFF896C6C), CircleShape)
                             )
                             Spacer(modifier = Modifier.width(6.dp))
                             Text(

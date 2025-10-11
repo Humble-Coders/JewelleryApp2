@@ -45,6 +45,7 @@ import com.example.jewelleryapp.screen.registerScreen.RegisterViewModel
 import com.example.jewelleryapp.screen.homeScreen.StoreInfoViewModel
 import com.example.jewelleryapp.screen.wishlist.WishlistScreen
 import com.example.jewelleryapp.screen.wishlist.WishlistViewModel
+import com.example.jewelleryapp.screen.welcomeScreen.WelcomeScreen
 import com.example.jewelleryapp.ui.theme.JewelleryAppTheme
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.FirebaseFirestore
@@ -54,6 +55,7 @@ import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
 import com.example.jewelleryapp.screen.allProducts.AllProductsScreen
 import com.example.jewelleryapp.screen.homeScreen.StoreInfoScreen
+import com.example.jewelleryapp.utils.VideoCacheManager
 
 class MainActivity : ComponentActivity() {
     private val NOTIFICATION_PERMISSION_REQUEST_CODE = 1001
@@ -159,7 +161,8 @@ class MainActivity : ComponentActivity() {
         allProductsViewModel = AllProductsViewModel(jewelryRepository)
         drawerViewModel = DrawerViewModel(jewelryRepository)
 
-
+        // Start background video preloading
+        startBackgroundVideoPreloading(jewelryRepository)
 
         enableEdgeToEdge()
         requestNotificationPermission()
@@ -208,6 +211,33 @@ class MainActivity : ComponentActivity() {
         super.onStop()
         // Remove auth state listener when activity stops
         firebaseAuth.removeAuthStateListener(authStateListener)
+    }
+
+    override fun onDestroy() {
+        super.onDestroy()
+        // Clean up video cache resources
+        VideoCacheManager.releasePreloadPlayer()
+    }
+
+    /**
+     * Start background video preloading for smooth playback
+     */
+    private fun startBackgroundVideoPreloading(repository: JewelryRepository) {
+        val activityContext = this
+        // Use a background thread to preload video data
+        Thread {
+            try {
+                Log.d("MainActivity", "Starting background video preloading...")
+
+                // Initialize video cache
+                VideoCacheManager.initializeCache(activityContext)
+
+                Log.d("MainActivity", "Background video preloading initiated")
+
+            } catch (e: Exception) {
+                Log.e("MainActivity", "Error in background video preloading", e)
+            }
+        }.start()
     }
 
     // Add these methods at the end of your MainActivity class
@@ -313,10 +343,15 @@ fun AppNavigation(
     val startDestination = if (FirebaseAuth.getInstance().currentUser != null) {
         "home"
     } else {
-        "login"
+        "welcome"
     }
 
     NavHost(navController = navController, startDestination = startDestination) {
+        // Welcome Screen
+        composable("welcome") {
+            WelcomeScreen(navController = navController)
+        }
+        
         // Login Screen
         composable("login") {
             LoginScreen(loginViewModel, navController,googleSignInLauncher = googleSignInLauncher)
@@ -333,14 +368,14 @@ fun AppNavigation(
                 viewModel = profileViewModel, // Use existing instance
                 navController = navController,
                 onSignOut = {
-                    // Navigate to login and clear back stack
-                    navController.navigate("login") {
+                    // Navigate to welcome and clear back stack
+                    navController.navigate("welcome") {
                         popUpTo(0) { inclusive = true }
                     }
                 },
                 onAccountDeleted = {
-                    // Navigate to login and clear back stack
-                    navController.navigate("login") {
+                    // Navigate to welcome and clear back stack
+                    navController.navigate("welcome") {
                         popUpTo(0) { inclusive = true }
                     }
                 }
@@ -427,7 +462,7 @@ fun AppNavigation(
                 onLogout = {
                     // Use ProfileViewModel's signOut method
                     profileViewModel.signOut()
-                    navController.navigate("login") {
+                    navController.navigate("welcome") {
                         popUpTo(0) { inclusive = true }
                     }
                 },
@@ -593,5 +628,5 @@ private fun handleDeepLink(uri: Uri, navController: NavController) {
             }
         }
     }
-}
 
+}

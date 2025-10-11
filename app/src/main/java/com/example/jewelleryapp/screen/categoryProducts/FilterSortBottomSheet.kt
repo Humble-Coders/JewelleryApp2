@@ -109,7 +109,7 @@ fun FilterSortBottomSheet(
                     },
                     modifier = Modifier.weight(1f),
                     colors = ButtonDefaults.outlinedButtonColors(
-                        contentColor = Color(0xFFB78628)
+                        contentColor = Color(0xFF896C6C)
                     )
                 ) {
                     Text("Clear All")
@@ -123,7 +123,7 @@ fun FilterSortBottomSheet(
                     },
                     modifier = Modifier.weight(1f),
                     colors = ButtonDefaults.buttonColors(
-                        containerColor = Color(0xFFB78628)
+                        containerColor = Color(0xFF896C6C)
                     )
                 ) {
                     Text("Apply")
@@ -144,7 +144,7 @@ private fun MaterialFilterChip(
     Surface(
         modifier = Modifier.clickable { onClick() },
         shape = RoundedCornerShape(20.dp),
-        color = if (isSelected) Color(0xFFB78628) else Color(0xFFF5F5F5)
+        color = if (isSelected) Color(0xFF896C6C) else Color(0xFFF5F5F5)
     ) {
         Text(
             text = text,
@@ -173,7 +173,7 @@ private fun SortOptionRow(
             selected = isSelected,
             onClick = onClick,
             colors = RadioButtonDefaults.colors(
-                selectedColor = Color(0xFFB78628)
+                selectedColor = Color(0xFF896C6C)
             )
         )
         Spacer(modifier = Modifier.width(12.dp))

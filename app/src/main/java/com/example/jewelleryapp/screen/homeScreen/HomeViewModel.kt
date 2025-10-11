@@ -20,6 +20,7 @@ import android.content.Context
 import android.content.Intent
 import android.net.Uri
 import com.example.jewelleryapp.model.GoldSilverRates
+import com.example.jewelleryapp.model.Video
 import kotlinx.coroutines.delay
 
 class HomeViewModel(private val repository: JewelryRepository) : ViewModel() {
@@ -68,6 +69,16 @@ class HomeViewModel(private val repository: JewelryRepository) : ViewModel() {
 
     private val _isRecentlyViewedLoading = MutableStateFlow(false)
     val isRecentlyViewedLoading: StateFlow<Boolean> = _isRecentlyViewedLoading.asStateFlow()
+
+    // Video state
+    private val _video = MutableStateFlow<Video?>(null)
+    val video: StateFlow<Video?> = _video.asStateFlow()
+
+    private val _isVideoLoading = MutableStateFlow(false)
+    val isVideoLoading: StateFlow<Boolean> = _isVideoLoading.asStateFlow()
+
+    private val _isVideoPreloaded = MutableStateFlow(false)
+    val isVideoPreloaded: StateFlow<Boolean> = _isVideoPreloaded.asStateFlow()
 
     // Initialize by loading all data
     init {
@@ -182,6 +193,9 @@ class HomeViewModel(private val repository: JewelryRepository) : ViewModel() {
 
                 // Load recently viewed products separately with delay to ensure user auth is ready
                 loadRecentlyViewedWithDelay()
+
+                // Load video data
+                loadVideo()
 
                 if (errors.isNotEmpty()) {
                     if (_categories.value.isEmpty() &&
@@ -436,5 +450,57 @@ class HomeViewModel(private val repository: JewelryRepository) : ViewModel() {
                 Log.e(tag, "Error toggling favorite for recently viewed product $productId", e)
             }
         }
+    }
+
+    /**
+     * Load video data from Firebase
+     */
+    private fun loadVideo() {
+        viewModelScope.launch {
+            try {
+                Log.d(tag, "Starting to load video from Firebase")
+                _isVideoLoading.value = true
+                repository.getVideo().collect { video ->
+                    Log.d(tag, "Received video from repository: $video")
+                    _video.value = video
+                    if (video != null && video.isActive) {
+                        Log.d(tag, "Video is active, starting preload for URL: ${video.videoUrl}")
+                        // Start preloading video in background
+                        preloadVideo(video.videoUrl)
+                    } else {
+                        Log.d(tag, "Video is null or inactive")
+                    }
+                    _isVideoLoading.value = false
+                }
+            } catch (e: Exception) {
+                Log.e(tag, "Error loading video", e)
+                _video.value = null
+                _isVideoLoading.value = false
+            }
+        }
+    }
+
+    /**
+     * Preload video for smooth playback
+     */
+    private fun preloadVideo(videoUrl: String) {
+        viewModelScope.launch {
+            try {
+                Log.d(tag, "Starting video preload for: $videoUrl")
+                val success = repository.preloadVideo(videoUrl)
+                _isVideoPreloaded.value = success
+                Log.d(tag, "Video preload completed: $success")
+            } catch (e: Exception) {
+                Log.e(tag, "Error preloading video", e)
+                _isVideoPreloaded.value = false
+            }
+        }
+    }
+
+    /**
+     * Refresh video data
+     */
+    fun refreshVideo() {
+        loadVideo()
     }
 }

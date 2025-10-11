@@ -77,14 +77,13 @@ import coil.compose.AsyncImage
 import com.example.jewelleryapp.R
 import com.example.jewelleryapp.model.Product
 import com.example.jewelleryapp.screen.homeScreen.BottomNavigationBar
-import com.example.jewelleryapp.screen.loginScreen.GoldenShade
 import java.util.Locale
 
 // Enhanced color palette with gradients
-private val PrimaryGold = Color(0xFFD4AF37)
-private val SecondaryGold = Color(0xFFF4E4BC)
-private val AccentGold = Color(0xFFB8860B)
-private val DeepGold = Color(0xFF8B7355)
+private val PrimaryGold = Color(0xFF896C6C)
+private val SecondaryGold = Color(0xFFEEDDCA)
+private val AccentGold = Color(0xFF896C6C)
+private val DeepGold = Color(0xFF896C6C)
 private val TextPrimary = Color(0xFF1F2937)
 private val TextSecondary = Color(0xFF6B7280)
 private val TextMuted = Color(0xFF9CA3AF)
@@ -584,7 +583,7 @@ private fun EnhancedProductTopAppBar(
                 Icon(
                     if (isWishlisted) Icons.Default.Favorite else Icons.Default.FavoriteBorder,
                     contentDescription = "Wishlist",
-                    tint = if (isWishlisted) GoldenShade else TextPrimary
+                    tint = if (isWishlisted) Color(0xFF896C6C) else TextPrimary
                 )
             }
             Spacer(modifier = Modifier.width(8.dp))
@@ -633,7 +632,7 @@ private fun EnhancedWishlistButton(
         Icon(
             imageVector = if (isWishlisted) Icons.Default.Favorite else Icons.Default.FavoriteBorder,
             contentDescription = null,
-            tint = if (isWishlisted) GoldenShade else PrimaryGold,
+            tint = if (isWishlisted) Color(0xFF896C6C) else PrimaryGold,
             modifier = Modifier.size(24.dp)
         )
     }

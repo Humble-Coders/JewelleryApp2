@@ -26,17 +26,22 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.input.VisualTransformation
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.navigation.NavController
 import com.example.jewelleryapp.R
-import com.example.jewelleryapp.screen.loginScreen.BrandHeader
-import com.example.jewelleryapp.screen.loginScreen.GoldenShade
+
+// Updated theme colors
+val ThemeColor = Color(0xFF896C6C)
+val NavyBlue = Color(0xFF0E1A3D)
+val Gold = Color(0xFFE4BE67)
 
 @Composable
 fun RegisterScreen(viewModel: RegisterViewModel
@@ -71,7 +76,7 @@ fun RegisterScreen(viewModel: RegisterViewModel
             is RegisterState.Success -> {
                 Log.d("RegisterScreen", "Navigation to home from register")
                 navController.navigate("home") {
-                    popUpTo("login") { inclusive = true }
+                    popUpTo("welcome") { inclusive = true }
                 }
                 viewModel.resetState()
             }
@@ -150,7 +155,7 @@ fun RegisterScreen(viewModel: RegisterViewModel
                     Text(
                         text = "Phone Number (Optional)",
                         fontSize = 14.sp,
-                        color = Color.Black,
+                        color = ThemeColor,
                         modifier = Modifier.padding(bottom = 8.dp)
                     )
 
@@ -165,7 +170,7 @@ fun RegisterScreen(viewModel: RegisterViewModel
                                 null
                             }
                         },
-                        placeholder = { Text("Enter your phone number") },
+                        placeholder = { Text("Enter your phone number", color = ThemeColor) },
                         singleLine = true,
                         modifier = Modifier
                             .fillMaxWidth()
@@ -314,18 +319,55 @@ private fun isValidPhone(phone: String): Boolean {
     return phone.length >= 10 && phone.all { it.isDigit() || it == '+' || it == ' ' || it == '-' || it == '(' || it == ')' }
 }
 @Composable
+fun BrandHeader() {
+    Spacer(modifier = Modifier.height(60.dp))
+
+    Image(
+        painter = painterResource(id = R.drawable.crown),
+        contentDescription = "Crown Logo",
+        modifier = Modifier.size(60.dp)
+    )
+
+    Spacer(modifier = Modifier.height(8.dp))
+    
+    // GAGAN - Bodoni/Didot style (high-contrast serif)
+    Text(
+        text = "GAGAN",
+        fontSize = 32.sp,
+        fontWeight = FontWeight.Bold,
+        fontFamily = FontFamily.Serif,
+        color = NavyBlue,
+        letterSpacing = 1.sp,
+        textAlign = TextAlign.Center
+    )
+
+    Spacer(modifier = Modifier.height(4.dp))
+
+    // JEWELLERS - Futura Light style (thin, spaced sans-serif)
+    Text(
+        text = "JEWELLERS",
+        fontSize = 14.sp,
+        fontWeight = FontWeight.Light,
+        fontFamily = FontFamily.SansSerif,
+        color = Gold,
+        letterSpacing = 8.sp,
+        textAlign = TextAlign.Center
+    )
+}
+
+@Composable
 private fun CreateAccountHeader() {
     Text(
         text = "Create Account",
         fontSize = 24.sp,
         fontWeight = FontWeight.Bold,
-        color = Color.Black,
+        color = ThemeColor,
         style = androidx.compose.ui.text.TextStyle(lineHeight = 0.sp)
     )
     Text(
         text = "Please fill in your details to continue",
         fontSize = 14.sp,
-        color = Color.Gray
+        color = ThemeColor
     )
 
     Spacer(modifier = Modifier.height(3.dp))
@@ -341,14 +383,14 @@ private fun FullNameInput(
         Text(
             text = "Full Name",
             fontSize = 14.sp,
-            color = Color.Black,
+            color = ThemeColor,
             modifier = Modifier.padding(bottom = 8.dp)
         )
 
         OutlinedTextField(
             value = fullName,
             onValueChange = onFullNameChange,
-            placeholder = { Text("Enter your full name") },
+            placeholder = { Text("Enter your full name", color = ThemeColor) },
             singleLine = true,
             modifier = Modifier
                 .fillMaxWidth()
@@ -383,14 +425,14 @@ private fun EmailInput(
         Text(
             text = "Email or Phone Number",
             fontSize = 14.sp,
-            color = Color.Black,
+            color = ThemeColor,
             modifier = Modifier.padding(bottom = 8.dp)
         )
 
         OutlinedTextField(
             value = email,
             onValueChange = onEmailChange,
-            placeholder = { Text("Enter your email or phone") },
+            placeholder = { Text("Enter your email or phone", color = ThemeColor) },
             singleLine = true,
             modifier = Modifier
                 .fillMaxWidth()
@@ -432,14 +474,14 @@ private fun PasswordInput(
         Text(
             text = label,
             fontSize = 14.sp,
-            color = Color.Black,
+            color = ThemeColor,
             modifier = Modifier.padding(bottom = 8.dp)
         )
 
         OutlinedTextField(
             value = password,
             onValueChange = onPasswordChange,
-            placeholder = { Text(placeholder) },
+            placeholder = { Text(placeholder, color = ThemeColor) },
             singleLine = true,
             visualTransformation = if (isPasswordVisible)
                 VisualTransformation.None else PasswordVisualTransformation(),
@@ -500,7 +542,7 @@ private fun SignUpButton(
             .fillMaxWidth()
             .height(56.dp),
         colors = ButtonDefaults.buttonColors(
-            backgroundColor = GoldenShade
+            backgroundColor = Color(0xFF896C6C)
         ),
         shape = RoundedCornerShape(8.dp),
         enabled = !isLoading
@@ -537,13 +579,13 @@ private fun AlternativeSignUpOptions(
             modifier = Modifier
                 .weight(1f)
                 .height(1.dp),
-            color = Color.LightGray
+            color = ThemeColor.copy(alpha = 0.3f)
         )
 
         Text(
             text = "Or continue with",
             fontSize = 14.sp,
-            color = Color.Gray,
+            color = ThemeColor,
             modifier = Modifier.padding(horizontal = 8.dp)
         )
 
@@ -551,7 +593,7 @@ private fun AlternativeSignUpOptions(
             modifier = Modifier
                 .weight(1f)
                 .height(1.dp),
-            color = Color.LightGray
+            color = ThemeColor.copy(alpha = 0.3f)
         )
     }
 
@@ -576,12 +618,12 @@ private fun AlternativeSignUpOptions(
             // Show loading indicator specifically for Google Sign-In
             if (isGoogleLoading) {
                 CircularProgressIndicator(
-                    color = GoldenShade, // Use your existing golden color
+                    color = ThemeColor, // Use theme color
                     modifier = Modifier.size(20.dp),
                     strokeWidth = 2.dp
                 )
                 Spacer(modifier = Modifier.width(8.dp))
-                Text("Signing in...", color = Color.Gray, fontSize = 16.sp)
+                Text("Signing in...", color = ThemeColor, fontSize = 16.sp)
             } else {
                 Image(
                     painter = painterResource(id = R.drawable.google_icon),
@@ -591,7 +633,7 @@ private fun AlternativeSignUpOptions(
                 Spacer(modifier = Modifier.width(8.dp))
                 Text(
                     text = "Continue with Google",
-                    color = Color.Black,
+                    color = ThemeColor,
                     fontSize = 16.sp
                 )
             }
@@ -611,13 +653,13 @@ private fun SignInPrompt(onSignInClick: () -> Unit) {
         Text(
             text = "Already have an account? ",
             fontSize = 14.sp,
-            color = Color.Gray
+            color = ThemeColor
         )
         Text(
             text = "Sign In",
             fontSize = 14.sp,
             fontWeight = FontWeight.Bold,
-            color = Color(0xFFC4A661),
+            color = ThemeColor,
             modifier = Modifier.clickable(onClick = onSignInClick)
         )
     }
@@ -625,7 +667,12 @@ private fun SignInPrompt(onSignInClick: () -> Unit) {
 
 @Composable
 private fun getTextFieldColors() = TextFieldDefaults.outlinedTextFieldColors(
-    focusedBorderColor = Color(0xFFC4A661),
-    unfocusedBorderColor = Color.LightGray,
+    focusedBorderColor = ThemeColor,
+    unfocusedBorderColor = ThemeColor.copy(alpha = 0.5f),
+    textColor = ThemeColor,
+    cursorColor = ThemeColor,
+    placeholderColor = ThemeColor.copy(alpha = 0.7f),
+    focusedLabelColor = ThemeColor,
+    unfocusedLabelColor = ThemeColor.copy(alpha = 0.7f),
     errorBorderColor = MaterialTheme.colors.error
 )

@@ -70,7 +70,7 @@ fun WishlistScreen(
     val error by viewModel.error.collectAsState()
 
     // Define the gold accent color to match
-    val goldColor = Color(0xFFD4A968)
+    val goldColor = Color(0xFF896C6C)
 
     // Force refresh wishlist items when screen enters composition
     LaunchedEffect(Unit) {
@@ -209,7 +209,7 @@ fun CategoryButton(
     Box(
         modifier = modifier
             .clip(RoundedCornerShape(20.dp))
-            .background(if (isSelected) Color(0xFFD4A968) else Color(0xFFF5F5F5))
+            .background(if (isSelected) Color(0xFF896C6C) else Color(0xFFF5F5F5))
             .clickable { onClick() }
             .padding(horizontal = 16.dp, vertical = 8.dp),
         contentAlignment = Alignment.Center
@@ -278,7 +278,7 @@ fun WishlistItemCard(
                 Box(
                     modifier = Modifier
                         .fillMaxSize()
-                        .background(Color(0xFFF5F5F5))
+                        .background(Color(0xFFEEDDCA))
                 )
 
                 // Actual image
@@ -296,7 +296,7 @@ fun WishlistItemCard(
                 Icon(
                     imageVector = Icons.Default.Favorite,
                     contentDescription = "Favorite",
-                    tint = Color(0xFFD4A968), // Gold color
+                    tint = Color(0xFF896C6C), // Gold color
                     modifier = Modifier
                         .padding(8.dp)
                         .align(Alignment.TopEnd)

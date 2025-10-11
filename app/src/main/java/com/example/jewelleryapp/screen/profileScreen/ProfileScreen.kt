@@ -46,7 +46,7 @@ import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
 
-private val PrimaryGold = Color(0xFFD4AF37)
+private val PrimaryGold = Color(0xFF896C6C)
 private val DarkGold = Color(0xFFB8860B)
 private val LightGold = Color(0xFFF5E6A8)
 private val BackgroundGray = Color(0xFFF8F9FA)
