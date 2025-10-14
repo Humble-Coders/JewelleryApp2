@@ -375,12 +375,17 @@ class HomeViewModel(private val repository: JewelryRepository) : ViewModel() {
         viewModelScope.launch {
             try {
                 _isRatesLoading.value = true
+                Log.d(tag, "Starting to load gold silver rates...")
                 val rates = repository.getGoldSilverRates().first()
+                Log.d(tag, "Rates loaded: Gold=${rates.goldRatePerGram}, Silver=${rates.silverRatePerGram}")
                 _goldSilverRates.value = rates
+                Log.d(tag, "Rates set in ViewModel state")
             } catch (e: Exception) {
-                Log.e(tag, "Error loading gold silver rates", e)
+                Log.e(tag, "Error loading gold silver rates in ViewModel", e)
+                _goldSilverRates.value = null // Set to null on error
             } finally {
                 _isRatesLoading.value = false
+                Log.d(tag, "Rates loading complete. isLoading=false")
             }
         }
     }

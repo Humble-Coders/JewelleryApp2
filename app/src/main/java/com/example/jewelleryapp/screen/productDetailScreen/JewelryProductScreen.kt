@@ -72,7 +72,6 @@ import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
 import androidx.navigation.NavController
-import androidx.viewpager2.widget.ViewPager2.ScrollState
 import coil.compose.AsyncImage
 import com.example.jewelleryapp.R
 import com.example.jewelleryapp.model.Product
@@ -455,35 +454,18 @@ private fun EnhancedProductDetailsCard(
                 ) {
                     Column {
                         Text(
-                            text = "Rs ${product.price.toInt()}.0",
-                            fontSize = 18.sp,
+                            text = "₹${String.format("%,.2f", product.price)}",
+                            fontSize = 24.sp,
                             fontWeight = FontWeight.Bold,
                             color = TextPrimary
                         )
-
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            Text(
-                                text = "Rs ${(product.price * 1.2).toInt()}",
-                                fontSize = 12.sp,
-                                color = TextMuted,
-                                textDecoration = TextDecoration.LineThrough
-                            )
-                            Spacer(modifier = Modifier.width(8.dp))
-                            Card(
-                                colors = CardDefaults.cardColors(
-                                    containerColor = SuccessGreen
-                                ),
-                                shape = RoundedCornerShape(6.dp)
-                            ) {
-                                Text(
-                                    text = "Save 17%",
-                                    fontSize = 8.sp,
-                                    color = Color.White,
-                                    fontWeight = FontWeight.Bold,
-                                    modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
-                                )
-                            }
-                        }
+                        
+                        Text(
+                            text = "Price",
+                            fontSize = 12.sp,
+                            color = TextSecondary,
+                            fontWeight = FontWeight.Medium
+                        )
                     }
 
                     // Enhanced wishlist button
@@ -501,28 +483,30 @@ private fun EnhancedProductDetailsCard(
 
             Spacer(modifier = Modifier.height(24.dp))
 
-            // Enhanced description section
-            Text(
-                text = "Description",
-                fontSize = 18.sp,
-                fontWeight = FontWeight.Bold,
-                color = TextPrimary
-            )
+            // Enhanced description section - only show if enabled in show map
+            if (product.shouldShow("description") || product.description.isNotBlank()) {
+                Text(
+                    text = "Description",
+                    fontSize = 18.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = TextPrimary
+                )
 
-            Spacer(modifier = Modifier.height(12.dp))
+                Spacer(modifier = Modifier.height(12.dp))
 
-            val description = if (product.description.isNotBlank()) {
-                product.description
-            } else {
-                "Exquisite craftsmanship meets timeless elegance in this stunning 22-karat gold piece. Every detail has been meticulously designed to create a masterpiece that celebrates luxury and sophistication."
+                val description = if (product.description.isNotBlank()) {
+                    product.description
+                } else {
+                    "Exquisite craftsmanship meets timeless elegance in this stunning 22-karat gold piece. Every detail has been meticulously designed to create a masterpiece that celebrates luxury and sophistication."
+                }
+
+                Text(
+                    text = description,
+                    fontSize = 14.sp,
+                    lineHeight = 24.sp,
+                    color = TextSecondary
+                )
             }
-
-            Text(
-                text = description,
-                fontSize = 14.sp,
-                lineHeight = 24.sp,
-                color = TextSecondary
-            )
         }
     }
 }
@@ -937,26 +921,97 @@ private fun EnhancedErrorState(
 }
 
 private fun createProductSpecs(product: Product): List<ProductSpec> {
-    return listOf(
-        ProductSpec(
-            R.drawable.material_icon,
-            "Material",
-            if (!product.materialId.isNullOrBlank()) {
-                val materialName = product.materialId.replace("material_", "")
-                    .replaceFirstChar { if (it.isLowerCase()) it.titlecase(Locale.getDefault()) else it.toString() }
-                if (!product.materialType.isNullOrBlank()) {
-                    "$materialName ${product.materialType}"
-                } else {
-                    materialName
-                }
-            } else {
-                "Gold 22K"
+    val specs = mutableListOf<ProductSpec>()
+    
+    // Material Information
+    if (product.shouldShow("material_type") && product.materialType.isNotBlank()) {
+        // Use the materialName fetched from materials collection
+        val materialText = if (product.materialName.isNotBlank()) {
+            "${product.materialName.replaceFirstChar { 
+                if (it.isLowerCase()) it.titlecase(Locale.getDefault()) else it.toString() 
+            }} ${product.materialType}"
+        } else {
+            product.materialType
+        }
+        specs.add(ProductSpec(R.drawable.material_icon, "Material", materialText))
+    } else if (product.materialName.isNotBlank()) {
+        // Show just material name if material_type is not shown
+        specs.add(ProductSpec(R.drawable.material_icon, "Material", 
+            product.materialName.replaceFirstChar { 
+                if (it.isLowerCase()) it.titlecase(Locale.getDefault()) else it.toString() 
             }
-        ),
-        ProductSpec(R.drawable.stone, "Stone", product.stone.ifEmpty { "Premium" }),
-        ProductSpec(R.drawable.clarity, "Clarity", product.clarity.ifEmpty { "Excellent" }),
-        ProductSpec(R.drawable.cut, "Cut", product.cut.ifEmpty { "Precision" })
-    )
+        ))
+    }
+    
+    // Quantity (Stock)
+    if (product.shouldShow("quantity")) {
+        val stockText = if (product.quantity > 0) {
+            "In Stock (${product.quantity})"
+        } else {
+            "Out of Stock"
+        }
+        specs.add(ProductSpec(R.drawable.material_icon, "Availability", stockText))
+    }
+    
+    // Net Weight
+    if (product.shouldShow("net_weight") && product.netWeight > 0) {
+        specs.add(ProductSpec(R.drawable.material_icon, "Net Weight", "${product.netWeight}g"))
+    }
+    
+    // Stone Details
+    if (product.shouldShow("has_stones") && product.hasStones) {
+        if (product.shouldShow("stone_name") && product.stoneName.isNotBlank()) {
+            specs.add(ProductSpec(R.drawable.stone, "Stone", 
+                product.stoneName.replaceFirstChar { if (it.isLowerCase()) it.titlecase(Locale.getDefault()) else it.toString() }
+            ))
+        }
+        
+        if (product.shouldShow("stone_color") && product.stoneColor.isNotBlank()) {
+            specs.add(ProductSpec(R.drawable.clarity, "Stone Color", 
+                product.stoneColor.replaceFirstChar { if (it.isLowerCase()) it.titlecase(Locale.getDefault()) else it.toString() }
+            ))
+        }
+        
+        if (product.shouldShow("cw_weight") && product.cwWeight > 0) {
+            specs.add(ProductSpec(R.drawable.stone, "Stone Weight", "${product.cwWeight} ct"))
+        }
+    }
+    
+    // Making Charges
+    if (product.shouldShow("default_making_rate") && product.defaultMakingRate > 0) {
+        specs.add(ProductSpec(R.drawable.material_icon, "Making Charges", "₹${String.format("%,.2f", product.defaultMakingRate)}"))
+    }
+    
+    // VA Charges
+    if (product.shouldShow("va_charges") && product.vaCharges > 0) {
+        specs.add(ProductSpec(R.drawable.material_icon, "VA Charges", "₹${String.format("%,.2f", product.vaCharges)}"))
+    }
+    
+    // Other Materials
+    if (product.shouldShow("is_other_than_gold") && product.isOtherThanGold) {
+        specs.add(ProductSpec(R.drawable.material_icon, "Mixed Materials", "Yes"))
+    }
+    
+    // Total Product Cost
+    if (product.shouldShow("total_product_cost") && product.totalProductCost > 0) {
+        specs.add(ProductSpec(R.drawable.material_icon, "Total Cost", "₹${String.format("%,.2f", product.totalProductCost)}"))
+    }
+    
+    // Fallback to old fields if no new specs are visible (backward compatibility)
+    if (specs.isEmpty()) {
+        specs.add(ProductSpec(R.drawable.material_icon, "Material", "Gold 22K"))
+        if (product.stone.isNotEmpty()) {
+            specs.add(ProductSpec(R.drawable.stone, "Stone", product.stone))
+        }
+        if (product.clarity.isNotEmpty()) {
+            specs.add(ProductSpec(R.drawable.clarity, "Clarity", product.clarity))
+        }
+        if (product.cut.isNotEmpty()) {
+            specs.add(ProductSpec(R.drawable.cut, "Cut", product.cut))
+        }
+    }
+    
+    return specs
 }
 
 private fun shareProduct(context: Context, product: Product) {

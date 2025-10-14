@@ -31,6 +31,266 @@ class JewelryRepository(
 
     // Cache for wishlist status to avoid excessive Firestore calls
     private val wishlistCache = mutableMapOf<String, Boolean>()
+    
+    // Cache for material names to avoid excessive Firestore calls
+    private val materialNameCache = mutableMapOf<String, String>()
+    
+    // Cache for material rates (24K)
+    private val materialRatesCache = mutableMapOf<String, Double>()
+    
+    /**
+     * Calculate jewelry price based on material rates, weights, and charges
+     * Implements comprehensive pricing logic for 22K/18K jewelry
+     */
+    private suspend fun calculateJewelryPrice(product: com.google.firebase.firestore.DocumentSnapshot): Double {
+        try {
+            Log.d(tag, "=== Starting price calculation for ${product.id} ===")
+            
+            // Get material information
+            val materialId = product.getString("material_id") ?: ""
+            Log.d(tag, "Material ID: $materialId")
+            
+            if (materialId.isBlank()) {
+                Log.e(tag, "Material ID is blank, cannot calculate price")
+                return 0.0
+            }
+            
+            val materialName = getMaterialName(materialId)
+            Log.d(tag, "Material Name: $materialName")
+            
+            if (materialName.isBlank()) {
+                Log.e(tag, "Material name is blank for ID: $materialId, cannot calculate price")
+                return 0.0
+            }
+            
+            val materialType = product.getString("material_type") ?: "24K"
+            Log.d(tag, "Material Type: $materialType")
+            
+            // Extract purity (e.g., "22K" -> 22)
+            val purity = materialType.replace("K", "").replace("k", "").toIntOrNull() ?: 24
+            Log.d(tag, "Purity: $purity K")
+            
+            // Get weights
+            val grossWeight = parseDoubleField(product, "total_weight")
+            val lessWeight = parseDoubleField(product, "less_weight")
+            val netWeight = parseDoubleField(product, "net_weight")
+            val cwWeight = parseDoubleField(product, "cw_weight")
+            
+            Log.d(tag, "Weights - Gross: $grossWeight, Less: $lessWeight, Net: $netWeight, Stone: $cwWeight")
+            
+            // Get charges and rates
+            val makingRate = parseDoubleField(product, "default_making_rate")
+            val stoneRate = parseDoubleField(product, "stone_rate")
+            val vaCharges = parseDoubleField(product, "va_charges")
+            val discountPercent = parseDoubleField(product, "discount_percent")
+            val gstRate = parseDoubleField(product, "gst_rate").takeIf { it > 0 } ?: 3.0
+            val saleType = product.getString("sale_type") ?: "intrastate"
+            val qty = parseIntField(product, "quantity").takeIf { it > 0 } ?: 1
+            
+            Log.d(tag, "Charges - Making: $makingRate, Stone: $stoneRate, VA: $vaCharges, Discount: $discountPercent%, GST: $gstRate%, SaleType: $saleType, Qty: $qty")
+            
+            // Validation
+            if (netWeight <= 0) {
+                Log.e(tag, "Net weight is 0 or negative: $netWeight")
+                return 0.0
+            }
+            
+            if (grossWeight > 0 && grossWeight < lessWeight) {
+                Log.w(tag, "Gross weight ($grossWeight) < Less weight ($lessWeight) - using net weight anyway")
+            }
+            
+            // Get 24K material rate from cache or fetch
+            val material24KRate = getMaterial24KRate(materialName.lowercase())
+            Log.d(tag, "24K Rate for $materialName: ₹$material24KRate/g")
+            
+            if (material24KRate == 0.0) {
+                Log.e(tag, "No 24K rate found for material: $materialName")
+                return 0.0
+            }
+            
+            // Calculate purity factor (e.g., 22K = 22/24 = 0.9167)
+            val purityFactor = purity / 24.0
+            Log.d(tag, "Purity Factor: $purityFactor (for $purity K)")
+            
+            // Step 2: Base Material Amount (using purity-adjusted rate)
+            val effectiveMaterialRate = material24KRate * purityFactor
+            val materialAmount = netWeight * effectiveMaterialRate * qty
+            Log.d(tag, "Step 2 - Effective Rate: ₹$effectiveMaterialRate/g, Material Amount: ₹$materialAmount")
+            
+            // Step 3: Making Charges
+            val makingCharges = netWeight * makingRate * qty
+            Log.d(tag, "Step 3 - Making Charges: ₹$makingCharges")
+            
+            // Step 4: Stone Charges
+            val stoneCharges = cwWeight * stoneRate * qty
+            Log.d(tag, "Step 4 - Stone Charges: ₹$stoneCharges")
+            
+            // Step 5: Total Before Discount
+            val totalBeforeDiscount = materialAmount + makingCharges + stoneCharges + vaCharges
+            Log.d(tag, "Step 5 - Total Before Discount: ₹$totalBeforeDiscount")
+            
+            // Step 6: Apply Discount
+            val discountAmount = totalBeforeDiscount * (discountPercent / 100.0)
+            val amountAfterDiscount = totalBeforeDiscount - discountAmount
+            Log.d(tag, "Step 6 - Discount: ₹$discountAmount, After Discount: ₹$amountAfterDiscount")
+            
+            // Step 7: Calculate Tax
+            val totalTax = when (saleType.lowercase()) {
+                "intrastate" -> {
+                    val cgst = amountAfterDiscount * (gstRate / 2.0 / 100.0)
+                    val sgst = amountAfterDiscount * (gstRate / 2.0 / 100.0)
+                    Log.d(tag, "Step 7 - Intrastate: CGST=₹$cgst, SGST=₹$sgst")
+                    cgst + sgst
+                }
+                "interstate" -> {
+                    val igst = amountAfterDiscount * (gstRate / 100.0)
+                    Log.d(tag, "Step 7 - Interstate: IGST=₹$igst")
+                    igst
+                }
+                else -> {
+                    Log.d(tag, "Step 7 - No tax (unknown sale type: $saleType)")
+                    0.0
+                }
+            }
+            
+            // Step 8: Final Amount
+            val finalAmount = amountAfterDiscount + totalTax
+            Log.d(tag, "Step 8 - Total Tax: ₹$totalTax, FINAL AMOUNT: ₹$finalAmount")
+            
+            Log.d(tag, "=== Price calculation complete for ${product.id}: ₹$finalAmount ===")
+            
+            return finalAmount.round(2)
+            
+        } catch (e: Exception) {
+            Log.e(tag, "Error calculating price for product ${product.id}", e)
+            e.printStackTrace()
+            return 0.0
+        }
+    }
+    
+    /**
+     * Get 24K material rate (Gold or Silver) with caching
+     */
+    private suspend fun getMaterial24KRate(materialName: String): Double {
+        val cacheKey = materialName.lowercase()
+        
+        Log.d(tag, "Getting 24K rate for material: $cacheKey")
+        
+        // Check cache first
+        materialRatesCache[cacheKey]?.let { 
+            Log.d(tag, "Found in cache: $cacheKey → ₹$it/g")
+            return it 
+        }
+        
+        return try {
+            Log.d(tag, "Fetching from Firestore: rates where material_type='24K'")
+            
+            // Get all 24K rates and filter by material name (case-insensitive)
+            val snapshot = withContext(Dispatchers.IO) {
+                firestore.collection("rates")
+                    .whereEqualTo("material_type", "24K")
+                    .get()
+                    .await()
+            }
+            
+            Log.d(tag, "Query returned ${snapshot.size()} total 24K rate documents")
+            
+            // Find the matching material (case-insensitive)
+            val matchingDoc = snapshot.documents.firstOrNull { doc ->
+                val docMaterialName = doc.getString("material_name")?.lowercase() ?: ""
+                val matches = docMaterialName == cacheKey
+                Log.d(tag, "Checking document ${doc.id}: material_name='${doc.getString("material_name")}' (lowercase: $docMaterialName) matches '$cacheKey'? $matches")
+                matches
+            }
+            
+            val rate = if (matchingDoc != null) {
+                val rateValue = parseDoubleField(matchingDoc, "price_per_gram")
+                Log.d(tag, "✅ Found rate document: ${matchingDoc.id}, price_per_gram=$rateValue")
+                rateValue
+            } else {
+                Log.w(tag, "❌ No 24K rate document found for material: $cacheKey (searched case-insensitive)")
+                0.0
+            }
+            
+            // Cache the result
+            if (rate > 0) {
+                materialRatesCache[cacheKey] = rate
+                Log.d(tag, "✅ Cached 24K rate for $materialName: ₹$rate/g")
+            } else {
+                Log.e(tag, "❌ Rate is 0 for $materialName, not caching")
+            }
+            
+            rate
+        } catch (e: Exception) {
+            Log.e(tag, "❌ Error fetching 24K rate for $materialName", e)
+            e.printStackTrace()
+            0.0
+        }
+    }
+    
+    /**
+     * Round double to specified decimal places
+     */
+    private fun Double.round(decimals: Int): Double {
+        var multiplier = 1.0
+        repeat(decimals) { multiplier *= 10 }
+        return kotlin.math.round(this * multiplier) / multiplier
+    }
+    
+    // Helper function to fetch material name by ID
+    private suspend fun getMaterialName(materialId: String): String {
+        if (materialId.isBlank()) return ""
+        
+        // Check cache first
+        materialNameCache[materialId]?.let { return it }
+        
+        return try {
+            val doc = withContext(Dispatchers.IO) {
+                firestore.collection("materials")
+                    .document(materialId)
+                    .get()
+                    .await()
+            }
+            
+            val materialName = doc.getString("name") ?: ""
+            // Cache the result
+            if (materialName.isNotBlank()) {
+                materialNameCache[materialId] = materialName
+            }
+            materialName
+        } catch (e: Exception) {
+            Log.e(tag, "Error fetching material name for ID: $materialId", e)
+            ""
+        }
+    }
+    
+    // Helper functions to safely parse numeric fields that might be stored as Strings
+    private fun parseDoubleField(doc: com.google.firebase.firestore.DocumentSnapshot, fieldName: String): Double {
+        return try {
+            doc.getDouble(fieldName) ?: 0.0
+        } catch (e: Exception) {
+            // If it's stored as a String, parse it
+            doc.getString(fieldName)?.toDoubleOrNull() ?: 0.0
+        }
+    }
+    
+    private fun parseIntField(doc: com.google.firebase.firestore.DocumentSnapshot, fieldName: String): Int {
+        return try {
+            doc.getLong(fieldName)?.toInt() ?: 0
+        } catch (e: Exception) {
+            // If it's stored as a String, parse it
+            doc.getString(fieldName)?.toIntOrNull() ?: 0
+        }
+    }
+    
+    private fun parseLongField(doc: com.google.firebase.firestore.DocumentSnapshot, fieldName: String): Long {
+        return try {
+            doc.getLong(fieldName) ?: 0L
+        } catch (e: Exception) {
+            // If it's stored as a String, parse it
+            doc.getString(fieldName)?.toLongOrNull() ?: 0L
+        }
+    }
 
 
     // Function to update wishlist cache from Firestore - Optimized with async
@@ -171,10 +431,20 @@ class JewelryRepository(
 
      fun getCategoryProducts(categoryId: String): Flow<List<Product>> = flow {
         try {
+            Log.d(tag, "Fetching products for category: $categoryId")
+            
+            // Validate categoryId
+            if (categoryId.isBlank()) {
+                Log.e(tag, "Invalid categoryId: categoryId is blank")
+                emit(emptyList())
+                return@flow
+            }
+            
             // Get product IDs from category_products collection
+            // categoryId is now the auto-generated ID from the categories collection
             val categoryDoc = withContext(Dispatchers.IO) {
                 firestore.collection("category_products")
-                    .document("category_${categoryId.lowercase()}")
+                    .document(categoryId)
                     .get()
                     .await()
             }
@@ -233,27 +503,88 @@ class JewelryRepository(
                     // Get all images from the images array
                     val images = doc.get("images") as? List<*>
                     val imageUrls = images?.mapNotNull { it as? String }?.filter { it.isNotBlank() } ?: emptyList()
-
-                    // Use first image as primary, but store all images
                     val primaryImageUrl = imageUrls.firstOrNull() ?: ""
 
-                    val isFavorite = wishlistCache[doc.id] == true
-                    val materialId = doc.getString("material_id")
-                    val materialType = doc.getString("material_type")
+                    // Get barcode IDs
+                    val barcodes = doc.get("barcode_ids") as? List<*>
+                    val barcodeIds = barcodes?.mapNotNull { it as? String } ?: emptyList()
 
-                    Log.d(tag, "Product ${doc.id}: Found ${imageUrls.size} images: $imageUrls")
+                    // Get show map for UI visibility control
+                    val showMap = doc.get("show") as? Map<*, *>
+                    val show = showMap?.mapKeys { it.key.toString() }?.mapValues { it.value as? Boolean ?: false } ?: emptyMap()
+
+                    val isFavorite = wishlistCache[doc.id] == true
+                    
+                    // Fetch material name from materials collection
+                    val materialId = doc.getString("material_id") ?: ""
+                    val materialName = getMaterialName(materialId)
+                    
+                    // Determine if we should use custom price or calculate it
+                    val useCustomPrice = show["custom_price"] ?: false
+                    val customPriceValue = parseDoubleField(doc, "custom_price")
+                    val netWeightValue = parseDoubleField(doc, "net_weight")
+                    val calculatedPrice = if (!useCustomPrice && netWeightValue > 0) {
+                        calculateJewelryPrice(doc)
+                    } else {
+                        0.0
+                    }
+                    val finalPrice = if (useCustomPrice) customPriceValue else calculatedPrice
+
+                    Log.d(tag, "Product ${doc.id}: Material=$materialName, Images=${imageUrls.size}, UseCustom=$useCustomPrice, Price=₹$finalPrice")
 
                     Product(
                         id = doc.id,
                         name = doc.getString("name") ?: "",
-                        price = doc.getDouble("price") ?: 0.0,
-                        currency = "Rs",
-                        imageUrl = primaryImageUrl, // Keep for backward compatibility
-                        imageUrls = imageUrls, // Add new field for all images
-                        isFavorite = isFavorite,
-                        category = doc.getString("type") ?: "",
+                        description = doc.getString("description") ?: "",
+                        price = finalPrice,
+                        customPrice = customPriceValue,
+                        quantity = parseIntField(doc, "quantity"),
+                        
+                        // Images
+                        images = imageUrls,
+                        imageUrl = primaryImageUrl,
+                        
+                        // Category & Material
+                        categoryId = doc.getString("category_id") ?: "",
                         materialId = materialId,
-                        materialType = materialType
+                        materialName = materialName,
+                        materialType = doc.getString("material_type") ?: "",
+                        karat = doc.getString("karat") ?: "",
+                        
+                        // Weights
+                        netWeight = parseDoubleField(doc, "net_weight"),
+                        totalWeight = parseDoubleField(doc, "total_weight"),
+                        lessWeight = parseDoubleField(doc, "less_weight"),
+                        cwWeight = parseDoubleField(doc, "cw_weight"),
+                        
+                        // Charges & Costs
+                        defaultMakingRate = parseDoubleField(doc, "default_making_rate"),
+                        vaCharges = parseDoubleField(doc, "va_charges"),
+                        totalProductCost = parseDoubleField(doc, "total_product_cost"),
+                        discountPercent = parseDoubleField(doc, "discount_percent"),
+                        gstRate = parseDoubleField(doc, "gst_rate").takeIf { it > 0 } ?: 3.0,
+                        saleType = doc.getString("sale_type") ?: "intrastate",
+                        
+                        // Stone details
+                        hasStones = doc.getBoolean("has_stones") ?: false,
+                        stoneName = doc.getString("stone_name") ?: "",
+                        stoneColor = doc.getString("stone_color") ?: "",
+                        stoneRate = parseDoubleField(doc, "stone_rate"),
+                        
+                        // Other properties
+                        isOtherThanGold = doc.getBoolean("is_other_than_gold") ?: false,
+                        available = doc.getBoolean("available") ?: true,
+                        featured = doc.getBoolean("featured") ?: false,
+                        barcodeIds = barcodeIds,
+                        createdAt = parseLongField(doc, "created_at"),
+                        autoGenerateId = doc.getBoolean("auto_generate_id") ?: false,
+                        customProductId = doc.getString("custom_product_id"),
+                        
+                        // UI visibility control
+                        show = show,
+                        
+                        // Client-side
+                        isFavorite = isFavorite
                     )
                 }
             }.awaitAll()
@@ -267,7 +598,7 @@ class JewelryRepository(
         }
     }
 
-    // Fix for getCategories function
+    // Get categories with new schema (auto-generated IDs)
      fun getCategories(): Flow<List<Category>> = flow {
         try {
             val snapshot = withContext(Dispatchers.IO) {
@@ -281,19 +612,23 @@ class JewelryRepository(
             val categories = coroutineScope {
                 snapshot.documents.map { doc ->
                     async(Dispatchers.Default) {
-                        // Direct HTTPS URLs - no conversion needed
-                        val imageUrl = doc.getString("image_url") ?: ""
-
+                        // Map all fields from the new schema
                         Category(
                             id = doc.id,
                             name = doc.getString("name") ?: "",
-                            imageUrl = imageUrl
+                            imageUrl = doc.getString("image_url") ?: "",
+                            categoryType = doc.getString("category_type") ?: "",
+                            createdAt = doc.getLong("created_at") ?: 0L,
+                            description = doc.getString("description") ?: "",
+                            hasGenderVariants = doc.getBoolean("has_gender_variants") ?: false,
+                            isActive = doc.getBoolean("is_active") ?: true,
+                            order = doc.getLong("order")?.toInt() ?: 0
                         )
                     }
                 }.awaitAll()
             }
 
-            Log.d(tag, "Fetched ${categories.size} categories")
+            Log.d(tag, "Fetched ${categories.size} categories with new schema")
             emit(categories)
         } catch (e: Exception) {
             Log.e(tag, "Error fetching categories", e)
@@ -416,52 +751,10 @@ class JewelryRepository(
             // Wait for cache refresh to complete
             refreshCacheJob.await()
 
-            // Fetch products asynchronously in batches
-            val products = coroutineScope {
-                // Firebase allows a maximum of 10 items in a whereIn query
-                // Process batches in parallel
-                val batchResults = productIds.chunked(10).map { batch ->
-                    async(Dispatchers.IO) {
-                        val snapshot = firestore.collection("products")
-                            .whereIn("id", batch)
-                            .get()
-                            .await()
-
-                        snapshot.documents
-                    }
-                }.awaitAll().flatten()
-
-                // Process each document in parallel
-                // REPLACE the product creation part in getFeaturedProducts method with this:
-
-// Process each document in parallel
-                batchResults.map { doc ->
-                    async(Dispatchers.Default) {
-                        // Get all images from the images array
-                        val images = doc.get("images") as? List<*>
-                        val imageUrls = images?.mapNotNull { it as? String }?.filter { it.isNotBlank() } ?: emptyList()
-
-                        // Use first image as primary
-                        val primaryImageUrl = imageUrls.firstOrNull() ?: ""
-
-                        // Check wishlist status from cache
-                        val productId = doc.getString("id") ?: doc.id
-                        val isFavorite = wishlistCache[productId] == true
-
-                        Log.d(tag, "Featured Product $productId: Found ${imageUrls.size} images: $imageUrls")
-
-                        Product(
-                            id = productId,
-                            name = doc.getString("name") ?: "",
-                            price = doc.getDouble("price") ?: 0.0,
-                            currency = "Rs", // Using Rs as default currency
-                            imageUrl = primaryImageUrl, // Keep for backward compatibility
-                            imageUrls = imageUrls, // Add all images for cycling
-                            isFavorite = isFavorite
-                        )
-                    }
-                }.awaitAll()
-            }
+            // Fetch products using their auto-generated document IDs
+            // Use the same fetchProductsByIds method for consistency
+            val productIdStrings = productIds.mapNotNull { it.toString() }
+            val products = fetchProductsByIds(productIdStrings)
 
             Log.d(tag, "Fetched ${products.size} featured products")
             emit(products)
@@ -574,24 +867,82 @@ class JewelryRepository(
                 val imageUrls = images?.mapNotNull { it as? String }?.filter { it.isNotBlank() } ?: emptyList()
                 val primaryImageUrl = imageUrls.firstOrNull() ?: ""
 
-                val isInWishlist = wishlistCache[productId] == true
+                // Get barcode IDs
+                val barcodes = documentSnapshot.get("barcode_ids") as? List<*>
+                val barcodeIds = barcodes?.mapNotNull { it as? String } ?: emptyList()
 
-                Log.d(tag, "Product $productId: Found ${imageUrls.size} images")
+                // Get show map for UI visibility control
+                val showMap = documentSnapshot.get("show") as? Map<*, *>
+                val show = showMap?.mapKeys { it.key.toString() }?.mapValues { it.value as? Boolean ?: false } ?: emptyMap()
+
+                val isInWishlist = wishlistCache[productId] == true
+                
+                // Fetch material name from materials collection
+                val materialId = documentSnapshot.getString("material_id") ?: ""
+                val materialName = getMaterialName(materialId)
+                
+                // Determine if we should use custom price or calculate it
+                val useCustomPrice = show["custom_price"] ?: false
+                val customPriceValue = parseDoubleField(documentSnapshot, "custom_price")
+                val netWeightValue = parseDoubleField(documentSnapshot, "net_weight")
+                val calculatedPrice = if (!useCustomPrice && netWeightValue > 0) {
+                    calculateJewelryPrice(documentSnapshot)
+                } else {
+                    0.0
+                }
+                val finalPrice = if (useCustomPrice) customPriceValue else calculatedPrice
+
+                Log.d(tag, "Product $productId: Material=$materialName, Images=${imageUrls.size}, UseCustom=$useCustomPrice, Price=₹$finalPrice")
 
                 val product = Product(
                     id = documentSnapshot.id,
                     name = documentSnapshot.getString("name") ?: "",
-                    price = documentSnapshot.getDouble("price") ?: 0.0,
-                    currency = documentSnapshot.getString("currency") ?: "Rs",
-                    categoryId = documentSnapshot.getString("category_id") ?: "",
-                    imageUrl = primaryImageUrl, // Keep for backward compatibility
-                    imageUrls = imageUrls, // Add new field for all images
-                    materialId = documentSnapshot.getString("material_id"),
-                    materialType = documentSnapshot.getString("material_type"),
-                    stone = documentSnapshot.getString("stone") ?: "",
-                    clarity = documentSnapshot.getString("clarity") ?: "",
-                    cut = documentSnapshot.getString("cut") ?: "",
                     description = documentSnapshot.getString("description") ?: "",
+                    price = finalPrice,
+                    customPrice = customPriceValue,
+                    quantity = parseIntField(documentSnapshot, "quantity"),
+                    
+                    // Images
+                    images = imageUrls,
+                    imageUrl = primaryImageUrl,
+                    
+                    // Category & Material
+                    categoryId = documentSnapshot.getString("category_id") ?: "",
+                    materialId = materialId,
+                    materialName = materialName,
+                    materialType = documentSnapshot.getString("material_type") ?: "",
+                    karat = documentSnapshot.getString("karat") ?: "",
+                    
+                    // Weights
+                    netWeight = parseDoubleField(documentSnapshot, "net_weight"),
+                    totalWeight = parseDoubleField(documentSnapshot, "total_weight"),
+                    lessWeight = parseDoubleField(documentSnapshot, "less_weight"),
+                    cwWeight = parseDoubleField(documentSnapshot, "cw_weight"),
+                    
+                    // Charges & Costs
+                    defaultMakingRate = parseDoubleField(documentSnapshot, "default_making_rate"),
+                    vaCharges = parseDoubleField(documentSnapshot, "va_charges"),
+                    totalProductCost = parseDoubleField(documentSnapshot, "total_product_cost"),
+                    
+                    // Stone details
+                    hasStones = documentSnapshot.getBoolean("has_stones") ?: false,
+                    stoneName = documentSnapshot.getString("stone_name") ?: "",
+                    stoneColor = documentSnapshot.getString("stone_color") ?: "",
+                    stoneRate = parseDoubleField(documentSnapshot, "stone_rate"),
+                    
+                    // Other properties
+                    isOtherThanGold = documentSnapshot.getBoolean("is_other_than_gold") ?: false,
+                    available = documentSnapshot.getBoolean("available") ?: true,
+                    featured = documentSnapshot.getBoolean("featured") ?: false,
+                    barcodeIds = barcodeIds,
+                    createdAt = parseLongField(documentSnapshot, "created_at"),
+                    autoGenerateId = documentSnapshot.getBoolean("auto_generate_id") ?: false,
+                    customProductId = documentSnapshot.getString("custom_product_id"),
+                    
+                    // UI visibility control
+                    show = show,
+                    
+                    // Client-side
                     isFavorite = isInWishlist
                 )
                 emit(product)
@@ -611,6 +962,15 @@ class JewelryRepository(
         excludeProductId: String? = null,
         limit: Int = 10
     ): Flow<List<Product>> = flow {
+        
+        Log.d(tag, "Fetching products by category: $categoryId")
+        
+        // Validate categoryId
+        if (categoryId.isBlank()) {
+            Log.e(tag, "Invalid categoryId: categoryId is blank")
+            emit(emptyList())
+            return@flow
+        }
 
         // Step 1: Get product IDs (same as before)
         val categorySnapshot = withContext(Dispatchers.IO) {
@@ -642,21 +1002,67 @@ class JewelryRepository(
                             .await()
 
                         if (doc.exists()) {
-                            val imageUrls = doc.get("images") as? List<*>
-                            val imageUrl = imageUrls?.firstOrNull()?.toString() ?: ""
+                            // Use the same comprehensive mapping as fetchProductsByIds
+                            val images = doc.get("images") as? List<*>
+                            val imageUrls = images?.mapNotNull { it as? String }?.filter { it.isNotBlank() } ?: emptyList()
+                            val primaryImageUrl = imageUrls.firstOrNull() ?: ""
+
+                            val barcodes = doc.get("barcode_ids") as? List<*>
+                            val barcodeIds = barcodes?.mapNotNull { it as? String } ?: emptyList()
+
+                            val showMap = doc.get("show") as? Map<*, *>
+                            val show = showMap?.mapKeys { it.key.toString() }?.mapValues { it.value as? Boolean ?: false } ?: emptyMap()
+
                             val isInWishlist = wishlistCache[doc.id] == true
+                            
+                            // Fetch material name from materials collection
+                            val materialId = doc.getString("material_id") ?: ""
+                            val materialName = getMaterialName(materialId)
+                            
+                            // Determine if we should use custom price or calculate it
+                            val useCustomPrice = show["custom_price"] ?: false
+                            val customPriceValue = parseDoubleField(doc, "custom_price")
+                            val netWeightValue = parseDoubleField(doc, "net_weight")
+                            val calculatedPrice = if (!useCustomPrice && netWeightValue > 0) {
+                                calculateJewelryPrice(doc)
+                            } else {
+                                0.0
+                            }
+                            val finalPrice = if (useCustomPrice) customPriceValue else calculatedPrice
 
                             Product(
                                 id = doc.id,
                                 name = doc.getString("name") ?: "",
-                                price = doc.getDouble("price") ?: 0.0,
-                                currency = doc.getString("currency") ?: "Rs",
+                                description = doc.getString("description") ?: "",
+                                price = finalPrice,
+                                customPrice = customPriceValue,
+                                quantity = parseIntField(doc, "quantity"),
+                                images = imageUrls,
+                                imageUrl = primaryImageUrl,
                                 categoryId = doc.getString("category_id") ?: "",
-                                imageUrl = imageUrl,
-                                material = doc.getString("material") ?: "",
-                                stone = doc.getString("stone") ?: "",
-                                clarity = doc.getString("clarity") ?: "",
-                                cut = doc.getString("cut") ?: "",
+                                materialId = materialId,
+                                materialName = materialName,
+                                materialType = doc.getString("material_type") ?: "",
+                                karat = doc.getString("karat") ?: "",
+                                netWeight = parseDoubleField(doc, "net_weight"),
+                                totalWeight = parseDoubleField(doc, "total_weight"),
+                                lessWeight = parseDoubleField(doc, "less_weight"),
+                                cwWeight = parseDoubleField(doc, "cw_weight"),
+                                defaultMakingRate = parseDoubleField(doc, "default_making_rate"),
+                                vaCharges = parseDoubleField(doc, "va_charges"),
+                                totalProductCost = parseDoubleField(doc, "total_product_cost"),
+                                hasStones = doc.getBoolean("has_stones") ?: false,
+                                stoneName = doc.getString("stone_name") ?: "",
+                                stoneColor = doc.getString("stone_color") ?: "",
+                                stoneRate = parseDoubleField(doc, "stone_rate"),
+                                isOtherThanGold = doc.getBoolean("is_other_than_gold") ?: false,
+                                available = doc.getBoolean("available") ?: true,
+                                featured = doc.getBoolean("featured") ?: false,
+                                barcodeIds = barcodeIds,
+                                createdAt = parseLongField(doc, "created_at"),
+                                autoGenerateId = doc.getBoolean("auto_generate_id") ?: false,
+                                customProductId = doc.getString("custom_product_id"),
+                                show = show,
                                 isFavorite = isInWishlist
                             )
                         } else {
@@ -721,11 +1127,19 @@ class JewelryRepository(
     ): Flow<List<Product>> = flow {
         try {
             Log.d(tag, "Fetching paginated products for category: $categoryId, page: $page")
+            
+            // Validate categoryId
+            if (categoryId.isBlank()) {
+                Log.e(tag, "Invalid categoryId: categoryId is blank")
+                emit(emptyList())
+                return@flow
+            }
 
             // First get product IDs from category_products collection
+            // categoryId is now the auto-generated ID from the categories collection
             val categoryDoc = withContext(Dispatchers.IO) {
                 firestore.collection("category_products")
-                    .document(categoryId.lowercase()) // Remove "category_" prefix here too
+                    .document(categoryId)
                     .get()
                     .await()
             }
@@ -768,9 +1182,18 @@ class JewelryRepository(
      */
     suspend fun getCategoryProductsCount(categoryId: String): Int {
         return try {
+            Log.d(tag, "Getting product count for category: $categoryId")
+            
+            // Validate categoryId
+            if (categoryId.isBlank()) {
+                Log.e(tag, "Invalid categoryId: categoryId is blank")
+                return 0
+            }
+            
+            // categoryId is now the auto-generated ID from the categories collection
             val categoryDoc = withContext(Dispatchers.IO) {
                 firestore.collection("category_products")
-                    .document(categoryId.lowercase()) // Remove "category_" prefix here too
+                    .document(categoryId)
                     .get()
                     .await()
             }
@@ -780,7 +1203,7 @@ class JewelryRepository(
             productIds
 
         } catch (e: Exception) {
-            Log.e(tag, "Error getting category products count", e)
+            Log.e(tag, "Error getting category products count for categoryId: '$categoryId'", e)
             0
         }
     }
@@ -811,31 +1234,78 @@ class JewelryRepository(
     }
     fun getGoldSilverRates(): Flow<GoldSilverRates> = flow {
         try {
+            Log.d(tag, "Fetching gold and silver rates for 24K")
+            
             val snapshot = withContext(Dispatchers.IO) {
-                firestore.collection("gold_silver_rates")
-                    .document("current_rates")
+                firestore.collection("rates")
+                    .whereEqualTo("material_type", "24K")
+            
                     .get()
                     .await()
             }
 
-            if (snapshot.exists()) {
-                val rateChangePercentage = snapshot.get("rate_change_percentage") as? Map<String, String> ?: emptyMap()
-
-                val rates = GoldSilverRates(
-                    goldRatePerGram = snapshot.getDouble("gold_rate_per_gram") ?: 0.0,
-                    silverRatePerGram = snapshot.getDouble("silver_rate_per_gram") ?: 0.0,
-                    lastUpdated = snapshot.getLong("last_updated") ?: 0L,
-                    previousGoldRate = snapshot.getDouble("previous_gold_rate") ?: 0.0,
-                    previousSilverRate = snapshot.getDouble("previous_silver_rate") ?: 0.0,
-                    currency = snapshot.getString("currency") ?: "INR",
-                    rateChangePercentage = rateChangePercentage
-                )
-                emit(rates)
+            if (snapshot.isEmpty) {
+                Log.w(tag, "No active 24K rates found in rates collection")
+                emit(GoldSilverRates())
+                return@flow
             }
+
+            var goldRate = 0.0
+            var silverRate = 0.0
+            var lastUpdated = 0L
+            var currency = "INR"
+
+            // Find Gold and Silver rates from the documents
+            snapshot.documents.forEach { doc ->
+                val materialName = doc.getString("material_name") ?: ""
+                val materialType = doc.getString("material_type") ?: ""
+                val isActive = doc.getBoolean("is_active") ?: false
+                val karat = parseIntField(doc, "karat")
+                
+                Log.d(tag, "Found rate: $materialName $materialType (karat: $karat, active: $isActive)")
+                
+                when (materialName.lowercase()) {
+                    "gold" -> {
+                        goldRate = parseDoubleField(doc, "price_per_gram")
+                        // Get latest timestamp from updated_at
+                        val docTimestamp = parseLongField(doc, "updated_at")
+                        if (docTimestamp > lastUpdated) {
+                            lastUpdated = docTimestamp
+                        }
+                        currency = doc.getString("currency") ?: "INR"
+                    }
+                    "silver" -> {
+                        silverRate = parseDoubleField(doc, "price_per_gram")
+                        // Get latest timestamp if not already set
+                        val docTimestamp = parseLongField(doc, "updated_at")
+                        if (lastUpdated == 0L || docTimestamp > lastUpdated) {
+                            lastUpdated = docTimestamp
+                        }
+                    }
+                }
+            }
+
+            val rates = GoldSilverRates(
+                goldRatePerGram = goldRate,
+                silverRatePerGram = silverRate,
+                lastUpdated = lastUpdated,
+                previousGoldRate = 0.0, // Can be calculated if needed
+                previousSilverRate = 0.0, // Can be calculated if needed
+                currency = currency,
+                rateChangePercentage = emptyMap() // Can be calculated if needed
+            )
+            
+            Log.d(tag, "Rates fetched - Gold: ₹$goldRate/g, Silver: ₹$silverRate/g (24K, active only)")
+            emit(rates)
+            
         } catch (e: Exception) {
             Log.e(tag, "Error fetching gold silver rates", e)
+            // Don't emit in catch block - use .catch operator instead
             throw e
         }
+    }.catch { e ->
+        Log.e(tag, "Error in rates flow", e)
+        emit(GoldSilverRates()) // Safe to emit from .catch operator
     }
 
     // Add these methods to your existing JewelryRepository class
@@ -900,29 +1370,68 @@ class JewelryRepository(
                 snapshot.documents.map { doc ->
                     async(Dispatchers.Default) {
                         try {
-                            // Get all images from the images array
+                            // Use the same comprehensive mapping as other methods
                             val images = doc.get("images") as? List<*>
                             val imageUrls = images?.mapNotNull { it as? String }?.filter { it.isNotBlank() } ?: emptyList()
                             val primaryImageUrl = imageUrls.firstOrNull() ?: ""
 
+                            val barcodes = doc.get("barcode_ids") as? List<*>
+                            val barcodeIds = barcodes?.mapNotNull { it as? String } ?: emptyList()
+
+                            val showMap = doc.get("show") as? Map<*, *>
+                            val show = showMap?.mapKeys { it.key.toString() }?.mapValues { it.value as? Boolean ?: false } ?: emptyMap()
+
                             val isInWishlist = wishlistCache[doc.id] == true
+                            
+                            // Fetch material name from materials collection
+                            val materialId = doc.getString("material_id") ?: ""
+                            val materialName = getMaterialName(materialId)
+                            
+                            // Determine if we should use custom price or calculate it
+                            val useCustomPrice = show["custom_price"] ?: false
+                            val customPriceValue = parseDoubleField(doc, "custom_price")
+                            val netWeightValue = parseDoubleField(doc, "net_weight")
+                            val calculatedPrice = if (!useCustomPrice && netWeightValue > 0) {
+                                calculateJewelryPrice(doc)
+                            } else {
+                                0.0
+                            }
+                            val finalPrice = if (useCustomPrice) customPriceValue else calculatedPrice
 
                             Product(
                                 id = doc.id,
                                 name = doc.getString("name") ?: "",
-                                price = doc.getDouble("price") ?: 0.0,
-                                currency = doc.getString("currency") ?: "Rs",
+                                description = doc.getString("description") ?: "",
+                                price = finalPrice,
+                                customPrice = customPriceValue,
+                                quantity = parseIntField(doc, "quantity"),
+                                images = imageUrls,
                                 imageUrl = primaryImageUrl,
-                                imageUrls = imageUrls,
-                                isFavorite = isInWishlist,
-                                category = doc.getString("type") ?: "",
                                 categoryId = doc.getString("category_id") ?: "",
-                                materialId = doc.getString("material_id"),
-                                materialType = doc.getString("material_type"),
-                                stone = doc.getString("stone") ?: "",
-                                clarity = doc.getString("clarity") ?: "",
-                                cut = doc.getString("cut") ?: "",
-                                description = doc.getString("description") ?: ""
+                                materialId = materialId,
+                                materialName = materialName,
+                                materialType = doc.getString("material_type") ?: "",
+                                karat = doc.getString("karat") ?: "",
+                                netWeight = parseDoubleField(doc, "net_weight"),
+                                totalWeight = parseDoubleField(doc, "total_weight"),
+                                lessWeight = parseDoubleField(doc, "less_weight"),
+                                cwWeight = parseDoubleField(doc, "cw_weight"),
+                                defaultMakingRate = parseDoubleField(doc, "default_making_rate"),
+                                vaCharges = parseDoubleField(doc, "va_charges"),
+                                totalProductCost = parseDoubleField(doc, "total_product_cost"),
+                                hasStones = doc.getBoolean("has_stones") ?: false,
+                                stoneName = doc.getString("stone_name") ?: "",
+                                stoneColor = doc.getString("stone_color") ?: "",
+                                stoneRate = parseDoubleField(doc, "stone_rate"),
+                                isOtherThanGold = doc.getBoolean("is_other_than_gold") ?: false,
+                                available = doc.getBoolean("available") ?: true,
+                                featured = doc.getBoolean("featured") ?: false,
+                                barcodeIds = barcodeIds,
+                                createdAt = parseLongField(doc, "created_at"),
+                                autoGenerateId = doc.getBoolean("auto_generate_id") ?: false,
+                                customProductId = doc.getString("custom_product_id"),
+                                show = show,
+                                isFavorite = isInWishlist
                             )
                         } catch (e: Exception) {
                             Log.e(tag, "Error processing product ${doc.id}", e)

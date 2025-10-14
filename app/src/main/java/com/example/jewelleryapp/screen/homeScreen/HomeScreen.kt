@@ -582,7 +582,8 @@ fun HomeScreen(
         RatesDialog(
             rates = goldSilverRates,
             isLoading = isRatesLoading,
-            onDismiss = { viewModel.hideRatesDialog() }
+            onDismiss = { viewModel.hideRatesDialog() },
+            onRetry = { viewModel.loadGoldSilverRates() }
         )
     }
 }
@@ -774,7 +775,10 @@ fun DrawerContent(
                 LazyColumn(
                     verticalArrangement = Arrangement.spacedBy(4.dp)
                 ) {
-                    items(materials) { material ->
+                    items(
+                        items = materials,
+                        key = { material -> material.id }
+                    ) { material ->
                         SubDrawerItem(
                             text = material.name,
                             onClick = {
@@ -808,7 +812,10 @@ fun DrawerContent(
                 LazyColumn(
                     verticalArrangement = Arrangement.spacedBy(4.dp)
                 ) {
-                    items(categories) { category ->
+                    items(
+                        items = categories,
+                        key = { category -> category.id }
+                    ) { category ->
                         SubDrawerItem(
                             text = category.name,
                             onClick = {
@@ -1368,7 +1375,10 @@ fun CategorySearchResults(
                 verticalArrangement = Arrangement.spacedBy(1.dp),
                 contentPadding = PaddingValues(vertical = 8.dp)
             ) {
-                items(categories) { category ->
+                items(
+                    items = categories,
+                    key = { category -> category.id }
+                ) { category ->
                     CategorySearchItem(
                         category = category,
                         onClick = { onCategoryClick(category.id) }
@@ -1522,10 +1532,10 @@ fun CategoryRow(categories: List<Category>, onCategoryClick: (String) -> Unit) {
             horizontalArrangement = Arrangement.spacedBy(24.dp),
             userScrollEnabled = true
         ) {
-            items(
+            itemsIndexed(
                 items = infiniteCategories,
-                key = { category -> "${category.id}_${infiniteCategories.indexOf(category)}" } // Add stable keys
-            ) { category ->
+                key = { index, category -> "${category.id}_$index" } // Use actual index for unique keys
+            ) { index, category ->
                 CategoryItem(category, onCategoryClick)
             }
         }
@@ -1765,7 +1775,10 @@ fun RecentlyViewedSection(
                 horizontalArrangement = Arrangement.spacedBy(16.dp),
                 contentPadding = PaddingValues(horizontal = 0.dp)
             ) {
-                items(products) { product ->
+                items(
+                    items = products,
+                    key = { product -> product.id } // Add unique key
+                ) { product ->
                     RecentlyViewedItem(
                         product = product,
                         onProductClick = onProductClick,
@@ -2687,7 +2700,10 @@ fun GradientHeaderWithBangles(
                             verticalArrangement = Arrangement.spacedBy(1.dp),
                             contentPadding = PaddingValues(vertical = 8.dp)
                         ) {
-                            items(filteredCategories) { category ->
+                            items(
+                                items = filteredCategories,
+                                key = { category -> category.id }
+                            ) { category ->
                                 GradientSearchItem(
                                     category = category,
                                     onClick = { 

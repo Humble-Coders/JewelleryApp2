@@ -46,12 +46,19 @@ import java.util.*
 fun RatesDialog(
     rates: GoldSilverRates?,
     isLoading: Boolean,
-    onDismiss: () -> Unit
+    onDismiss: () -> Unit,
+    onRetry: () -> Unit = {}
 ) {
     var isVisible by remember { mutableStateOf(false) }
 
     LaunchedEffect(Unit) {
         isVisible = true
+    }
+    
+    // Debug logging
+    LaunchedEffect(rates, isLoading) {
+        android.util.Log.d("RatesDialog", "State - isLoading: $isLoading, rates: $rates")
+        android.util.Log.d("RatesDialog", "Gold rate: ${rates?.goldRatePerGram}, Silver rate: ${rates?.silverRatePerGram}")
     }
 
     Dialog(
@@ -186,7 +193,7 @@ fun RatesDialog(
 
                             if (isLoading) {
                                 ModernLoadingState()
-                            } else if (rates != null) {
+                            } else if (rates != null && (rates.goldRatePerGram > 0 || rates.silverRatePerGram > 0)) {
                                 // Animated rate cards
                                 ModernRateCard(
                                     title = "Gold",
@@ -213,7 +220,7 @@ fun RatesDialog(
                                 // Last updated with modern design
                                 LastUpdatedSection(rates.lastUpdated)
                             } else {
-                                ErrorState()
+                                ErrorState(onRetry = onRetry)
                             }
                         }
                     }
@@ -469,7 +476,7 @@ private fun ModernLoadingState() {
 }
 
 @Composable
-private fun ErrorState() {
+private fun ErrorState(onRetry: () -> Unit = {}) {
     Column(
         horizontalAlignment = Alignment.CenterHorizontally,
         modifier = Modifier.fillMaxWidth()
@@ -502,8 +509,28 @@ private fun ErrorState() {
             text = "Please check your connection and try again",
             color = Color.Gray,
             fontSize = 14.sp,
-            textAlign = TextAlign.Center
+            textAlign = TextAlign.Center,
+            modifier = Modifier.padding(horizontal = 16.dp)
         )
+        
+        Spacer(modifier = Modifier.height(16.dp))
+        
+        // Retry button
+        Button(
+            onClick = onRetry,
+            colors = ButtonDefaults.buttonColors(
+                containerColor = Color(0xFF896C6C)
+            ),
+            shape = RoundedCornerShape(12.dp)
+        ) {
+            Icon(
+                imageVector = Icons.Default.Refresh,
+                contentDescription = "Retry",
+                modifier = Modifier.size(18.dp)
+            )
+            Spacer(modifier = Modifier.width(8.dp))
+            Text("Retry", fontSize = 14.sp)
+        }
     }
 }
 
