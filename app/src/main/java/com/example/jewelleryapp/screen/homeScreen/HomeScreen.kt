@@ -213,37 +213,25 @@ fun HomeScreen(
             name = "Akanksha Khanna",
             age = 27,
             imageRes = R.drawable.goldbracelet_homescreen,
-            text = "Obsessed with my engagement ring, my husband chose perfectly and it's everything I wanted in a ring. Handcrafted with love!",
-            rotation = -6f,
-            clipPosition = 0.3f,
-            stringDepth = 0.25f
+            text = "Obsessed with my engagement ring, my husband chose perfectly and it's everything I wanted in a ring. Handcrafted with love!"
         ),
         Testimonial(
             name = "Nutan Mishra",
             age = 33,
             imageRes = R.drawable.goldbracelet_homescreen,
-            text = "I got a necklace for my baby boy from this brand and it's so beautiful! It gave me happiness and security knowing it's pure.",
-            rotation = 4f,
-            clipPosition = 0.7f,
-            stringDepth = 0.35f
+            text = "I got a necklace for my baby boy from this brand and it's so beautiful! It gave me happiness and security knowing it's pure."
         ),
         Testimonial(
             name = "Sarah Johnson",
             age = 28,
             imageRes = R.drawable.goldbracelet_homescreen,
-            text = "Amazing quality and beautiful designs. The customer service was exceptional and I couldn't be happier!",
-            rotation = -2f,
-            clipPosition = 0.4f,
-            stringDepth = 0.2f
+            text = "Amazing quality and beautiful designs. The customer service was exceptional and I couldn't be happier!"
         ),
         Testimonial(
             name = "Priya Sharma",
             age = 25,
             imageRes = R.drawable.goldbracelet_homescreen,
-            text = "The jewelry is stunning and exactly what I was looking for. Fast delivery and beautiful packaging too!",
-            rotation = 5f,
-            clipPosition = 0.6f,
-            stringDepth = 0.4f
+            text = "The jewelry is stunning and exactly what I was looking for. Fast delivery and beautiful packaging too!"
         )
     )
 
@@ -428,14 +416,19 @@ fun HomeScreen(
                     }
                 ) {
                     Box {
-                        // In your HomeScreen LazyColumn, add these optimizations:
+                        // Optimized LazyColumn with pre-rendering for smooth scrolling
+                        val lazyListState = rememberLazyListState()
+                        
                         LazyColumn(
+                            state = lazyListState,
                             modifier = Modifier
                                 .fillMaxSize()
                                 .padding(paddingValues),
                             verticalArrangement = Arrangement.spacedBy(0.dp),
-                            // Add this for better performance
                             userScrollEnabled = true
+                            // Pre-render items beyond visible bounds for smooth scrolling
+                            // Uncomment after Gradle sync completes with Compose 1.6.8
+                            // beyondBoundsItemCount = 5
                         ) {
                             // Gradient header with bangles image and promotional text
                             item(key = "gradient_header") {
@@ -1440,6 +1433,9 @@ fun CategorySearchItem(
                 model = ImageRequest.Builder(LocalContext.current)
                     .data(category.imageUrl)
                     .crossfade(true)
+                    .size(80, 80) // Optimize for 40dp display
+                    .memoryCacheKey("category_dropdown_${category.id}")
+                    .diskCacheKey("category_dropdown_${category.id}")
                     .build(),
                 contentDescription = category.name,
                 modifier = Modifier
@@ -1531,6 +1527,7 @@ fun CategoryRow(categories: List<Category>, onCategoryClick: (String) -> Unit) {
             state = listState,
             horizontalArrangement = Arrangement.spacedBy(24.dp),
             userScrollEnabled = true
+            // beyondBoundsItemCount = 3 // Uncomment after Compose 1.6.8 sync
         ) {
             itemsIndexed(
                 items = infiniteCategories,
@@ -1550,18 +1547,21 @@ fun CategoryItem(category: CategoryModel, onCategoryClick: (String) -> Unit) {
         modifier = Modifier.clickable { onCategoryClick(category.id) }
     ) {
         // Use AsyncImage with Coil to load from URL
-        AsyncImage(
-            model = ImageRequest.Builder(LocalContext.current)
-                .data(category.imageUrl)
-                .crossfade(true)
-                .build(),
-            contentDescription = category.name,
-            modifier = Modifier
-                .size(60.dp)
-                .clip(CircleShape),
-            contentScale = ContentScale.Crop,
-            placeholder = painterResource(id = R.drawable.necklace_homescreen) // Placeholder from resources
-        )
+            AsyncImage(
+                model = ImageRequest.Builder(LocalContext.current)
+                    .data(category.imageUrl)
+                    .crossfade(true)
+                    .size(120, 120) // Optimize size for 60dp circle
+                    .memoryCacheKey("category_${category.id}")
+                    .diskCacheKey("category_${category.id}")
+                    .build(),
+                contentDescription = category.name,
+                modifier = Modifier
+                    .size(60.dp)
+                    .clip(CircleShape),
+                contentScale = ContentScale.Crop,
+                placeholder = painterResource(id = R.drawable.necklace_homescreen) // Placeholder from resources
+            )
 
         Spacer(modifier = Modifier.height(4.dp))
 
@@ -1774,6 +1774,7 @@ fun RecentlyViewedSection(
             LazyRow(
                 horizontalArrangement = Arrangement.spacedBy(16.dp),
                 contentPadding = PaddingValues(horizontal = 0.dp)
+                // beyondBoundsItemCount = 2 // Uncomment after Compose 1.6.8 sync
             ) {
                 items(
                     items = products,
@@ -1820,6 +1821,9 @@ fun RecentlyViewedItem(
                     model = ImageRequest.Builder(LocalContext.current)
                         .data(product.imageUrl)
                         .crossfade(true)
+                        .size(400, 300) // Optimize for card dimensions
+                        .memoryCacheKey("recent_${product.id}")
+                        .diskCacheKey("recent_${product.id}")
                         .build(),
                     contentDescription = product.name,
                     modifier = Modifier.fillMaxSize(),
@@ -2032,6 +2036,9 @@ fun ElegantCarouselItem(item: CarouselItemModel) {
                 model = ImageRequest.Builder(LocalContext.current)
                     .data(item.imageUrl)
                     .crossfade(true)
+                    .size(320, 320) // Optimize for 160dp circle
+                    .memoryCacheKey("carousel_${item.id}")
+                    .diskCacheKey("carousel_${item.id}")
                     .build(),
                 contentDescription = item.title,
                 modifier = Modifier
@@ -2171,6 +2178,9 @@ fun AnimatedProductItem(
                         model = ImageRequest.Builder(LocalContext.current)
                             .data(imageUrls.getOrNull(currentImageIndex))
                             .crossfade(300) // Reduced crossfade duration
+                            .size(500, 480) // Optimize image size
+                            .memoryCacheKey("product_${product.id}_$currentImageIndex")
+                            .diskCacheKey("product_${product.id}_$currentImageIndex")
                             .build(),
                         contentDescription = product.name,
                         modifier = Modifier.fillMaxSize(),
@@ -2274,6 +2284,7 @@ fun ThemedCollectionsSection(
         LazyRow(
             horizontalArrangement = Arrangement.spacedBy(16.dp),
             contentPadding = PaddingValues(horizontal = 0.dp)
+            // beyondBoundsItemCount = 2 // Uncomment after Compose 1.6.8 sync
         ) {
             itemsIndexed(collections) { index, collection ->
                 CollectionItem(
@@ -2344,6 +2355,9 @@ fun CollectionItem(
                                 model = ImageRequest.Builder(LocalContext.current)
                                     .data(imageUrl)
                                     .crossfade(true)
+                                    .size(400, 350) // Optimize for collection card size
+                                    .memoryCacheKey("collection_${collection.id}_$imageIndex")
+                                    .diskCacheKey("collection_${collection.id}_$imageIndex")
                                     .build(),
                                 contentDescription = "${collection.name} image ${imageIndex + 1}",
                                 modifier = Modifier.fillMaxSize(),
@@ -2850,6 +2864,11 @@ fun FeaturedProductCard(
                         model = ImageRequest.Builder(LocalContext.current)
                             .data(imageUrls.getOrNull(currentImageIndex))
                             .crossfade(true)
+                            // Set specific size for better memory usage
+                            .size(500, 500) // Resize to reasonable dimensions
+                            // Aggressive caching for smooth scrolling
+                            .memoryCacheKey(imageUrls.getOrNull(currentImageIndex))
+                            .diskCacheKey(imageUrls.getOrNull(currentImageIndex))
                             .build(),
                         contentDescription = product.name,
                         modifier = Modifier.fillMaxSize(),

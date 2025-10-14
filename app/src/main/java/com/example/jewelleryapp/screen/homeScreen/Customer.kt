@@ -1,21 +1,24 @@
 package com.example.jewelleryapp.screen.homeScreen
 
+import androidx.compose.animation.core.FastOutSlowInEasing
+import androidx.compose.animation.core.tween
+import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.lazy.LazyRow
-import androidx.compose.foundation.lazy.itemsIndexed
+import androidx.compose.foundation.pager.HorizontalPager
+import androidx.compose.foundation.pager.PageSize
+import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.draw.rotate
-import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.Path
-import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
@@ -23,296 +26,218 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import androidx.compose.foundation.Canvas
-import androidx.compose.ui.graphics.StrokeCap
+import androidx.compose.ui.util.lerp
 import com.example.jewelleryapp.R
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
+import kotlin.math.absoluteValue
 
 data class Testimonial(
     val name: String,
     val age: Int,
     val imageRes: Int,
-    val text: String,
-    val rotation: Float = 0f,
-    val clipPosition: Float = 0.5f, // Position along the string (0.0 to 1.0)
-    val stringDepth: Float = 0.3f   // How much the string sags (0.1 to 0.5)
+    val text: String
 )
 
+@OptIn(ExperimentalFoundationApi::class)
 @Composable
-fun CurvedStringBackground(
-    testimonials: List<Testimonial>,
+fun CoverFlowTestimonialCard(
+    testimonial: Testimonial,
+    pageOffset: Float,
     modifier: Modifier = Modifier
 ) {
-    Canvas(
+    Card(
         modifier = modifier
-            .fillMaxWidth()
-            .height(120.dp)
-    ) {
-        val stringColor = Color(0xFF896C6C)
-        val stringThickness = 2.dp.toPx()
-        val canvasWidth = size.width
-        val canvasHeight = size.height
+            .width(260.dp)
+            .height(360.dp)
+            .graphicsLayer {
+                // Calculate the absolute offset
+                val absOffset = pageOffset.absoluteValue
 
-        // Calculate positions for each testimonial
-        val cardPositions = testimonials.mapIndexed { index, testimonial ->
-            val progress = if (testimonials.size == 1) 0.5f else index.toFloat() / (testimonials.size - 1)
-            progress * canvasWidth
-        }
-
-        // Draw curved string segments between cards
-        if (testimonials.isNotEmpty()) {
-            val path = Path()
-
-            // Start from left edge - lower to match clips
-            val startY = canvasHeight * 0.25f
-            path.moveTo(0f, startY)
-
-            // Create curves between each card position
-            for (i in cardPositions.indices) {
-                val currentX = cardPositions[i]
-                val currentDepth = testimonials[i].stringDepth
-                // String touches the clip position - lower to align with clips
-                val sagY = canvasHeight * (0.5f + currentDepth * 0.3f)
-
-                if (i == 0) {
-                    // Curve from start to first card
-                    val controlX = currentX * 0.5f
-                    val controlY = (startY + sagY) * 0.5f
-                    path.quadraticBezierTo(controlX, controlY, currentX, sagY)
-                } else {
-                    // Curve from previous card to current card
-                    val prevX = cardPositions[i - 1]
-                    val prevDepth = testimonials[i - 1].stringDepth
-                    val prevSagY = canvasHeight * (0.4f + prevDepth * 0.4f)
-
-                    val midX = (prevX + currentX) * 0.5f
-                    val midY = (prevSagY + sagY) * 0.5f + canvasHeight * 0.08f
-
-                    path.quadraticBezierTo(midX, midY, currentX, sagY)
-                }
-
-                if (i == cardPositions.lastIndex) {
-                    // Curve from last card to end
-                    val controlX = currentX + (canvasWidth - currentX) * 0.5f
-                    val controlY = (sagY + startY) * 0.5f
-                    path.quadraticBezierTo(controlX, controlY, canvasWidth, startY)
-                }
-            }
-
-            // Draw the main string path
-            drawPath(
-                path = path,
-                color = stringColor,
-                style = Stroke(width = stringThickness, cap = StrokeCap.Round)
-            )
-
-            // Add string texture with thinner parallel lines
-            val texturePath1 = Path()
-            val texturePath2 = Path()
-
-            // Recreate paths with slight offsets for texture
-            texturePath1.moveTo(0f, startY - stringThickness * 0.3f)
-            texturePath2.moveTo(0f, startY + stringThickness * 0.3f)
-
-            for (i in cardPositions.indices) {
-                val currentX = cardPositions[i]
-                val currentDepth = testimonials[i].stringDepth
-                val sagY = canvasHeight * (0.5f + currentDepth * 0.3f)
-
-                if (i == 0) {
-                    val controlX = currentX * 0.5f
-                    val controlY = (startY + sagY) * 0.5f
-                    texturePath1.quadraticBezierTo(controlX, controlY - stringThickness * 0.3f, currentX, sagY - stringThickness * 0.3f)
-                    texturePath2.quadraticBezierTo(controlX, controlY + stringThickness * 0.3f, currentX, sagY + stringThickness * 0.3f)
-                } else {
-                    val prevX = cardPositions[i - 1]
-                    val prevDepth = testimonials[i - 1].stringDepth
-                    val prevSagY = canvasHeight * (0.4f + prevDepth * 0.4f)
-
-                    val midX = (prevX + currentX) * 0.5f
-                    val midY = (prevSagY + sagY) * 0.5f + canvasHeight * 0.08f
-
-                    texturePath1.quadraticBezierTo(midX, midY - stringThickness * 0.3f, currentX, sagY - stringThickness * 0.3f)
-                    texturePath2.quadraticBezierTo(midX, midY + stringThickness * 0.3f, currentX, sagY + stringThickness * 0.3f)
-                }
-
-                if (i == cardPositions.lastIndex) {
-                    val controlX = currentX + (canvasWidth - currentX) * 0.5f
-                    val controlY = (sagY + startY) * 0.5f
-                    texturePath1.quadraticBezierTo(controlX, controlY - stringThickness * 0.3f, canvasWidth, startY - stringThickness * 0.3f)
-                    texturePath2.quadraticBezierTo(controlX, controlY + stringThickness * 0.3f, canvasWidth, startY + stringThickness * 0.3f)
-                }
-            }
-
-            drawPath(
-                path = texturePath1,
-                color = stringColor.copy(alpha = 0.6f),
-                style = Stroke(width = 1.dp.toPx(), cap = StrokeCap.Round)
-            )
-
-            drawPath(
-                path = texturePath2,
-                color = stringColor.copy(alpha = 0.6f),
-                style = Stroke(width = 1.dp.toPx(), cap = StrokeCap.Round)
-            )
-        }
-    }
-}
-
-@Composable
-fun HangingTestimonialCard(
-    testimonial: Testimonial,
-    modifier: Modifier = Modifier,
-    clipDrawableRes: Int = R.drawable.paper_clip // Vector drawable resource
-) {
-    Box(
-        modifier = modifier
-            .width(280.dp)
-            .height(450.dp), // Ensure full height for the card and clip
-        contentAlignment = Alignment.TopCenter
-    ) {
-        // Paper clip from vector drawable - positioned to touch the string
-        Image(
-            painter = painterResource(id = clipDrawableRes),
-            contentDescription = "Paper clip",
-            modifier = Modifier
-                .size(32.dp, 48.dp)
-                .offset(
-                    x = ((testimonial.clipPosition - 0.5f) * 120).dp,
-                    y = (50 + testimonial.stringDepth * 25).dp // Aligned with lower string position
+                // Scale effect: center card is larger, side cards are clearly visible
+                val scale = lerp(
+                    start = 0.80f,
+                    stop = 1f,
+                    fraction = 1f - absOffset.coerceIn(0f, 1f)
                 )
-                .rotate(testimonial.rotation * 0.3f + (testimonial.clipPosition - 0.5f) * 15f),
-            contentScale = ContentScale.Fit
-        )
+                scaleX = scale
+                scaleY = scale
 
-        // The hanging card - positioned lower to account for clip connection
-        Card(
+                // Minimal rotation for subtle 3D effect
+                rotationY = pageOffset * 20f
+
+                // Alpha/transparency effect - side cards fully visible
+                alpha = lerp(
+                    start = 0.85f,
+                    stop = 1f,
+                    fraction = 1f - absOffset.coerceIn(0f, 1f)
+                )
+
+                // Minimal translation for subtle depth
+                translationX = pageOffset * -30f
+            },
+        shape = RoundedCornerShape(16.dp),
+        colors = CardDefaults.cardColors(
+            containerColor = Color(0xFFFAF8F6)
+        ),
+        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
+    ) {
+        Column(
             modifier = Modifier
-                .width(260.dp)
-                .height(360.dp)
-                .offset(y = (85 + testimonial.stringDepth * 40).dp) // Positioned relative to lower string
-                .rotate(testimonial.rotation)
-                .shadow(
-                    elevation = 16.dp,
-                    shape = RoundedCornerShape(8.dp),
-                    ambientColor = Color.Black.copy(alpha = 0.25f),
-                    spotColor = Color.Black.copy(alpha = 0.25f)
-                ),
-            shape = RoundedCornerShape(8.dp),
-            colors = CardDefaults.cardColors(
-                containerColor = Color(0xFFFAF8F6)
-            ),
-            elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
+                .fillMaxSize()
+                .padding(14.dp),
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.Center
         ) {
-            Column(
+            // Image section with vintage photo border
+            Box(
                 modifier = Modifier
-                    .fillMaxSize()
-                    .padding(16.dp),
-                horizontalAlignment = Alignment.CenterHorizontally
+                    .fillMaxWidth()
+                    .height(170.dp)
+                    .background(Color.White, RoundedCornerShape(8.dp))
+                    .padding(8.dp)
             ) {
-                // Image section with vintage photo border
                 Box(
                     modifier = Modifier
-                        .fillMaxWidth()
-                        .height(180.dp)
-                        .background(Color.White)
-                        .padding(8.dp)
+                        .fillMaxSize()
+                        .clip(RoundedCornerShape(4.dp))
+                        .background(Color(0xFFF8F8F8))
                 ) {
-                    Box(
+                    Image(
+                        painter = painterResource(id = testimonial.imageRes),
+                        contentDescription = "Customer photo",
                         modifier = Modifier
                             .fillMaxSize()
-                            .clip(RoundedCornerShape(2.dp))
-                            .background(Color(0xFFF8F8F8))
-                    ) {
-                        Image(
-                            painter = painterResource(id = testimonial.imageRes),
-                            contentDescription = "Customer photo",
-                            modifier = Modifier
-                                .fillMaxSize()
-                                .padding(3.dp)
-                                .clip(RoundedCornerShape(1.dp)),
-                            contentScale = ContentScale.Crop
-                        )
-                    }
+                            .padding(3.dp)
+                            .clip(RoundedCornerShape(2.dp)),
+                        contentScale = ContentScale.Crop
+                    )
                 }
-
-                Spacer(modifier = Modifier.height(16.dp))
-
-                // Name and age
-                Text(
-                    text = "${testimonial.name}, ${testimonial.age}",
-                    fontSize = 16.sp,
-                    fontWeight = FontWeight.Medium,
-                    color = Color(0xFF2D3748),
-                    textAlign = TextAlign.Center
-                )
-
-                Spacer(modifier = Modifier.height(12.dp))
-
-                // Testimonial text
-                Text(
-                    text = testimonial.text,
-                    fontSize = 11.sp,
-                    lineHeight = 14.sp,
-                    color = Color(0xFF4A5568),
-                    textAlign = TextAlign.Center,
-                    modifier = Modifier.fillMaxWidth()
-                )
             }
+
+            Spacer(modifier = Modifier.height(14.dp))
+
+            // Name and age
+            Text(
+                text = "${testimonial.name}, ${testimonial.age}",
+                fontSize = 16.sp,
+                fontWeight = FontWeight.SemiBold,
+                color = Color(0xFF2D3748),
+                textAlign = TextAlign.Center
+            )
+
+            Spacer(modifier = Modifier.height(10.dp))
+
+            // Testimonial text
+            Text(
+                text = testimonial.text,
+                fontSize = 11.sp,
+                lineHeight = 15.sp,
+                color = Color(0xFF4A5568),
+                textAlign = TextAlign.Center,
+                modifier = Modifier.fillMaxWidth()
+            )
         }
     }
 }
 
+@OptIn(ExperimentalFoundationApi::class)
 @Composable
 fun CustomerTestimonialsWithCurvedString(
     testimonials: List<Testimonial>,
     modifier: Modifier = Modifier,
-    clipDrawableRes: Int = R.drawable.paper_clip // Add your paper clip vector drawable
+    clipDrawableRes: Int = R.drawable.paper_clip // Keep for compatibility but not used
 ) {
+    if (testimonials.isEmpty()) return
+
+    // Create a large virtual list for infinite scrolling effect
+    val virtualPageCount = Int.MAX_VALUE
+    val initialPage = virtualPageCount / 2
+
+    val pagerState = rememberPagerState(
+        initialPage = initialPage,
+        pageCount = { virtualPageCount }
+    )
+
+    val coroutineScope = rememberCoroutineScope()
+
+    // Auto-scroll effect - slow and smooth
+    LaunchedEffect(Unit) {
+        while (true) {
+            delay(5000) // Wait 5 seconds
+            coroutineScope.launch {
+                val nextPage = pagerState.currentPage + 1
+                pagerState.animateScrollToPage(
+                    page = nextPage,
+                    animationSpec = tween(
+                        durationMillis = 800,
+                        easing = FastOutSlowInEasing
+                    )
+                )
+            }
+        }
+    }
+
     Column(
         modifier = modifier
             .fillMaxWidth()
             .background(Color(0xFFF7F5F3))
-            .padding(vertical = 8.dp),
+            .padding(vertical = 32.dp),
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
-//        // Header
-//        Text(
-//            text = "Customer Testimonials",
-//            fontSize = 16.sp,
-//            fontWeight = FontWeight.Medium,
-//            color = Color(0xFFD4B896),
-//            modifier = Modifier.padding(bottom = 8.dp)
-//        )
+        // Header
+        Text(
+            text = "Customer Testimonials",
+            fontSize = 24.sp,
+            fontWeight = FontWeight.Bold,
+            color = Color(0xFF896C6C),
+            modifier = Modifier.padding(bottom = 24.dp)
+        )
 
-        // Container for string and cards
+        // Cover Flow Carousel
         Box(
             modifier = Modifier
                 .fillMaxWidth()
-                .height(450.dp) // Increased height to accommodate lower string and full cards
+                .height(420.dp),
+            contentAlignment = Alignment.Center
         ) {
-            // Curved string background
-            CurvedStringBackground(
-                testimonials = testimonials,
-                modifier = Modifier
-                    .align(Alignment.TopCenter)
-                    .offset(y = (-20).dp) // Move string slightly up to better align with clips
-            )
+            HorizontalPager(
+                state = pagerState,
+                pageSize = PageSize.Fixed(260.dp),
+                contentPadding = PaddingValues(horizontal = 50.dp),
+                pageSpacing = 8.dp,
+                modifier = Modifier.fillMaxWidth()
+            ) { page ->
+                // Map virtual page to actual testimonial
+                val actualIndex = page % testimonials.size
+                val testimonial = testimonials[actualIndex]
 
-            // Testimonial cards
-            LazyRow(
-                horizontalArrangement = Arrangement.spacedBy(32.dp),
-                contentPadding = PaddingValues(horizontal = 24.dp, vertical = 8.dp),
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .fillMaxHeight()
-                    .padding(top = 0.dp)
-            ) {
-                itemsIndexed(testimonials) { index, testimonial ->
-                    HangingTestimonialCard(
-                        testimonial = testimonial,
-                        clipDrawableRes = clipDrawableRes
-                    )
-                }
+                // Calculate page offset for animations
+                val pageOffset = (pagerState.currentPage - page) + pagerState.currentPageOffsetFraction
+
+                CoverFlowTestimonialCard(
+                    testimonial = testimonial,
+                    pageOffset = pageOffset
+                )
+            }
+        }
+
+        // Page indicators
+        Row(
+            modifier = Modifier
+                .padding(top = 16.dp),
+            horizontalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
+            repeat(testimonials.size) { index ->
+                val currentIndex = pagerState.currentPage % testimonials.size
+                Box(
+                    modifier = Modifier
+                        .size(if (currentIndex == index) 10.dp else 8.dp)
+                        .background(
+                            color = if (currentIndex == index) Color(0xFF896C6C) else Color(0xFFD4B896),
+                            shape = RoundedCornerShape(50)
+                        )
+                )
             }
         }
     }
@@ -320,43 +245,31 @@ fun CustomerTestimonialsWithCurvedString(
 
 @Preview(showBackground = true)
 @Composable
-fun CurvedStringTestimonialsPreview() {
+fun CoverFlowTestimonialsPreview() {
     val sampleTestimonials = listOf(
         Testimonial(
             name = "Akanksha Khanna",
             age = 27,
             imageRes = R.drawable.goldbracelet_homescreen,
-            text = "Obsessed with my engagement ring, my husband chose perfectly and it's everything I wanted in a ring. Handcrafted with love!",
-            rotation = -6f,
-            clipPosition = 0.3f,
-            stringDepth = 0.25f
+            text = "Obsessed with my engagement ring, my husband chose perfectly and it's everything I wanted in a ring. Handcrafted with love!"
         ),
         Testimonial(
             name = "Nutan Mishra",
             age = 33,
             imageRes = R.drawable.goldbracelet_homescreen,
-            text = "I got a necklace for my baby boy from this brand and it's so beautiful! It gave me happiness and security knowing it's pure.",
-            rotation = 4f,
-            clipPosition = 0.7f,
-            stringDepth = 0.35f
+            text = "I got a necklace for my baby boy from this brand and it's so beautiful! It gave me happiness and security knowing it's pure."
         ),
         Testimonial(
             name = "Sarah Johnson",
             age = 28,
             imageRes = R.drawable.goldbracelet_homescreen,
-            text = "Amazing quality and beautiful designs. The customer service was exceptional and I couldn't be happier!",
-            rotation = -2f,
-            clipPosition = 0.4f,
-            stringDepth = 0.2f
+            text = "Amazing quality and beautiful designs. The customer service was exceptional and I couldn't be happier!"
         ),
         Testimonial(
             name = "Priya Sharma",
             age = 25,
             imageRes = R.drawable.goldbracelet_homescreen,
-            text = "The jewelry is stunning and exactly what I was looking for. Fast delivery and beautiful packaging too!",
-            rotation = 5f,
-            clipPosition = 0.6f,
-            stringDepth = 0.4f
+            text = "The jewelry is stunning and exactly what I was looking for. Fast delivery and beautiful packaging too!"
         )
     )
 

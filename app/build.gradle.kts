@@ -66,12 +66,13 @@ dependencies {
     implementation("androidx.appcompat:appcompat:1.6.1")
     implementation("com.google.android.material:material:1.11.0")
 
-    // Jetpack Compose
-    implementation("androidx.compose.ui:ui:1.5.4")
-    implementation("androidx.compose.material:material:1.5.4")
-    implementation("androidx.compose.ui:ui-tooling-preview:1.5.4")
+    // Jetpack Compose - Updated to 1.6.8 for beyondBoundsItemCount support
+    implementation("androidx.compose.ui:ui:1.6.8")
+    implementation("androidx.compose.material:material:1.6.8")
+    implementation("androidx.compose.ui:ui-tooling-preview:1.6.8")
+    implementation("androidx.compose.foundation:foundation:1.6.8")
     implementation("androidx.activity:activity-compose:1.8.2")
-    debugImplementation("androidx.compose.ui:ui-tooling:1.5.4")
+    debugImplementation("androidx.compose.ui:ui-tooling:1.6.8")
 
     // ViewModel and LiveData
     implementation("androidx.lifecycle:lifecycle-viewmodel-ktx:2.6.2")
@@ -85,7 +86,10 @@ dependencies {
     // Navigation Compose
     implementation("androidx.navigation:navigation-compose:2.7.6")
 
+    // Coil for image loading with decoders
     implementation("io.coil-kt:coil-compose:2.5.0")
+    implementation("io.coil-kt:coil-gif:2.5.0")
+    implementation("io.coil-kt:coil-video:2.5.0")
 
     // For Google Sign-In (if you're actually implementing it)
     implementation(libs.play.services.auth)
@@ -116,7 +120,7 @@ dependencies {
     implementation(libs.androidx.material3)
 
 
-    implementation ("com.google.firebase:firebase-dynamic-links-ktx:22.1.0")
+    implementation ("com.google.firebase:firebase-dynamic-links-ktx:22.1.0");
     implementation (libs.firebase.analytics.ktx)
     implementation (libs.firebase.messaging)
 
