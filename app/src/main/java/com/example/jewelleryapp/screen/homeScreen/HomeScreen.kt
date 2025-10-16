@@ -50,6 +50,8 @@ import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.systemBarsPadding
+import androidx.compose.foundation.layout.statusBarsPadding
+import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
@@ -357,7 +359,7 @@ fun HomeScreen(
                 )
             },
             bottomBar = { BottomNavigationBar(navController = navController) },
-            containerColor = Color.White
+            containerColor = Color(0xFFF8F6F4)
         ) { paddingValues ->
             // Main content without outer Box
             if (error != null) {
@@ -1008,10 +1010,10 @@ fun TopAppbar(
     val context = LocalContext.current
     val view = LocalView.current
 
-    // Set status bar color to C59E9E
+    // Status bar matches app color
     SideEffect {
         val window = (view.context as ComponentActivity).window
-        window.statusBarColor = Color(0xFFC59E9E).toArgb()
+        window.statusBarColor = Color(0xFFC59E9E).toArgb() // Match TopAppbar color
         WindowCompat.getInsetsController(window, view).isAppearanceLightStatusBars = true
     }
 
@@ -1104,7 +1106,7 @@ fun TopAppbar(
     Column(
         modifier = Modifier
             .fillMaxWidth()
-            .systemBarsPadding()
+            .statusBarsPadding()
     ) {
         Surface(
             modifier = Modifier
@@ -1619,7 +1621,7 @@ fun BottomNavigationBar(navController: NavController) {
         containerColor = Color(0xFF896C6C),
         modifier = Modifier
             .fillMaxWidth()
-            .height(80.dp)  // Increased height to accommodate labels
+            .navigationBarsPadding()
             .background(
                 brush = Brush.verticalGradient(
                     colors = listOf(
@@ -2557,9 +2559,9 @@ fun GradientHeaderWithBangles(
         }
     }
     val gradientColors = listOf(
-        Color(0xFFC59E9E), // Top: C59E9E
+        Color(0xFFC59E9E), // Top: C59E9E - matches TopAppbar
         Color(0xFFE5BEB5), // Middle: E5BEB5
-        Color(0xFFEEDDCA)  // Bottom: EEDDCA
+        Color(0xFFF8F6F4)  // Bottom: F8F6F4 - matches Scaffold background
     )
 
     Column {
@@ -2629,7 +2631,7 @@ fun GradientHeaderWithBangles(
                 .background(
                     brush = Brush.verticalGradient(
                         colors = listOf(
-                            Color(0xFFEEDDCA), // Start from gradient end
+                            Color(0xFFF8F6F4), // Start from gradient end - matches Scaffold background
                             Color(0xFFF5F5F5), // Light transition
                             Color.White        // End with white
                         )

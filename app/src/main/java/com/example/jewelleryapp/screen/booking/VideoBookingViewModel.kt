@@ -63,53 +63,9 @@ class VideoBookingViewModel(
         _slotsForAvailability.value = emptyList()
     }
 
-    // Initialize real-time listeners
+    // Initialize without real-time listeners
     init {
-        startRealTimeListeners()
-    }
-
-    private fun startRealTimeListeners() {
-        // Listen to user's bookings in real-time
-        repository.listenToUserBookings()
-            .onEach { bookings ->
-                val now = Timestamp.now()
-                _myBookings.value = bookings.filter { 
-                    it.status == "confirmed" && it.startTime.seconds > now.seconds 
-                }
-            }
-            .catch { e ->
-                _error.value = "Failed to listen to user bookings: ${e.message}"
-            }
-            .launchIn(viewModelScope)
-
-        // Listen to ALL bookings to update slot availability in real-time
-        repository.listenToNewBookings()
-            .onEach { allBookings ->
-                // Update slots when bookings change
-                updateSlotsWithLatestBookings(allBookings)
-            }
-            .catch { e ->
-                _error.value = "Failed to listen to all bookings: ${e.message}"
-            }
-            .launchIn(viewModelScope)
-    }
-
-    private fun updateSlotsWithLatestBookings(allBookings: List<BookingDoc>) {
-        val now = Timestamp.now()
-        val confirmedBookings = allBookings.filter { 
-            it.status == "confirmed" && it.startTime.seconds > now.seconds 
-        }
-        val bookedStartMillis = confirmedBookings.map { it.startTime.toDate().time }.toSet()
-
-        // Update main slots
-        _slots.value = _slots.value.map { slot ->
-            slot.copy(isBooked = bookedStartMillis.contains(slot.startTime.toDate().time))
-        }
-
-        // Update slots for selected availability
-        _slotsForAvailability.value = _slotsForAvailability.value.map { slot ->
-            slot.copy(isBooked = bookedStartMillis.contains(slot.startTime.toDate().time))
-        }
+        // No real-time listeners - we'll refresh data when needed
     }
 
     fun loadSlots() {
@@ -120,7 +76,9 @@ class VideoBookingViewModel(
                 val now = Timestamp.now()
                 val availabilities = repository.fetchActiveAvailabilities(now)
                 val bookings = repository.fetchUpcomingBookings(now)
-                val bookedStartMillis = bookings.map { it.startTime.toDate().time }.toSet()
+                
+                // Create a set of booked start times for efficient lookup
+                val bookedStartTimes = bookings.map { it.startTime }.toSet()
 
                 val generated = mutableListOf<SlotItem>()
                 availabilities.forEach { a ->
@@ -128,11 +86,18 @@ class VideoBookingViewModel(
                     var cursor = a.startTime.toDate().time
                     val endBoundary = a.endTime.toDate().time
                     while (cursor + durationMs <= endBoundary) {
-                        val isBooked = bookedStartMillis.contains(cursor)
+                        val startTimestamp = Timestamp(Date(cursor))
+                        val endTimestamp = Timestamp(Date(cursor + durationMs))
+                        
+                        // Check if this slot is booked by comparing timestamps
+                        val isBooked = bookedStartTimes.any { bookingStartTime ->
+                            bookingStartTime.seconds == startTimestamp.seconds
+                        }
+                        
                         generated.add(
                             SlotItem(
-                                startTime = Timestamp(cursor / 1000, ((cursor % 1000) * 1_000_000).toInt()),
-                                endTime = Timestamp((cursor + durationMs) / 1000, (((cursor + durationMs) % 1000) * 1_000_000).toInt()),
+                                startTime = startTimestamp,
+                                endTime = endTimestamp,
                                 isBooked = isBooked
                             )
                         )
@@ -142,9 +107,6 @@ class VideoBookingViewModel(
 
                 // Sort by start time and update slots
                 _slots.value = generated.sortedBy { it.startTime.toDate().time }
-                
-                // Trigger real-time update to ensure consistency
-                updateSlotsWithLatestBookings(bookings)
             } catch (e: Exception) {
                 _error.value = e.message
             } finally {
@@ -184,13 +146,54 @@ class VideoBookingViewModel(
                 // Set success message with booking ID
                 _bookingSuccess.value = "Slot successfully booked! 🎉\nBooking ID: $bookingId"
                 
-                // Reload slots to reflect the new booking
-                loadSlots()
+                // Refresh slots to show updated availability
+                refreshSlotsAfterBooking()
                 
             } catch (e: Exception) {
                 _bookingError.value = e.message ?: "Failed to book slot. Please try again."
+                
+                // If booking failed because slot is already booked, refresh slots
+                if (e.message?.contains("already been booked", ignoreCase = true) == true) {
+                    refreshSlotsAfterBooking()
+                }
             } finally {
                 _isLoading.value = false
+            }
+        }
+    }
+
+    // Refresh slots after booking success or failure
+    private fun refreshSlotsAfterBooking() {
+        viewModelScope.launch {
+            try {
+                val now = Timestamp.now()
+                val bookings = repository.fetchUpcomingBookings(now)
+                
+                // Create a set of booked start times for efficient lookup
+                val bookedStartTimes = bookings.map { it.startTime }.toSet()
+
+                // Update slots for selected availability if we have one
+                if (_selectedAvailability.value != null) {
+                    _slotsForAvailability.value = _slotsForAvailability.value.map { slot ->
+                        val isBooked = bookedStartTimes.any { bookingStartTime ->
+                            bookingStartTime.seconds == slot.startTime.seconds
+                        }
+                        slot.copy(isBooked = isBooked)
+                    }
+                }
+                
+                // Also update main slots if they exist
+                if (_slots.value.isNotEmpty()) {
+                    _slots.value = _slots.value.map { slot ->
+                        val isBooked = bookedStartTimes.any { bookingStartTime ->
+                            bookingStartTime.seconds == slot.startTime.seconds
+                        }
+                        slot.copy(isBooked = isBooked)
+                    }
+                }
+            } catch (e: Exception) {
+                // Silent fail - this is just a refresh operation
+                // The main error handling is done in the booking method
             }
         }
     }
@@ -251,7 +254,9 @@ class VideoBookingViewModel(
             try {
                 val now = Timestamp.now()
                 val bookings = repository.fetchUpcomingBookings(now)
-                val bookedStartMillis = bookings.map { it.startTime.toDate().time }.toSet()
+                
+                // Create a set of booked start times for efficient lookup
+                val bookedStartTimes = bookings.map { it.startTime }.toSet()
 
                 val generated = mutableListOf<SlotItem>()
                 val durationMs = TimeUnit.MINUTES.toMillis(availability.slotDurationMinutes.toLong())
@@ -259,9 +264,14 @@ class VideoBookingViewModel(
                 val endBoundary = availability.endTime.toDate().time
                 
                 while (cursor + durationMs <= endBoundary) {
-                    val isBooked = bookedStartMillis.contains(cursor)
                     val startTimestamp = Timestamp(Date(cursor))
                     val endTimestamp = Timestamp(Date(cursor + durationMs))
+                    
+                    // Check if this slot is booked by comparing timestamps
+                    val isBooked = bookedStartTimes.any { bookingStartTime ->
+                        bookingStartTime.seconds == startTimestamp.seconds
+                    }
+                    
                     generated.add(
                         SlotItem(
                             startTime = startTimestamp,
@@ -273,9 +283,6 @@ class VideoBookingViewModel(
                 }
 
                 _slotsForAvailability.value = generated.sortedBy { it.startTime.toDate().time }
-                
-                // Trigger real-time update to ensure consistency
-                updateSlotsWithLatestBookings(bookings)
             } catch (e: Exception) {
                 _error.value = e.message ?: "Failed to generate slots."
             } finally {

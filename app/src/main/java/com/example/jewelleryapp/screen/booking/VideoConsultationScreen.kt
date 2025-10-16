@@ -253,7 +253,7 @@ fun VideoConsultationScreen(
                 onDismiss = { 
                     showSuccessDialog = false
                     viewModel.clearBookingMessages()
-                    viewModel.loadSlots() // Refresh slots
+                    // Slots are automatically refreshed after booking success
                 }
             )
         }

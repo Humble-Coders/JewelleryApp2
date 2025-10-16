@@ -8,6 +8,7 @@ import android.util.Log
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
+import androidx.core.view.WindowCompat
 import androidx.activity.result.ActivityResultLauncher
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
@@ -50,6 +51,7 @@ import com.example.jewelleryapp.screen.homeScreen.StoreInfoViewModel
 import com.example.jewelleryapp.screen.wishlist.WishlistScreen
 import com.example.jewelleryapp.screen.wishlist.WishlistViewModel
 import com.example.jewelleryapp.screen.welcomeScreen.WelcomeScreen
+import com.example.jewelleryapp.screen.splashScreen.SplashScreen
 import com.example.jewelleryapp.ui.theme.JewelleryAppTheme
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.FirebaseFirestore
@@ -94,6 +96,7 @@ class MainActivity : ComponentActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        enableEdgeToEdge()
 
         // Update the launcher in MainActivity
         // Update the launcher in MainActivity to handle both login and register
@@ -175,7 +178,13 @@ class MainActivity : ComponentActivity() {
         // Start background video preloading
         startBackgroundVideoPreloading(jewelryRepository)
 
-        enableEdgeToEdge()
+
+        
+        // Configure window to allow content behind system bars
+        WindowCompat.setDecorFitsSystemWindows(window, false)
+        window.statusBarColor = android.graphics.Color.parseColor("#C59E9E") // App's amber color
+        window.navigationBarColor = android.graphics.Color.TRANSPARENT
+        
         requestNotificationPermission()
 
         setContent {
@@ -323,26 +332,36 @@ fun AppNavigation(
     var isAuthenticated by remember { mutableStateOf(false) }
     var isAuthChecked by remember { mutableStateOf(false) }
 
-    // Listen to Firebase Auth state changes
+    // Handle auth check completion from splash screen
+    LaunchedEffect(Unit) {
+        // Initial auth check
+        val user = FirebaseAuth.getInstance().currentUser
+        isAuthenticated = user != null
+        isAuthChecked = true
+        
+        Log.d("AppNavigation", "Initial auth check - User: ${user?.uid}, Authenticated: $isAuthenticated")
+    }
+
+    // Listen to Firebase Auth state changes for subsequent changes
     LaunchedEffect(Unit) {
         FirebaseAuth.getInstance().addAuthStateListener { auth ->
             val user = auth.currentUser
+            val wasAuthenticated = isAuthenticated
             isAuthenticated = user != null
-            isAuthChecked = true
             
-            Log.d("AppNavigation", "Auth state changed - User: ${user?.uid}, Authenticated: $isAuthenticated")
+            Log.d("AppNavigation", "Auth state changed - User: ${user?.uid}, Authenticated: $isAuthenticated, Was: $wasAuthenticated")
             
-            // Navigate based on auth state if auth has been checked
-            if (isAuthChecked) {
+            // Only navigate if auth state actually changed and we're not on splash screen
+            if (isAuthChecked && wasAuthenticated != isAuthenticated) {
                 if (isAuthenticated) {
-                    // User is logged in, navigate to home
+                    // User logged in, navigate to home
                     navController.navigate("home") {
-                        popUpTo("welcome") { inclusive = true }
+                        popUpTo("splash") { inclusive = true }
                     }
                 } else {
-                    // User is not logged in, navigate to welcome
+                    // User logged out, navigate to welcome
                     navController.navigate("welcome") {
-                        popUpTo("home") { inclusive = true }
+                        popUpTo("splash") { inclusive = true }
                     }
                 }
             }
@@ -381,13 +400,27 @@ fun AppNavigation(
     }
 
     // Determine start destination based on auth state
-    val startDestination = when {
-        !isAuthChecked -> "welcome" // Show welcome while checking auth state
-        isAuthenticated -> "home"
-        else -> "welcome"
-    }
+    val startDestination = "splash" // Always start with splash screen
 
     NavHost(navController = navController, startDestination = startDestination) {
+        // Splash Screen - handles initial auth check
+        composable("splash") {
+            SplashScreen(
+                navController = navController,
+                onAuthCheckComplete = { isAuthenticated ->
+                    if (isAuthenticated) {
+                        navController.navigate("home") {
+                            popUpTo("splash") { inclusive = true }
+                        }
+                    } else {
+                        navController.navigate("welcome") {
+                            popUpTo("splash") { inclusive = true }
+                        }
+                    }
+                }
+            )
+        }
+        
         // Welcome Screen
         composable("welcome") {
             WelcomeScreen(navController = navController)
@@ -409,14 +442,14 @@ fun AppNavigation(
                 viewModel = profileViewModel, // Use existing instance
                 navController = navController,
                 onSignOut = {
-                    // Navigate to welcome and clear back stack
-                    navController.navigate("welcome") {
+                    // Navigate to splash and clear back stack
+                    navController.navigate("splash") {
                         popUpTo(0) { inclusive = true }
                     }
                 },
                 onAccountDeleted = {
-                    // Navigate to welcome and clear back stack
-                    navController.navigate("welcome") {
+                    // Navigate to splash and clear back stack
+                    navController.navigate("splash") {
                         popUpTo(0) { inclusive = true }
                     }
                 }
@@ -503,7 +536,7 @@ fun AppNavigation(
                 onLogout = {
                     // Use ProfileViewModel's signOut method
                     profileViewModel.signOut()
-                    navController.navigate("welcome") {
+                    navController.navigate("splash") {
                         popUpTo(0) { inclusive = true }
                     }
                 },
