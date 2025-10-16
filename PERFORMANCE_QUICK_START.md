@@ -245,3 +245,4 @@ Just sync Gradle and run the app. You should immediately notice:
 
 Enjoy the performance boost! 🚀
 
+

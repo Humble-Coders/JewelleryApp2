@@ -155,6 +155,7 @@ data class UserProfile(
     val phone: String = "",
     val dateOfBirth: String = "", // Format: "yyyy-MM-dd"
     val profilePictureUrl: String = "",
+    val googleId: String = "", // Google ID for Google sign-in users, empty for email/password users
     val isGoogleSignIn: Boolean = false,
     val createdAt: Long = 0L,
     val localImagePath: String = "" // For locally stored images

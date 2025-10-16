@@ -834,6 +834,22 @@ fun DrawerContent(
 
         // Existing more items...
         DrawerItem(
+            icon = Icons.Outlined.Headset, // reuse icon
+            text = "Video Call Consultation",
+            onClick = {
+                onCloseDrawer()
+                navController.navigate("videoConsultation")
+            }
+        )
+
+        DrawerItem(
+            text = "My Booked Slots",
+            onClick = {
+                onCloseDrawer()
+                navController.navigate("myBookings")
+            }
+        )
+        DrawerItem(
             icon = Icons.Outlined.LocationOn,
             text = "Store Info",
             onClick = {

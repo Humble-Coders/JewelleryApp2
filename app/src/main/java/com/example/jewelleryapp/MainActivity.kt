@@ -14,6 +14,10 @@ import androidx.compose.foundation.background
 import androidx.compose.material3.Surface
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.lifecycle.viewmodel.compose.viewModel
@@ -56,6 +60,13 @@ import androidx.core.content.ContextCompat
 import com.example.jewelleryapp.screen.allProducts.AllProductsScreen
 import com.example.jewelleryapp.screen.homeScreen.StoreInfoScreen
 import com.example.jewelleryapp.utils.VideoCacheManager
+import com.example.jewelleryapp.repository.VideoBookingRepository
+import com.example.jewelleryapp.screen.booking.ConsultationHistoryScreen
+import com.example.jewelleryapp.screen.booking.MyBookingsScreen
+import com.example.jewelleryapp.screen.booking.VideoBookingViewModel
+import com.example.jewelleryapp.screen.booking.VideoConsultationScreen
+
+
 
 class MainActivity : ComponentActivity() {
     private val NOTIFICATION_PERMISSION_REQUEST_CODE = 1001
@@ -307,6 +318,36 @@ fun AppNavigation(
 
 ) {
     val navController = rememberNavController()
+    
+    // Track authentication state properly
+    var isAuthenticated by remember { mutableStateOf(false) }
+    var isAuthChecked by remember { mutableStateOf(false) }
+
+    // Listen to Firebase Auth state changes
+    LaunchedEffect(Unit) {
+        FirebaseAuth.getInstance().addAuthStateListener { auth ->
+            val user = auth.currentUser
+            isAuthenticated = user != null
+            isAuthChecked = true
+            
+            Log.d("AppNavigation", "Auth state changed - User: ${user?.uid}, Authenticated: $isAuthenticated")
+            
+            // Navigate based on auth state if auth has been checked
+            if (isAuthChecked) {
+                if (isAuthenticated) {
+                    // User is logged in, navigate to home
+                    navController.navigate("home") {
+                        popUpTo("welcome") { inclusive = true }
+                    }
+                } else {
+                    // User is not logged in, navigate to welcome
+                    navController.navigate("welcome") {
+                        popUpTo("home") { inclusive = true }
+                    }
+                }
+            }
+        }
+    }
 
     LaunchedEffect(intent) {
         intent?.data?.let { uri ->
@@ -339,11 +380,11 @@ fun AppNavigation(
         }
     }
 
-    // Check if user is already logged in
-    val startDestination = if (FirebaseAuth.getInstance().currentUser != null) {
-        "home"
-    } else {
-        "welcome"
+    // Determine start destination based on auth state
+    val startDestination = when {
+        !isAuthChecked -> "welcome" // Show welcome while checking auth state
+        isAuthenticated -> "home"
+        else -> "welcome"
     }
 
     NavHost(navController = navController, startDestination = startDestination) {
@@ -597,6 +638,32 @@ fun AppNavigation(
                 viewModel = wishlistViewModel,
                 navController = navController // Pass navController for bottom navigation
             )
+        }
+
+        // Video Consultation Screens
+        composable("videoConsultation") {
+            // Create repository and viewmodel scoped to this destination
+            val repo = VideoBookingRepository(FirebaseFirestore.getInstance(), FirebaseAuth.getInstance())
+            val vm: VideoBookingViewModel = viewModel(key = "videoBookingVM") {
+                VideoBookingViewModel(repo)
+            }
+            VideoConsultationScreen(navController = navController, viewModel = vm)
+        }
+
+        composable("myBookings") {
+            val repo = VideoBookingRepository(FirebaseFirestore.getInstance(), FirebaseAuth.getInstance())
+            val vm: VideoBookingViewModel = viewModel(key = "videoBookingVM") {
+                VideoBookingViewModel(repo)
+            }
+            MyBookingsScreen(navController = navController, viewModel = vm)
+        }
+
+        composable("consultation_history") {
+            val repo = VideoBookingRepository(FirebaseFirestore.getInstance(), FirebaseAuth.getInstance())
+            val vm: VideoBookingViewModel = viewModel(key = "videoBookingVM") {
+                VideoBookingViewModel(repo)
+            }
+            ConsultationHistoryScreen(navController = navController, viewModel = vm)
         }
 
         // Profile Screen placeholder - this would be implemented in the future

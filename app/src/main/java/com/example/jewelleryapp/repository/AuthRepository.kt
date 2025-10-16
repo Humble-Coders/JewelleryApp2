@@ -133,13 +133,11 @@ class FirebaseAuthRepository(private val firebaseAuth: FirebaseAuth,
 
                 Log.d("AuthRepository", "User created successfully with UID: $userId")
 
-                // Check if a temporary user document exists with encoded email as ID
-                val encodedEmail = trimmedEmail
-
+                // Check if a temporary user document exists with email as ID
                 val tempUserDoc = try {
                     FirebaseFirestore.getInstance()
                         .collection("users")
-                        .document(encodedEmail)
+                        .document(trimmedEmail)
                         .get()
                         .await()
                 } catch (e: Exception) {
@@ -147,15 +145,15 @@ class FirebaseAuthRepository(private val firebaseAuth: FirebaseAuth,
                     null
                 }
 
-                // Create user profile data
+                // Create user profile data with unified schema
                 val userProfileData = hashMapOf(
                     "email" to trimmedEmail,
-                    "encodedEmail" to encodedEmail,
                     "name" to name,
                     "phone" to phone,
-                    "createdAt" to System.currentTimeMillis(),
-                    "isTemporary" to false,
-                    "googleSignIn" to false // Mark as email/password account
+                    "profilePictureUrl" to "", // Empty for email/password users
+                    "googleId" to "", // Empty for email/password users
+                    "isGoogleSignIn" to false, // Mark as email/password account
+                    "createdAt" to System.currentTimeMillis()
                 )
 
                 // If temporary document exists, handle data migration
@@ -164,7 +162,7 @@ class FirebaseAuthRepository(private val firebaseAuth: FirebaseAuth,
                     // Delete the temporary document
                     FirebaseFirestore.getInstance()
                         .collection("users")
-                        .document(encodedEmail)
+                        .document(trimmedEmail)
                         .delete()
                         .await()
                 }
@@ -318,14 +316,12 @@ class FirebaseAuthRepository(private val firebaseAuth: FirebaseAuth,
         try {
             val userProfileData = hashMapOf(
                 "email" to (account.email ?: ""),
-                "encodedEmail" to (account.email ?: ""),
                 "name" to (account.displayName ?: ""),
                 "phone" to "", // Google doesn't provide phone by default
-                "createdAt" to System.currentTimeMillis(),
-                "isTemporary" to false,
-                "googleSignIn" to true, // Mark as Google account
                 "profilePictureUrl" to (account.photoUrl?.toString() ?: ""),
-                "googleId" to (account.id ?: "")
+                "googleId" to (account.id ?: ""),
+                "isGoogleSignIn" to true, // Mark as Google account
+                "createdAt" to System.currentTimeMillis()
             )
 
             FirebaseFirestore.getInstance()
@@ -345,7 +341,7 @@ class FirebaseAuthRepository(private val firebaseAuth: FirebaseAuth,
     private suspend fun updateExistingUserWithGoogleData(userId: String, account: GoogleSignInAccount) {
         try {
             val updateData = hashMapOf<String, Any>(
-                "googleSignIn" to true, // Ensure this is marked as Google account
+                "isGoogleSignIn" to true, // Ensure this is marked as Google account
                 "profilePictureUrl" to (account.photoUrl?.toString() ?: ""),
                 "googleId" to (account.id ?: "")
             )
