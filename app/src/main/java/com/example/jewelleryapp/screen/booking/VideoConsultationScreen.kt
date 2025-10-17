@@ -9,6 +9,7 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.material.icons.Icons
@@ -25,6 +26,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -56,11 +58,21 @@ fun VideoConsultationScreen(
     val error by viewModel.error.collectAsState()
     val bookingSuccess by viewModel.bookingSuccess.collectAsState()
     val bookingError by viewModel.bookingError.collectAsState()
+    val showPhoneDialog by viewModel.showPhoneDialog.collectAsState()
+    val phoneUpdateSuccess by viewModel.phoneUpdateSuccess.collectAsState()
+    val phoneUpdateError by viewModel.phoneUpdateError.collectAsState()
 
     var showDatePicker by remember { mutableStateOf(false) }
     var showBookingDialog by remember { mutableStateOf<SlotItem?>(null) }
     var showSuccessDialog by remember { mutableStateOf(false) }
     var showErrorDialog by remember { mutableStateOf<String?>(null) }
+    var phoneNumber by remember { mutableStateOf("") }
+    var phoneError by remember { mutableStateOf<String?>(null) }
+
+    // Check phone number when screen loads
+    LaunchedEffect(Unit) {
+        viewModel.checkUserPhoneNumber()
+    }
 
     // Listen for booking success/error
     LaunchedEffect(bookingSuccess) {
@@ -74,6 +86,19 @@ fun VideoConsultationScreen(
         if (bookingError != null) {
             showErrorDialog = bookingError
             showBookingDialog = null
+        }
+    }
+
+    // Listen for phone update success/error
+    LaunchedEffect(phoneUpdateSuccess) {
+        if (phoneUpdateSuccess == true) {
+            phoneError = null
+        }
+    }
+
+    LaunchedEffect(phoneUpdateError) {
+        if (phoneUpdateError != null) {
+            phoneError = phoneUpdateError
         }
     }
 
@@ -268,7 +293,41 @@ fun VideoConsultationScreen(
                 }
             )
         }
+
+        // Phone Number Dialog
+        if (showPhoneDialog) {
+            PhoneNumberDialog(
+                phoneNumber = phoneNumber,
+                onPhoneNumberChange = { 
+                    phoneNumber = it
+                    phoneError = null // Clear error when user types
+                },
+                phoneError = phoneError,
+                isLoading = isLoading,
+                onConfirm = {
+                    if (phoneNumber.isBlank()) {
+                        phoneError = "Phone number is required"
+                    } else if (!isValidPhoneNumber(phoneNumber)) {
+                        phoneError = "Please enter a valid phone number"
+                    } else {
+                        viewModel.updateUserPhoneNumber(phoneNumber)
+                    }
+                },
+                onDismiss = {
+                    viewModel.hidePhoneDialog()
+                    phoneNumber = ""
+                    phoneError = null
+                }
+            )
+        }
     }
+}
+
+// Phone number validation function
+private fun isValidPhoneNumber(phone: String): Boolean {
+    // Basic phone validation - at least 10 digits, can include +, -, spaces, parentheses
+    val cleaned = phone.replace(Regex("[^\\d+]"), "")
+    return cleaned.length >= 10 && cleaned.length <= 15
 }
 
 @Composable
@@ -288,7 +347,7 @@ private fun SlotCard(slot: SlotItem, onBook: (SlotItem) -> Unit) {
                 Color.White
         ),
         elevation = CardDefaults.cardElevation(
-            defaultElevation = if (slot.isBooked) 2.dp else 6.dp
+            defaultElevation = if (slot.isBooked) 0.dp else 6.dp
         ),
         border = if (slot.isBooked) 
             BorderStroke(2.dp, ThemeColor.copy(alpha = 0.5f)) 
@@ -394,14 +453,14 @@ private fun BookingConfirmationDialog(
         onDismissRequest = onDismiss,
         title = {
             Text(
-                "Confirm Booking",
+                "Confirm Booking Request",
                 fontWeight = FontWeight.Bold,
                 color = ThemeColor
             )
         },
         text = {
             Column {
-                Text("You are about to book:")
+                Text("You are requesting to book:")
                 Spacer(modifier = Modifier.height(8.dp))
                 Text(
                     "📅 Date: $start",
@@ -411,11 +470,18 @@ private fun BookingConfirmationDialog(
                     "⏰ Duration: ${start.split(" ").last()} - ${end.split(" ").last()}",
                     fontWeight = FontWeight.Medium
                 )
-                Spacer(modifier = Modifier.height(8.dp))
+                Spacer(modifier = Modifier.height(12.dp))
                 Text(
-                    "This will reserve your slot for video consultation with our jewelry experts.",
+                    "This will submit a booking request for video consultation. Our admin will review and confirm your appointment. You will receive a confirmation notification once approved.",
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+                Spacer(modifier = Modifier.height(8.dp))
+                Text(
+                    "⚠️ Note: Your slot will be reserved only after admin confirmation.",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = Color(0xFFFF9800),
+                    fontWeight = FontWeight.Medium
                 )
             }
         },
@@ -424,7 +490,7 @@ private fun BookingConfirmationDialog(
                 onClick = { onConfirm(slot) },
                 colors = ButtonDefaults.buttonColors(containerColor = ThemeColor)
             ) {
-                Text("Confirm Booking", color = Color.White)
+                Text("Submit Request", color = Color.White)
             }
         },
         dismissButton = {
@@ -444,26 +510,26 @@ private fun BookingSuccessDialog(bookingId: String, onDismiss: () -> Unit) {
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Icon(
-                    Icons.Filled.CheckCircle,
+                    Icons.Filled.Schedule,
                     contentDescription = null,
-                    tint = Color(0xFF4CAF50),
+                    tint = Color(0xFF2196F3),
                     modifier = Modifier.size(24.dp)
                 )
                 Spacer(modifier = Modifier.width(8.dp))
                 Text(
-                    "Booking Confirmed!",
+                    "Request Submitted!",
                     fontWeight = FontWeight.Bold,
-                    color = Color(0xFF4CAF50)
+                    color = Color(0xFF2196F3)
                 )
             }
         },
         text = {
             Column {
-                Text("🎉 Your video consultation slot has been successfully booked!")
+                Text("🎉 Your video consultation request has been submitted successfully!")
                 Spacer(modifier = Modifier.height(8.dp))
                 if (bookingId.isNotEmpty()) {
                     Text(
-                        "Booking ID: $bookingId",
+                        "Request ID: $bookingId",
                         style = MaterialTheme.typography.bodySmall,
                         fontFamily = androidx.compose.ui.text.font.FontFamily.Monospace,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
@@ -471,17 +537,25 @@ private fun BookingSuccessDialog(bookingId: String, onDismiss: () -> Unit) {
                     Spacer(modifier = Modifier.height(8.dp))
                 }
                 Text(
-                    "You will receive a confirmation email shortly. Please join the video call a few minutes before your scheduled time.",
-                    style = MaterialTheme.typography.bodyMedium
+                    "Our admin will review your request and send you a confirmation notification once approved. Please check your notifications or booking history for updates.",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+                Spacer(modifier = Modifier.height(8.dp))
+                Text(
+                    "⏳ Status: Pending Admin Approval",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = Color(0xFFFF9800),
+                    fontWeight = FontWeight.Medium
                 )
             }
         },
         confirmButton = {
             Button(
                 onClick = onDismiss,
-                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF4CAF50))
+                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF2196F3))
             ) {
-                Text("Great!", color = Color.White)
+                Text("Got it!", color = Color.White)
             }
         }
     )
@@ -507,6 +581,97 @@ private fun BookingErrorDialog(error: String, onDismiss: () -> Unit) {
                 colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error)
             ) {
                 Text("OK", color = Color.White)
+            }
+        }
+    )
+}
+
+@Composable
+private fun PhoneNumberDialog(
+    phoneNumber: String,
+    onPhoneNumberChange: (String) -> Unit,
+    phoneError: String?,
+    isLoading: Boolean,
+    onConfirm: () -> Unit,
+    onDismiss: () -> Unit
+) {
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = {
+            Row(
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Icon(
+                    Icons.Filled.Phone,
+                    contentDescription = null,
+                    tint = ThemeColor,
+                    modifier = Modifier.size(24.dp)
+                )
+                Spacer(modifier = Modifier.width(8.dp))
+                Text(
+                    "Phone Number Required",
+                    fontWeight = FontWeight.Bold,
+                    color = ThemeColor
+                )
+            }
+        },
+        text = {
+            Column {
+                Text(
+                    "To book a video consultation, we need your phone number for contact purposes.",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+                Spacer(modifier = Modifier.height(16.dp))
+                OutlinedTextField(
+                    value = phoneNumber,
+                    onValueChange = onPhoneNumberChange,
+                    label = { Text("Phone Number") },
+                    placeholder = { Text("Enter your phone number") },
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Phone),
+                    isError = phoneError != null,
+                    modifier = Modifier.fillMaxWidth(),
+                    leadingIcon = {
+                        Icon(
+                            Icons.Filled.Phone,
+                            contentDescription = null,
+                            tint = ThemeColor
+                        )
+                    }
+                )
+                if (phoneError != null) {
+                    Text(
+                        text = phoneError,
+                        color = MaterialTheme.colorScheme.error,
+                        style = MaterialTheme.typography.bodySmall,
+                        modifier = Modifier.padding(top = 4.dp)
+                    )
+                }
+            }
+        },
+        confirmButton = {
+            Button(
+                onClick = onConfirm,
+                colors = ButtonDefaults.buttonColors(containerColor = ThemeColor),
+                enabled = !isLoading
+            ) {
+                if (isLoading) {
+                    CircularProgressIndicator(
+                        modifier = Modifier.size(16.dp),
+                        color = Color.White,
+                        strokeWidth = 2.dp
+                    )
+                } else {
+                    Text("Save", color = Color.White)
+                }
+            }
+        },
+        dismissButton = {
+            TextButton(
+                onClick = onDismiss,
+                enabled = !isLoading
+            ) {
+                Text("Cancel", color = ThemeColor)
             }
         }
     )

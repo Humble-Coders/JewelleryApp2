@@ -320,7 +320,7 @@ fun WishlistItemCard(
                 )
                 Spacer(modifier = Modifier.height(1.dp))
                 Text(
-                    text = "Rs ${String.format("%.2f", product.price)}",
+                    text = "₹${String.format("%,.2f", product.price)}",
                     style = TextStyle(
                         fontSize = 16.sp,
                         fontWeight = FontWeight.Bold,

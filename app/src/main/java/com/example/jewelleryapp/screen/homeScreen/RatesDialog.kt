@@ -542,17 +542,21 @@ fun RatesDrawerItem(
     isLoading: Boolean,
     onClick: () -> Unit
 ) {
+    val amberColor = Color(0xFF896C6C)
+    
     Card(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(horizontal = 16.dp, vertical = 8.dp)
+            .padding(horizontal = 8.dp, vertical = 8.dp)
             .clickable { onClick() },
-        shape = RoundedCornerShape(12.dp),
-        colors = CardDefaults.cardColors(containerColor = Color(0xFF896C6C).copy(alpha = 0.1f)),
-        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
+        shape = RoundedCornerShape(16.dp),
+        colors = CardDefaults.cardColors(
+            containerColor = amberColor.copy(alpha = 0.08f)
+        ),
+        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
     ) {
         Column(
-            modifier = Modifier.padding(16.dp)
+            modifier = Modifier.padding(20.dp)
         ) {
             Row(
                 modifier = Modifier.fillMaxWidth(),
@@ -562,29 +566,39 @@ fun RatesDrawerItem(
                 Row(
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Icon(
-                        imageVector = Icons.Outlined.AttachMoney,
-                        contentDescription = "Rates",
-                        tint = Color(0xFF896C6C),
-                        modifier = Modifier.size(20.dp)
-                    )
-                    Spacer(modifier = Modifier.width(8.dp))
+                    Box(
+                        modifier = Modifier
+                            .size(40.dp)
+                            .background(
+                                amberColor.copy(alpha = 0.15f),
+                                CircleShape
+                            ),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Icon(
+                            imageVector = Icons.Outlined.AttachMoney,
+                            contentDescription = "Rates",
+                            tint = amberColor,
+                            modifier = Modifier.size(20.dp)
+                        )
+                    }
+                    Spacer(modifier = Modifier.width(12.dp))
                     Text(
                         text = "Today's Rates",
                         fontSize = 16.sp,
-                        fontWeight = FontWeight.Medium,
+                        fontWeight = FontWeight.Bold,
                         color = Color.Black
                     )
                 }
                 Icon(
                     imageVector = Icons.Outlined.ChevronRight,
                     contentDescription = "View Details",
-                    tint = Color(0xFF896C6C),
-                    modifier = Modifier.size(16.dp)
+                    tint = amberColor.copy(alpha = 0.7f),
+                    modifier = Modifier.size(18.dp)
                 )
             }
 
-            Spacer(modifier = Modifier.height(12.dp))
+            Spacer(modifier = Modifier.height(16.dp))
 
             if (isLoading) {
                 Row(
@@ -592,67 +606,91 @@ fun RatesDrawerItem(
                     horizontalArrangement = Arrangement.Center
                 ) {
                     CircularProgressIndicator(
-                        color = Color(0xFF896C6C),
-                        modifier = Modifier.size(20.dp),
-                        strokeWidth = 2.dp
+                        color = amberColor,
+                        modifier = Modifier.size(24.dp),
+                        strokeWidth = 3.dp
                     )
                 }
             } else {
                 Row(
                     modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween
+                    horizontalArrangement = Arrangement.SpaceEvenly
                 ) {
                     // Gold Rate
                     Column(
-                        horizontalAlignment = Alignment.CenterHorizontally
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                        modifier = Modifier.weight(1f)
                     ) {
                         Row(
                             verticalAlignment = Alignment.CenterVertically
                         ) {
                             Box(
                                 modifier = Modifier
-                                    .size(8.dp)
-                                    .background(Color(0xFF896C6C), CircleShape)
+                                    .size(10.dp)
+                                    .background(Color(0xFFFFD700), CircleShape)
                             )
                             Spacer(modifier = Modifier.width(6.dp))
                             Text(
                                 text = "Gold",
                                 fontSize = 12.sp,
-                                color = Color.Gray
+                                fontWeight = FontWeight.Medium,
+                                color = Color.DarkGray
                             )
                         }
+                        Spacer(modifier = Modifier.height(4.dp))
                         Text(
                             text = if (goldRate != null) "₹${goldRate.toInt()}" else "N/A",
                             fontSize = 16.sp,
                             fontWeight = FontWeight.Bold,
                             color = Color.Black
                         )
+                        Text(
+                            text = "per gram",
+                            fontSize = 10.sp,
+                            color = Color.Gray
+                        )
                     }
-
+                    
+                    // Divider
+                    Box(
+                        modifier = Modifier
+                            .width(1.dp)
+                            .height(40.dp)
+                            .background(amberColor.copy(alpha = 0.3f))
+                    )
+                    
                     // Silver Rate
                     Column(
-                        horizontalAlignment = Alignment.CenterHorizontally
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                        modifier = Modifier.weight(1f)
                     ) {
                         Row(
                             verticalAlignment = Alignment.CenterVertically
                         ) {
                             Box(
                                 modifier = Modifier
-                                    .size(8.dp)
+                                    .size(10.dp)
                                     .background(Color(0xFFC0C0C0), CircleShape)
                             )
                             Spacer(modifier = Modifier.width(6.dp))
                             Text(
                                 text = "Silver",
                                 fontSize = 12.sp,
-                                color = Color.Gray
+                                fontWeight = FontWeight.Medium,
+                                color = Color.DarkGray
                             )
                         }
+                        Spacer(modifier = Modifier.height(4.dp))
                         Text(
                             text = if (silverRate != null) "₹${silverRate.toInt()}" else "N/A",
                             fontSize = 16.sp,
                             fontWeight = FontWeight.Bold,
                             color = Color.Black
+                        )
+                        Text(
+                            text = "per gram",
+                            fontSize = 10.sp,
+                            color = Color.Gray
                         )
                     }
                 }

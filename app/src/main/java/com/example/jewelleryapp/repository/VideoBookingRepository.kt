@@ -2,6 +2,7 @@ package com.example.jewelleryapp.repository
 
 import com.example.jewelleryapp.model.AvailabilityDoc
 import com.example.jewelleryapp.model.BookingDoc
+import com.example.jewelleryapp.model.UserProfile
 import com.google.firebase.Timestamp
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.FirebaseFirestore
@@ -84,7 +85,26 @@ class VideoBookingRepository(
                 status = doc.getString("status") ?: "confirmed",
                 createdAt = doc.getTimestamp("createdAt") ?: Timestamp.now()
             )
-        }.filter { it.status == "confirmed" && it.startTime.seconds > now.seconds }
+        }.filter { (it.status == "confirmed" || it.status == "pending") && it.startTime.seconds > now.seconds }
+    }
+
+    suspend fun fetchAllConfirmedBookings(): List<BookingDoc> {
+        // Fetch all active bookings (PENDING, CONFIRMED) regardless of time for slot availability checking
+        val snapshot = collection
+            .whereEqualTo("type", "booking")
+            .get()
+            .await()
+
+        return snapshot.documents.map { doc ->
+            BookingDoc(
+                docId = doc.id,
+                userId = doc.getString("userId") ?: "",
+                startTime = doc.getTimestamp("startTime") ?: Timestamp.now(),
+                endTime = doc.getTimestamp("endTime") ?: Timestamp.now(),
+                status = doc.getString("status") ?: "pending",
+                createdAt = doc.getTimestamp("createdAt") ?: Timestamp.now()
+            )
+        }.filter { it.status == "confirmed" || it.status == "pending" }
     }
 
     suspend fun fetchMyBookings(now: Timestamp): List<BookingDoc> {
@@ -102,10 +122,10 @@ class VideoBookingRepository(
                 userId = doc.getString("userId") ?: "",
                 startTime = doc.getTimestamp("startTime") ?: Timestamp.now(),
                 endTime = doc.getTimestamp("endTime") ?: Timestamp.now(),
-                status = doc.getString("status") ?: "confirmed",
+                status = doc.getString("status") ?: "pending",
                 createdAt = doc.getTimestamp("createdAt") ?: Timestamp.now()
             )
-        }.filter { it.startTime.seconds > now.seconds }
+        }.filter { (it.status == "confirmed" || it.status == "pending") && it.startTime.seconds > now.seconds }
     }
 
     suspend fun createBooking(
@@ -115,15 +135,19 @@ class VideoBookingRepository(
         val uid = auth.currentUser?.uid
             ?: throw IllegalStateException("User must be logged in to book a slot")
 
-        // Check if slot is already booked before creating
+        // Check if slot is already booked before creating (check both confirmed and pending)
         val existingBookings = collection
             .whereEqualTo("type", "booking")
-            .whereEqualTo("status", "confirmed")
             .whereEqualTo("startTime", startTime)
             .get()
             .await()
+        
+        val conflictingBookings = existingBookings.documents.filter { doc ->
+            val status = doc.getString("status") ?: "pending"
+            status == "confirmed" || status == "pending"
+        }
 
-        if (existingBookings.documents.isNotEmpty()) {
+        if (conflictingBookings.isNotEmpty()) {
             throw IllegalStateException("This slot has already been booked")
         }
 
@@ -135,7 +159,7 @@ class VideoBookingRepository(
                 "userId" to uid,
                 "startTime" to startTime,
                 "endTime" to endTime,
-                "status" to "confirmed",
+                "status" to "pending",
                 "createdAt" to Timestamp.now()
             )
 
@@ -149,7 +173,6 @@ class VideoBookingRepository(
     fun listenToNewBookings(): Flow<List<BookingDoc>> = callbackFlow {
         val listener = collection
             .whereEqualTo("type", "booking")
-            .whereEqualTo("status", "confirmed")
             .addSnapshotListener { snapshot, error ->
                 if (error != null) {
                     close(error)
@@ -158,12 +181,14 @@ class VideoBookingRepository(
 
                 val bookings = snapshot?.documents?.mapNotNull { doc ->
                     try {
+                        val status = doc.getString("status") ?: "pending"
+                        // Include all booking states for real-time updates
                         BookingDoc(
                             docId = doc.id,
                             userId = doc.getString("userId") ?: "",
                             startTime = doc.getTimestamp("startTime") ?: Timestamp.now(),
                             endTime = doc.getTimestamp("endTime") ?: Timestamp.now(),
-                            status = doc.getString("status") ?: "confirmed",
+                            status = status,
                             createdAt = doc.getTimestamp("createdAt") ?: Timestamp.now()
                         )
                     } catch (e: Exception) {
@@ -196,12 +221,14 @@ class VideoBookingRepository(
                 val bookings = snapshot?.documents?.mapNotNull { doc ->
                     try {
                         if (doc.getString("type") == "booking") {
+                            val status = doc.getString("status") ?: "pending"
+                            // Include all booking states for user bookings
                             BookingDoc(
                                 docId = doc.id,
                                 userId = doc.getString("userId") ?: "",
                                 startTime = doc.getTimestamp("startTime") ?: Timestamp.now(),
                                 endTime = doc.getTimestamp("endTime") ?: Timestamp.now(),
-                                status = doc.getString("status") ?: "confirmed",
+                                status = status,
                                 createdAt = doc.getTimestamp("createdAt") ?: Timestamp.now()
                             )
                         } else null
@@ -228,12 +255,14 @@ class VideoBookingRepository(
         return snapshot.documents.mapNotNull { doc ->
             try {
                 if (doc.getString("type") == "booking") {
+                    val status = doc.getString("status") ?: "pending"
+                    // Include all booking states for consultation history
                     BookingDoc(
                         docId = doc.id,
                         userId = doc.getString("userId") ?: "",
                         startTime = doc.getTimestamp("startTime") ?: Timestamp.now(),
                         endTime = doc.getTimestamp("endTime") ?: Timestamp.now(),
-                        status = doc.getString("status") ?: "confirmed",
+                        status = status,
                         createdAt = doc.getTimestamp("createdAt") ?: Timestamp.now()
                     )
                 } else null
@@ -241,6 +270,53 @@ class VideoBookingRepository(
                 null
             }
         }.sortedByDescending { it.createdAt }
+    }
+
+    // Get current user profile
+    suspend fun getCurrentUserProfile(): UserProfile? {
+        val uid = auth.currentUser?.uid ?: return null
+        
+        return try {
+            val snapshot = firestore.collection("users")
+                .document(uid)
+                .get()
+                .await()
+            
+            if (snapshot.exists()) {
+                UserProfile(
+                    id = uid,
+                    name = snapshot.getString("name") ?: "",
+                    email = snapshot.getString("email") ?: "",
+                    phone = snapshot.getString("phone") ?: "",
+                    dateOfBirth = snapshot.getString("dateOfBirth") ?: "",
+                    profilePictureUrl = snapshot.getString("profilePictureUrl") ?: "",
+                    googleId = snapshot.getString("googleId") ?: "",
+                    isGoogleSignIn = snapshot.getBoolean("isGoogleSignIn") ?: false,
+                    createdAt = snapshot.getLong("createdAt") ?: 0L
+                )
+            } else {
+                null
+            }
+        } catch (e: Exception) {
+            null
+        }
+    }
+
+    // Update user phone number
+    suspend fun updateUserPhoneNumber(phone: String): Result<Unit> {
+        return try {
+            val uid = auth.currentUser?.uid
+                ?: return Result.failure(Exception("User not authenticated"))
+            
+            firestore.collection("users")
+                .document(uid)
+                .update("phone", phone)
+                .await()
+            
+            Result.success(Unit)
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
     }
 }
 

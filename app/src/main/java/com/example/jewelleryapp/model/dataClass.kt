@@ -54,6 +54,7 @@ data class Product(
     val stoneName: String = "",
     val stoneColor: String = "",
     val stoneRate: Double = 0.0,
+    val stoneQuantity: Double = 0.0,
     
     // Other properties
     val isOtherThanGold: Boolean = false,

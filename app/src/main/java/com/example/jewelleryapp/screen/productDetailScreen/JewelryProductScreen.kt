@@ -814,7 +814,7 @@ private fun EnhancedSimilarProductCard(
                 Spacer(modifier = Modifier.height(4.dp))
 
                 Text(
-                    text = "Rs ${product.price.toInt()}.0",
+                    text = "₹${String.format("%,.2f", product.price)}",
                     fontSize = 12.sp,
                     fontWeight = FontWeight.Bold,
                     color = PrimaryGold

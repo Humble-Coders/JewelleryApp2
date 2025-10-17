@@ -73,21 +73,30 @@ class JewelryRepository(
             // Get weights
             val grossWeight = parseDoubleField(product, "total_weight")
             val lessWeight = parseDoubleField(product, "less_weight")
-            val netWeight = parseDoubleField(product, "net_weight")
+            val storedNetWeight = parseDoubleField(product, "net_weight")
             val cwWeight = parseDoubleField(product, "cw_weight")
             
-            Log.d(tag, "Weights - Gross: $grossWeight, Less: $lessWeight, Net: $netWeight, Stone: $cwWeight")
+            // Calculate net weight as gross - less (correct formula)
+            val netWeight = if (grossWeight > 0 && lessWeight > 0) {
+                grossWeight - lessWeight
+            } else {
+                storedNetWeight // Fallback to stored value if calculation not possible
+            }
+            
+            Log.d(tag, "Weights - Gross: $grossWeight, Less: $lessWeight, Net: $netWeight (calculated), Stone: $cwWeight")
             
             // Get charges and rates
             val makingRate = parseDoubleField(product, "default_making_rate")
             val stoneRate = parseDoubleField(product, "stone_rate")
+            val stoneQuantity = parseDoubleField(product, "stone_quantity")
             val vaCharges = parseDoubleField(product, "va_charges")
             val discountPercent = parseDoubleField(product, "discount_percent")
             val gstRate = parseDoubleField(product, "gst_rate").takeIf { it > 0 } ?: 3.0
             val saleType = product.getString("sale_type") ?: "intrastate"
+            val includeGstInPrice = product.getBoolean("include_gst_in_price") ?: true
             val qty = parseIntField(product, "quantity").takeIf { it > 0 } ?: 1
             
-            Log.d(tag, "Charges - Making: $makingRate, Stone: $stoneRate, VA: $vaCharges, Discount: $discountPercent%, GST: $gstRate%, SaleType: $saleType, Qty: $qty")
+            Log.d(tag, "Charges - Making: $makingRate (5% GST), Stone Rate: $stoneRate, Stone Qty: $stoneQuantity (3% GST), VA: $vaCharges (3% GST), Discount: $discountPercent%, SaleType: $saleType, IncludeGST: $includeGstInPrice, Qty: $qty")
             
             // Validation
             if (netWeight <= 0) {
@@ -109,43 +118,69 @@ class JewelryRepository(
             }
             
             // Calculate purity factor (e.g., 22K = 22/24 = 0.9167)
-            val purityFactor = purity / 24.0
+            // Round to 4 decimal places to match admin app precision
+            val purityFactor = kotlin.math.round((purity / 24.0) * 10000.0) / 10000.0
             Log.d(tag, "Purity Factor: $purityFactor (for $purity K)")
             
             // Step 2: Base Material Amount (using purity-adjusted rate)
             val effectiveMaterialRate = material24KRate * purityFactor
-            val materialAmount = netWeight * effectiveMaterialRate * qty
+            val materialAmount = (netWeight * effectiveMaterialRate * qty).round(2)
             Log.d(tag, "Step 2 - Effective Rate: ₹$effectiveMaterialRate/g, Material Amount: ₹$materialAmount")
             
             // Step 3: Making Charges
-            val makingCharges = netWeight * makingRate * qty
+            val makingCharges = (netWeight * makingRate * qty).round(2)
             Log.d(tag, "Step 3 - Making Charges: ₹$makingCharges")
             
-            // Step 4: Stone Charges
-            val stoneCharges = cwWeight * stoneRate * qty
-            Log.d(tag, "Step 4 - Stone Charges: ₹$stoneCharges")
+            // Step 4: Stone Charges (correct formula: stoneRate * stoneQuantity * cwWeight)
+            val stoneCharges = (stoneRate * stoneQuantity * cwWeight * qty).round(2)
+            Log.d(tag, "Step 4 - Stone Charges: ₹$stoneCharges (stoneRate=$stoneRate * stoneQty=$stoneQuantity * cwWeight=$cwWeight * qty=$qty)")
             
             // Step 5: Total Before Discount
-            val totalBeforeDiscount = materialAmount + makingCharges + stoneCharges + vaCharges
-            Log.d(tag, "Step 5 - Total Before Discount: ₹$totalBeforeDiscount")
+            val totalBeforeDiscount = (materialAmount + makingCharges + stoneCharges + vaCharges).round(2)
+            Log.d(tag, "Step 5 - Total Before Discount: ₹$totalBeforeDiscount (Material: ₹$materialAmount + Making: ₹$makingCharges + Stone: ₹$stoneCharges + VA: ₹$vaCharges)")
             
             // Step 6: Apply Discount
-            val discountAmount = totalBeforeDiscount * (discountPercent / 100.0)
-            val amountAfterDiscount = totalBeforeDiscount - discountAmount
+            val discountAmount = (totalBeforeDiscount * (discountPercent / 100.0)).round(2)
+            val amountAfterDiscount = (totalBeforeDiscount - discountAmount).round(2)
             Log.d(tag, "Step 6 - Discount: ₹$discountAmount, After Discount: ₹$amountAfterDiscount")
             
-            // Step 7: Calculate Tax
+            // Step 7: Calculate Tax (Differential GST rates)
+            // Metal + Stone: 3% GST, Making Charges: 5% GST
+            val metalStoneAmount = materialAmount + stoneCharges
+            val makingAmount = makingCharges
+            val otherAmount = vaCharges // VA charges typically follow the same rate as metal/stone
+            
+            Log.d(tag, "Step 7 - Tax Calculation: Metal+Stone=₹$metalStoneAmount (3% GST), Making=₹$makingAmount (5% GST), Other=₹$otherAmount (3% GST)")
+            
             val totalTax = when (saleType.lowercase()) {
                 "intrastate" -> {
-                    val cgst = amountAfterDiscount * (gstRate / 2.0 / 100.0)
-                    val sgst = amountAfterDiscount * (gstRate / 2.0 / 100.0)
-                    Log.d(tag, "Step 7 - Intrastate: CGST=₹$cgst, SGST=₹$sgst")
-                    cgst + sgst
+                    // 3% GST on metal, stone, and VA charges
+                    val metalStoneCgst = (metalStoneAmount * (3.0 / 2.0 / 100.0)).round(2)
+                    val metalStoneSgst = (metalStoneAmount * (3.0 / 2.0 / 100.0)).round(2)
+                    val otherCgst = (otherAmount * (3.0 / 2.0 / 100.0)).round(2)
+                    val otherSgst = (otherAmount * (3.0 / 2.0 / 100.0)).round(2)
+                    
+                    // 5% GST on making charges
+                    val makingCgst = (makingAmount * (5.0 / 2.0 / 100.0)).round(2)
+                    val makingSgst = (makingAmount * (5.0 / 2.0 / 100.0)).round(2)
+                    
+                    val totalCgst = metalStoneCgst + otherCgst + makingCgst
+                    val totalSgst = metalStoneSgst + otherSgst + makingSgst
+                    
+                    Log.d(tag, "Step 7 - Intrastate: CGST=₹$totalCgst (Metal+Stone: ₹$metalStoneCgst, Making: ₹$makingCgst, Other: ₹$otherCgst), SGST=₹$totalSgst")
+                    (totalCgst + totalSgst).round(2)
                 }
                 "interstate" -> {
-                    val igst = amountAfterDiscount * (gstRate / 100.0)
-                    Log.d(tag, "Step 7 - Interstate: IGST=₹$igst")
-                    igst
+                    // 3% IGST on metal, stone, and VA charges
+                    val metalStoneIgst = (metalStoneAmount * (3.0 / 100.0)).round(2)
+                    val otherIgst = (otherAmount * (3.0 / 100.0)).round(2)
+                    
+                    // 5% IGST on making charges
+                    val makingIgst = (makingAmount * (5.0 / 100.0)).round(2)
+                    
+                    val totalIgst = metalStoneIgst + otherIgst + makingIgst
+                    Log.d(tag, "Step 7 - Interstate: IGST=₹$totalIgst (Metal+Stone: ₹$metalStoneIgst, Making: ₹$makingIgst, Other: ₹$otherIgst)")
+                    totalIgst
                 }
                 else -> {
                     Log.d(tag, "Step 7 - No tax (unknown sale type: $saleType)")
@@ -153,13 +188,18 @@ class JewelryRepository(
                 }
             }
             
-            // Step 8: Final Amount
-            val finalAmount = amountAfterDiscount + totalTax
-            Log.d(tag, "Step 8 - Total Tax: ₹$totalTax, FINAL AMOUNT: ₹$finalAmount")
+            // Step 8: Final Amount (with or without GST based on configuration)
+            val finalAmount = if (includeGstInPrice) {
+                (amountAfterDiscount + totalTax).round(2)
+            } else {
+                amountAfterDiscount.round(2)
+            }
+            
+            Log.d(tag, "Step 8 - Total Tax: ₹$totalTax, FINAL AMOUNT (includeGST=$includeGstInPrice): ₹$finalAmount")
             
             Log.d(tag, "=== Price calculation complete for ${product.id}: ₹$finalAmount ===")
             
-            return finalAmount.round(2)
+            return finalAmount
             
         } catch (e: Exception) {
             Log.e(tag, "Error calculating price for product ${product.id}", e)
@@ -570,6 +610,7 @@ class JewelryRepository(
                         stoneName = doc.getString("stone_name") ?: "",
                         stoneColor = doc.getString("stone_color") ?: "",
                         stoneRate = parseDoubleField(doc, "stone_rate"),
+                        stoneQuantity = parseDoubleField(doc, "stone_quantity"),
                         
                         // Other properties
                         isOtherThanGold = doc.getBoolean("is_other_than_gold") ?: false,
@@ -929,6 +970,7 @@ class JewelryRepository(
                     stoneName = documentSnapshot.getString("stone_name") ?: "",
                     stoneColor = documentSnapshot.getString("stone_color") ?: "",
                     stoneRate = parseDoubleField(documentSnapshot, "stone_rate"),
+                    stoneQuantity = parseDoubleField(documentSnapshot, "stone_quantity"),
                     
                     // Other properties
                     isOtherThanGold = documentSnapshot.getBoolean("is_other_than_gold") ?: false,
@@ -1055,6 +1097,7 @@ class JewelryRepository(
                                 stoneName = doc.getString("stone_name") ?: "",
                                 stoneColor = doc.getString("stone_color") ?: "",
                                 stoneRate = parseDoubleField(doc, "stone_rate"),
+                                stoneQuantity = parseDoubleField(doc, "stone_quantity"),
                                 isOtherThanGold = doc.getBoolean("is_other_than_gold") ?: false,
                                 available = doc.getBoolean("available") ?: true,
                                 featured = doc.getBoolean("featured") ?: false,
@@ -1423,6 +1466,7 @@ class JewelryRepository(
                                 stoneName = doc.getString("stone_name") ?: "",
                                 stoneColor = doc.getString("stone_color") ?: "",
                                 stoneRate = parseDoubleField(doc, "stone_rate"),
+                                stoneQuantity = parseDoubleField(doc, "stone_quantity"),
                                 isOtherThanGold = doc.getBoolean("is_other_than_gold") ?: false,
                                 available = doc.getBoolean("available") ?: true,
                                 featured = doc.getBoolean("featured") ?: false,

@@ -1,6 +1,7 @@
 package com.example.jewelleryapp.screen.booking
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -42,6 +43,8 @@ fun ConsultationHistoryScreen(
     val consultationHistory by viewModel.consultationHistory.collectAsState()
     val isLoading by viewModel.isLoading.collectAsState()
     val error by viewModel.error.collectAsState()
+
+    var showBookingDetailsDialog by remember { mutableStateOf<BookingDoc?>(null) }
 
     LaunchedEffect(Unit) { 
         viewModel.loadConsultationHistory() 
@@ -182,24 +185,48 @@ fun ConsultationHistoryScreen(
                         verticalArrangement = Arrangement.spacedBy(12.dp)
                     ) {
                         items(consultationHistory) { booking ->
-                            ConsultationHistoryCard(booking = booking)
+                            ConsultationHistoryCard(
+                                booking = booking,
+                                onBookingClick = { bookingDoc ->
+                                    if (bookingDoc.status.lowercase() == "confirmed") {
+                                        showBookingDetailsDialog = bookingDoc
+                                    }
+                                }
+                            )
                         }
                     }
                 }
             }
         }
+
+        // Booking Details Dialog
+        showBookingDetailsDialog?.let { booking ->
+            BookingDetailsDialog(
+                booking = booking,
+                onDismiss = { showBookingDetailsDialog = null }
+            )
+        }
     }
 }
 
 @Composable
-private fun ConsultationHistoryCard(booking: BookingDoc) {
+private fun ConsultationHistoryCard(
+    booking: BookingDoc,
+    onBookingClick: (BookingDoc) -> Unit
+) {
     val dateOnly = SimpleDateFormat("dd MMM yyyy", Locale.getDefault()).format(Date(booking.startTime.seconds * 1000))
     val timeOnly = SimpleDateFormat("HH:mm", Locale.getDefault()).format(Date(booking.startTime.seconds * 1000))
     val endTime = SimpleDateFormat("HH:mm", Locale.getDefault()).format(Date(booking.endTime.seconds * 1000))
     val createdDate = SimpleDateFormat("dd MMM yyyy", Locale.getDefault()).format(Date(booking.createdAt.seconds * 1000))
 
     Card(
-        modifier = Modifier.fillMaxWidth(),
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable(enabled = booking.status.lowercase() == "confirmed") {
+                if (booking.status.lowercase() == "confirmed") {
+                    onBookingClick(booking)
+                }
+            },
         colors = CardDefaults.cardColors(containerColor = Color.White),
         elevation = CardDefaults.cardElevation(defaultElevation = 6.dp)
     ) {
@@ -317,4 +344,192 @@ private fun ConsultationHistoryCard(booking: BookingDoc) {
             }
         }
     }
+}
+
+@Composable
+private fun BookingDetailsDialog(
+    booking: BookingDoc,
+    onDismiss: () -> Unit
+) {
+    val df = remember { SimpleDateFormat("EEE, dd MMM yyyy 'at' HH:mm", Locale.getDefault()) }
+    val start = remember(booking.startTime) { df.format(Date(booking.startTime.seconds * 1000)) }
+    val end = remember(booking.endTime) { df.format(Date(booking.endTime.seconds * 1000)) }
+    val createdDate = remember(booking.createdAt) { 
+        SimpleDateFormat("dd MMM yyyy 'at' HH:mm", Locale.getDefault()).format(Date(booking.createdAt.seconds * 1000)) 
+    }
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = {
+            Row(
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Icon(
+                    Icons.Filled.CheckCircle,
+                    contentDescription = null,
+                    tint = Color(0xFF4CAF50),
+                    modifier = Modifier.size(24.dp)
+                )
+                Spacer(modifier = Modifier.width(8.dp))
+                Text(
+                    "Booking Confirmed!",
+                    fontWeight = FontWeight.Bold,
+                    color = Color(0xFF4CAF50)
+                )
+            }
+        },
+        text = {
+            Column {
+                Text(
+                    "🎉 Your video consultation is confirmed and ready!",
+                    style = MaterialTheme.typography.bodyLarge,
+                    fontWeight = FontWeight.Medium,
+                    color = Color.Black
+                )
+                
+                Spacer(modifier = Modifier.height(16.dp))
+                
+                // Booking Details
+                Card(
+                    colors = CardDefaults.cardColors(containerColor = ThemeColorLight.copy(alpha = 0.3f)),
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Column(
+                        modifier = Modifier.padding(16.dp)
+                    ) {
+                        Text(
+                            "📋 Booking Details",
+                            style = MaterialTheme.typography.titleMedium,
+                            fontWeight = FontWeight.Bold,
+                            color = ThemeColor,
+                            modifier = Modifier.padding(bottom = 12.dp)
+                        )
+                        
+                        // Date and Time
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            modifier = Modifier.padding(bottom = 8.dp)
+                        ) {
+                            Icon(
+                                Icons.Filled.CalendarToday,
+                                contentDescription = null,
+                                tint = ThemeColor,
+                                modifier = Modifier.size(18.dp)
+                            )
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Text(
+                                "📅 Date: $start",
+                                style = MaterialTheme.typography.bodyMedium,
+                                fontWeight = FontWeight.Medium
+                            )
+                        }
+                        
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            modifier = Modifier.padding(bottom = 8.dp)
+                        ) {
+                            Icon(
+                                Icons.Filled.Schedule,
+                                contentDescription = null,
+                                tint = ThemeColor,
+                                modifier = Modifier.size(18.dp)
+                            )
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Text(
+                                "⏰ Duration: ${start.split(" ").last()} - ${end.split(" ").last()}",
+                                style = MaterialTheme.typography.bodyMedium,
+                                fontWeight = FontWeight.Medium
+                            )
+                        }
+                        
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            modifier = Modifier.padding(bottom = 8.dp)
+                        ) {
+                            Icon(
+                                Icons.Filled.Tag,
+                                contentDescription = null,
+                                tint = ThemeColor,
+                                modifier = Modifier.size(18.dp)
+                            )
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Text(
+                                "🆔 Booking ID: ${booking.docId.take(12)}...",
+                                style = MaterialTheme.typography.bodyMedium,
+                                fontWeight = FontWeight.Medium,
+                                fontFamily = androidx.compose.ui.text.font.FontFamily.Monospace
+                            )
+                        }
+                        
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Icon(
+                                Icons.Filled.Schedule,
+                                contentDescription = null,
+                                tint = ThemeColor,
+                                modifier = Modifier.size(18.dp)
+                            )
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Text(
+                                "📝 Booked on: $createdDate",
+                                style = MaterialTheme.typography.bodyMedium,
+                                fontWeight = FontWeight.Medium
+                            )
+                        }
+                    }
+                }
+                
+                Spacer(modifier = Modifier.height(16.dp))
+                
+                // Important Information
+                Card(
+                    colors = CardDefaults.cardColors(containerColor = Color(0xFFE3F2FD)),
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Column(
+                        modifier = Modifier.padding(16.dp)
+                    ) {
+                        Text(
+                            "📞 What happens next?",
+                            style = MaterialTheme.typography.titleMedium,
+                            fontWeight = FontWeight.Bold,
+                            color = Color(0xFF1976D2),
+                            modifier = Modifier.padding(bottom = 8.dp)
+                        )
+                        
+                        Text(
+                            "✅ Your booking is confirmed and you will receive a call from our jewelry expert at the designated time.",
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = Color(0xFF1976D2),
+                            modifier = Modifier.padding(bottom = 8.dp)
+                        )
+                        
+                        Text(
+                            "📱 Please ensure your phone is available during the consultation time.",
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = Color(0xFF1976D2)
+                        )
+                    }
+                }
+                
+                Spacer(modifier = Modifier.height(12.dp))
+                
+                Text(
+                    "💡 Tip: Have your jewelry questions ready for a more productive consultation!",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    fontStyle = androidx.compose.ui.text.font.FontStyle.Italic
+                )
+            }
+        },
+        confirmButton = {
+            Button(
+                onClick = onDismiss,
+                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF4CAF50))
+            ) {
+                Text("Got it!", color = Color.White)
+            }
+        }
+    )
 }

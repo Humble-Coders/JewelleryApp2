@@ -16,6 +16,7 @@ import androidx.compose.animation.core.RepeatMode
 import androidx.compose.animation.core.Spring
 import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.animation.core.animateFloat
+import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.infiniteRepeatable
 import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.animation.core.spring
@@ -124,6 +125,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.composed
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Brush
@@ -651,72 +653,94 @@ fun DrawerContent(
             .verticalScroll(rememberScrollState()) // Make drawer scrollable
     ) {
         // Profile header (existing code)
-        Row(
-            verticalAlignment = Alignment.CenterVertically,
-            modifier = Modifier.padding(bottom = 16.dp)
+        Card(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(bottom = 16.dp),
+            shape = RoundedCornerShape(16.dp),
+            colors = CardDefaults.cardColors(
+                containerColor = amberColor.copy(alpha = 0.05f)
+            ),
+            elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
         ) {
-            Box(
-                modifier = Modifier
-                    .size(50.dp)
-                    .clip(CircleShape)
-                    .background(amberColor, CircleShape)
-                    .padding(3.dp)
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                modifier = Modifier.padding(16.dp)
             ) {
-                when {
-                    !localImagePath.isNullOrEmpty() -> {
-                        AsyncImage(
-                            model = ImageRequest.Builder(context)
-                                .data(File(localImagePath))
-                                .crossfade(true)
-                                .build(),
-                            contentDescription = "Profile Picture",
-                            modifier = Modifier
-                                .fillMaxSize()
-                                .clip(CircleShape),
-                            contentScale = ContentScale.Crop,
-                            error = painterResource(id = R.drawable.ic_launcher_background)
-                        )
-                    }
-                    !profileImageUrl.isNullOrEmpty() -> {
-                        AsyncImage(
-                            model = ImageRequest.Builder(context)
-                                .data(profileImageUrl)
-                                .crossfade(true)
-                                .build(),
-                            contentDescription = "Profile Picture",
-                            modifier = Modifier
-                                .fillMaxSize()
-                                .clip(CircleShape),
-                            contentScale = ContentScale.Crop,
-                            error = painterResource(id = R.drawable.ic_launcher_background)
-                        )
-                    }
-                    else -> {
-                        Image(
-                            painter = painterResource(id = R.drawable.ic_launcher_background),
-                            contentDescription = "Default Profile Picture",
-                            modifier = Modifier
-                                .fillMaxSize()
-                                .clip(CircleShape),
-                            contentScale = ContentScale.Crop
-                        )
+                Box(
+                    modifier = Modifier
+                        .size(60.dp)
+                        .clip(CircleShape)
+                        .background(amberColor.copy(alpha = 0.1f), CircleShape)
+                        .padding(4.dp)
+                ) {
+                    when {
+                        !localImagePath.isNullOrEmpty() -> {
+                            AsyncImage(
+                                model = ImageRequest.Builder(context)
+                                    .data(File(localImagePath))
+                                    .crossfade(true)
+                                    .build(),
+                                contentDescription = "Profile Picture",
+                                modifier = Modifier
+                                    .fillMaxSize()
+                                    .clip(CircleShape),
+                                contentScale = ContentScale.Crop,
+                                error = painterResource(id = R.drawable.ic_launcher_background)
+                            )
+                        }
+                        !profileImageUrl.isNullOrEmpty() -> {
+                            AsyncImage(
+                                model = ImageRequest.Builder(context)
+                                    .data(profileImageUrl)
+                                    .crossfade(true)
+                                    .build(),
+                                contentDescription = "Profile Picture",
+                                modifier = Modifier
+                                    .fillMaxSize()
+                                    .clip(CircleShape),
+                                contentScale = ContentScale.Crop,
+                                error = painterResource(id = R.drawable.ic_launcher_background)
+                            )
+                        }
+                        else -> {
+                            Image(
+                                painter = painterResource(id = R.drawable.ic_launcher_background),
+                                contentDescription = "Default Profile Picture",
+                                modifier = Modifier
+                                    .fillMaxSize()
+                                    .clip(CircleShape),
+                                contentScale = ContentScale.Crop
+                            )
+                        }
                     }
                 }
-            }
-            Spacer(modifier = Modifier.width(12.dp))
+                Spacer(modifier = Modifier.width(16.dp))
 
-            Text(
-                text = "Hi $userName!",
-                fontWeight = FontWeight.Bold,
-                fontSize = 22.sp,
-                color = Color.Black,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis
-            )
+                Column {
+                    Text(
+                        text = "Welcome back!",
+                        fontSize = 14.sp,
+                        color = amberColor,
+                        fontWeight = FontWeight.Medium
+                    )
+                    Text(
+                        text = userName,
+                        fontWeight = FontWeight.Bold,
+                        fontSize = 20.sp,
+                        color = Color.Black,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
+                    )
+                }
+            }
         }
 
-        HorizontalDivider(thickness = 1.dp, color = Color.LightGray)
-        Spacer(modifier = Modifier.height(16.dp))
+        HorizontalDivider(
+            thickness = 1.dp, 
+            color = amberColor.copy(alpha = 0.2f),
+            modifier = Modifier.padding(vertical = 8.dp)
+        )
 
         // Navigation items
         DrawerItem(
@@ -734,13 +758,25 @@ fun DrawerContent(
 //            onClick = { onCloseDrawer() }
 //        )
 
-        Text(
-            text = "Shop By",
-            color = amberColor,
-            fontWeight = FontWeight.Bold,
-            fontSize = 14.sp,
-            modifier = Modifier.padding(top = 16.dp, bottom = 8.dp)
-        )
+        // Section header with better styling
+        Card(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(vertical = 8.dp),
+            shape = RoundedCornerShape(8.dp),
+            colors = CardDefaults.cardColors(
+                containerColor = amberColor.copy(alpha = 0.1f)
+            ),
+            elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
+        ) {
+            Text(
+                text = "Shop By",
+                color = amberColor,
+                fontWeight = FontWeight.Bold,
+                fontSize = 16.sp,
+                modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp)
+            )
+        }
 
         DrawerItem(
             text = "All Jewellery",
@@ -826,13 +862,25 @@ fun DrawerContent(
             }
         }
 
-        Text(
-            text = "More",
-            color = amberColor,
-            fontWeight = FontWeight.Bold,
-            fontSize = 14.sp,
-            modifier = Modifier.padding(top = 16.dp, bottom = 8.dp)
-        )
+        // Section header with better styling
+        Card(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(vertical = 8.dp),
+            shape = RoundedCornerShape(8.dp),
+            colors = CardDefaults.cardColors(
+                containerColor = amberColor.copy(alpha = 0.1f)
+            ),
+            elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
+        ) {
+            Text(
+                text = "More",
+                color = amberColor,
+                fontWeight = FontWeight.Bold,
+                fontSize = 16.sp,
+                modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp)
+            )
+        }
 
         // Existing more items...
         DrawerItem(
@@ -841,14 +889,6 @@ fun DrawerContent(
             onClick = {
                 onCloseDrawer()
                 navController.navigate("videoConsultation")
-            }
-        )
-
-        DrawerItem(
-            text = "My Booked Slots",
-            onClick = {
-                onCloseDrawer()
-                navController.navigate("myBookings")
             }
         )
         DrawerItem(
@@ -915,24 +955,65 @@ private fun ExpandableDrawerItem(
     isExpanded: Boolean,
     onToggle: () -> Unit
 ) {
-    Row(
+    val amberColor = Color(0xFF896C6C)
+    val rotation by animateFloatAsState(
+        targetValue = if (isExpanded) 90f else 0f,
+        animationSpec = tween(300),
+        label = "rotation"
+    )
+    
+    Card(
         modifier = Modifier
             .fillMaxWidth()
-            .clickable { onToggle() }
-            .padding(vertical = 12.dp, horizontal = 16.dp),
-        verticalAlignment = Alignment.CenterVertically
+            .padding(horizontal = 8.dp, vertical = 4.dp)
+            .clickable { onToggle() },
+        shape = RoundedCornerShape(12.dp),
+        colors = CardDefaults.cardColors(
+            containerColor = if (isExpanded) amberColor.copy(alpha = 0.05f) else Color.Transparent
+        ),
+        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
     ) {
-        Text(
-            text = text,
-            fontSize = 18.sp,
-            modifier = Modifier.weight(1f),
-            color = Color.Black
-        )
-        Icon(
-            imageVector = if (isExpanded) Icons.Default.ExpandLess else Icons.Default.ExpandMore,
-            contentDescription = if (isExpanded) "Collapse" else "Expand",
-            tint = Color.Gray
-        )
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(vertical = 14.dp, horizontal = 16.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Box(
+                modifier = Modifier
+                    .size(40.dp)
+                    .background(
+                        amberColor.copy(alpha = 0.1f),
+                        CircleShape
+                    ),
+                contentAlignment = Alignment.Center
+            ) {
+                Icon(
+                    imageVector = Icons.Filled.Menu,
+                    contentDescription = text,
+                    tint = amberColor,
+                    modifier = Modifier.size(20.dp)
+                )
+            }
+            Spacer(modifier = Modifier.width(16.dp))
+            
+            Text(
+                text = text,
+                fontSize = 16.sp,
+                fontWeight = FontWeight.Medium,
+                modifier = Modifier.weight(1f),
+                color = Color.Black
+            )
+            
+            Icon(
+                imageVector = Icons.Filled.ExpandMore,
+                contentDescription = "Expand/Collapse",
+                tint = amberColor,
+                modifier = Modifier
+                    .size(20.dp)
+                    .rotate(rotation)
+            )
+        }
     }
 }
 
@@ -941,15 +1022,37 @@ private fun SubDrawerItem(
     text: String,
     onClick: () -> Unit
 ) {
-    Text(
-        text = text,
-        fontSize = 16.sp,
-        color = Color.DarkGray,
+    val amberColor = Color(0xFF896C6C)
+    
+    Card(
         modifier = Modifier
             .fillMaxWidth()
-            .clickable { onClick() }
-            .padding(vertical = 8.dp, horizontal = 16.dp)
-    )
+            .padding(horizontal = 12.dp, vertical = 2.dp)
+            .clickable { onClick() },
+        shape = RoundedCornerShape(8.dp),
+        colors = CardDefaults.cardColors(containerColor = Color.Transparent),
+        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(vertical = 10.dp, horizontal = 20.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Box(
+                modifier = Modifier
+                    .size(6.dp)
+                    .background(amberColor.copy(alpha = 0.6f), CircleShape)
+            )
+            Spacer(modifier = Modifier.width(12.dp))
+            Text(
+                text = text,
+                fontSize = 15.sp,
+                fontWeight = FontWeight.Normal,
+                color = Color.DarkGray
+            )
+        }
+    }
 }
 
 @Composable
@@ -958,36 +1061,65 @@ fun DrawerItem(
     onClick: () -> Unit,
     icon: androidx.compose.ui.graphics.vector.ImageVector? = null
 ) {
+    val amberColor = Color(0xFF896C6C)
+    var isPressed by remember { mutableStateOf(false) }
+    
     // Stable click handler
     val stableOnClick = remember(onClick) { onClick }
 
-    Row(
+    Card(
         modifier = Modifier
             .fillMaxWidth()
-            .clickable { stableOnClick() }
-            .padding(vertical = 12.dp, horizontal = 16.dp),
-        verticalAlignment = Alignment.CenterVertically
+            .padding(horizontal = 8.dp, vertical = 4.dp)
+            .clickable { 
+                stableOnClick() 
+            }
+            .animateContentSize(),
+        shape = RoundedCornerShape(12.dp),
+        colors = CardDefaults.cardColors(
+            containerColor = if (isPressed) amberColor.copy(alpha = 0.1f) else Color.Transparent
+        ),
+        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
     ) {
-        if (icon != null) {
-            Icon(
-                imageVector = icon,
-                contentDescription = text,
-                tint = Color.DarkGray,
-                modifier = Modifier.size(24.dp)
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(vertical = 14.dp, horizontal = 16.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            if (icon != null) {
+                Box(
+                    modifier = Modifier
+                        .size(40.dp)
+                        .background(
+                            amberColor.copy(alpha = 0.1f),
+                            CircleShape
+                        ),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Icon(
+                        imageVector = icon,
+                        contentDescription = text,
+                        tint = amberColor,
+                        modifier = Modifier.size(20.dp)
+                    )
+                }
+                Spacer(modifier = Modifier.width(16.dp))
+            }
+            Text(
+                text = text,
+                fontSize = 16.sp,
+                fontWeight = FontWeight.Medium,
+                modifier = Modifier.weight(1f),
+                color = Color.Black
             )
-            Spacer(modifier = Modifier.width(16.dp))
+            Icon(
+                imageVector = Icons.Outlined.ChevronRight,
+                contentDescription = "Arrow",
+                tint = amberColor.copy(alpha = 0.6f),
+                modifier = Modifier.size(18.dp)
+            )
         }
-        Text(
-            text = text,
-            fontSize = 18.sp,
-            modifier = Modifier.weight(1f),
-            color = Color.Black
-        )
-        Icon(
-            imageVector = Icons.Outlined.ChevronRight,
-            contentDescription = "Arrow",
-            tint = Color.Gray
-        )
     }
 }
 
@@ -1742,10 +1874,10 @@ data class NavigationItem(
 // Function to format price with currency
 fun formatPrice(price: Double, currency: String): String {
     return when (currency) {
-        "USD" -> "$${price.toInt()}"
-        "EUR" -> "€${price.toInt()}"
-        "INR" -> "₹${price.toInt()}"
-        else -> "${price.toInt()} $currency"
+        "USD" -> "$${String.format("%,.2f", price)}"
+        "EUR" -> "€${String.format("%,.2f", price)}"
+        "INR" -> "₹${String.format("%,.2f", price)}"
+        else -> "${String.format("%,.2f", price)} $currency"
     }
 }
 

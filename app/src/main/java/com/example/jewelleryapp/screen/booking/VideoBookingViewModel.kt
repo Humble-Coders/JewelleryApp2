@@ -5,6 +5,7 @@ import androidx.lifecycle.viewModelScope
 import com.example.jewelleryapp.model.AvailabilityDoc
 import com.example.jewelleryapp.model.BookingDoc
 import com.example.jewelleryapp.model.SlotItem
+import com.example.jewelleryapp.model.UserProfile
 import com.example.jewelleryapp.repository.VideoBookingRepository
 import com.google.firebase.Timestamp
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -57,6 +58,19 @@ class VideoBookingViewModel(
     private val _bookingError = MutableStateFlow<String?>(null)
     val bookingError: StateFlow<String?> = _bookingError
 
+    // State for phone number validation
+    private val _showPhoneDialog = MutableStateFlow(false)
+    val showPhoneDialog: StateFlow<Boolean> = _showPhoneDialog
+
+    private val _userProfile = MutableStateFlow<UserProfile?>(null)
+    val userProfile: StateFlow<UserProfile?> = _userProfile
+
+    private val _phoneUpdateSuccess = MutableStateFlow<Boolean?>(null)
+    val phoneUpdateSuccess: StateFlow<Boolean?> = _phoneUpdateSuccess
+
+    private val _phoneUpdateError = MutableStateFlow<String?>(null)
+    val phoneUpdateError: StateFlow<String?> = _phoneUpdateError
+
     // Public methods to reset availability and slots
     fun clearSelectedAvailability() {
         _selectedAvailability.value = null
@@ -75,7 +89,8 @@ class VideoBookingViewModel(
             try {
                 val now = Timestamp.now()
                 val availabilities = repository.fetchActiveAvailabilities(now)
-                val bookings = repository.fetchUpcomingBookings(now)
+                // Fetch all confirmed bookings to properly mark slots as booked
+                val bookings = repository.fetchAllConfirmedBookings()
                 
                 // Create a set of booked start times for efficient lookup
                 val bookedStartTimes = bookings.map { it.startTime }.toSet()
@@ -144,7 +159,7 @@ class VideoBookingViewModel(
                 )
                 
                 // Set success message with booking ID
-                _bookingSuccess.value = "Slot successfully booked! 🎉\nBooking ID: $bookingId"
+                _bookingSuccess.value = "Booking request submitted successfully! 🎉\nRequest ID: $bookingId"
                 
                 // Refresh slots to show updated availability
                 refreshSlotsAfterBooking()
@@ -166,8 +181,8 @@ class VideoBookingViewModel(
     private fun refreshSlotsAfterBooking() {
         viewModelScope.launch {
             try {
-                val now = Timestamp.now()
-                val bookings = repository.fetchUpcomingBookings(now)
+                // Fetch all confirmed bookings to properly mark slots as booked
+                val bookings = repository.fetchAllConfirmedBookings()
                 
                 // Create a set of booked start times for efficient lookup
                 val bookedStartTimes = bookings.map { it.startTime }.toSet()
@@ -252,8 +267,8 @@ class VideoBookingViewModel(
             _isLoading.value = true
             _error.value = null
             try {
-                val now = Timestamp.now()
-                val bookings = repository.fetchUpcomingBookings(now)
+                // Fetch all confirmed bookings to properly mark slots as booked
+                val bookings = repository.fetchAllConfirmedBookings()
                 
                 // Create a set of booked start times for efficient lookup
                 val bookedStartTimes = bookings.map { it.startTime }.toSet()
@@ -297,6 +312,61 @@ class VideoBookingViewModel(
         _selectedAvailability.value = null
         _slotsForAvailability.value = emptyList()
         _error.value = null
+    }
+
+    // Check if user has phone number and show dialog if needed
+    fun checkUserPhoneNumber() {
+        viewModelScope.launch {
+            _isLoading.value = true
+            try {
+                val profile = repository.getCurrentUserProfile()
+                _userProfile.value = profile
+                
+                if (profile?.phone.isNullOrBlank()) {
+                    _showPhoneDialog.value = true
+                }
+            } catch (e: Exception) {
+                _error.value = e.message ?: "Failed to check user profile"
+            } finally {
+                _isLoading.value = false
+            }
+        }
+    }
+
+    // Update user phone number
+    fun updateUserPhoneNumber(phone: String) {
+        viewModelScope.launch {
+            _isLoading.value = true
+            _phoneUpdateSuccess.value = null
+            _phoneUpdateError.value = null
+            
+            try {
+                val result = repository.updateUserPhoneNumber(phone)
+                if (result.isSuccess) {
+                    _phoneUpdateSuccess.value = true
+                    _showPhoneDialog.value = false
+                    // Update local user profile
+                    _userProfile.value = _userProfile.value?.copy(phone = phone)
+                } else {
+                    _phoneUpdateError.value = result.exceptionOrNull()?.message ?: "Failed to update phone number"
+                }
+            } catch (e: Exception) {
+                _phoneUpdateError.value = e.message ?: "Failed to update phone number"
+            } finally {
+                _isLoading.value = false
+            }
+        }
+    }
+
+    // Hide phone dialog
+    fun hidePhoneDialog() {
+        _showPhoneDialog.value = false
+    }
+
+    // Clear phone update messages
+    fun clearPhoneUpdateMessages() {
+        _phoneUpdateSuccess.value = null
+        _phoneUpdateError.value = null
     }
 }
 
