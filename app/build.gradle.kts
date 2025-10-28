@@ -6,11 +6,11 @@ plugins {
 }
 
 android {
-    namespace = "com.example.jewelleryapp"
+    namespace = "com.humblecoders.jewelleryapp"
     compileSdk = 35
 
     defaultConfig {
-        applicationId = "com.example.jewelleryapp"
+        applicationId = "com.humblecoders.jewelleryapp"
         minSdk = 24
         targetSdk = 35
         versionCode = 1
