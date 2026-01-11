@@ -163,11 +163,29 @@ class CategoryProductsViewModel(
 
                 Log.d(tag, "Search found ${searchResults.size} products matching '$query'")
 
-                // Apply material filter if selected
+                // Apply material filter if selected - get actual material document ID
                 val filteredResults = if (filterState.selectedMaterial != null) {
-                    val expectedMaterialId = "material_${filterState.selectedMaterial!!.lowercase()}"
-                    searchResults.filter { product ->
-                        product.materialId?.equals(expectedMaterialId, ignoreCase = true) ?: false
+                    try {
+                        val materialId = repository.getMaterialIdByName(filterState.selectedMaterial!!)
+                        Log.d(tag, "Search filter: Material name '${filterState.selectedMaterial}' maps to material_id: $materialId")
+                        
+                        if (materialId == null) {
+                            Log.w(tag, "⚠️ Material ID not found for name '${filterState.selectedMaterial}' in search, showing no products")
+                            emptyList()
+                        } else {
+                            val filtered = searchResults.filter { product ->
+                                val matches = product.materialId?.equals(materialId, ignoreCase = true) ?: false
+                                if (matches) {
+                                    Log.d(tag, "✅ Search product ${product.id} matches material filter: material_id='${product.materialId}'")
+                                }
+                                matches
+                            }
+                            Log.d(tag, "✅ Filtered search results from ${searchResults.size} to ${filtered.size} using material_id: $materialId")
+                            filtered
+                        }
+                    } catch (e: Exception) {
+                        Log.e(tag, "❌ Error applying material filter in search", e)
+                        emptyList()
                     }
                 } else {
                     searchResults
@@ -228,11 +246,14 @@ class CategoryProductsViewModel(
 
     fun applyFilter(materialFilter: String?) {
         viewModelScope.launch {
+            Log.d(tag, "=== Applying material filter: $materialFilter ===")
             _filterSortState.value = _filterSortState.value.copy(selectedMaterial = materialFilter)
 
             if (_searchQuery.value.isNotBlank()) {
+                Log.d(tag, "Search query is active, performing search with filter")
                 performSearch(_searchQuery.value)
             } else {
+                Log.d(tag, "No search query, reloading products with filter")
                 reloadProductsWithCurrentSettings()
             }
         }
@@ -240,44 +261,71 @@ class CategoryProductsViewModel(
 
     fun applySorting(sortOption: SortOption) {
         viewModelScope.launch {
+            Log.d(tag, "=== Applying sort option: $sortOption ===")
             _filterSortState.value = _filterSortState.value.copy(sortOption = sortOption)
 
             if (_searchQuery.value.isNotBlank()) {
+                Log.d(tag, "Search query is active, performing search with sort")
                 performSearch(_searchQuery.value)
             } else {
+                Log.d(tag, "No search query, applying filters and sort")
                 applyFiltersAndSort()
             }
         }
     }
 
-    private fun applyFiltersAndSort() {
+    private suspend fun applyFiltersAndSort() {
         val currentState = _state.value
         val filterState = _filterSortState.value
 
+        Log.d(tag, "=== Applying filters and sort ===")
+        Log.d(tag, "Total products loaded: ${currentState.allProducts.size}")
+        Log.d(tag, "Selected material filter: ${filterState.selectedMaterial}")
+        Log.d(tag, "Selected sort option: ${filterState.sortOption}")
+
         // Debug: Log all product material_ids to understand the data
-        Log.d(tag, "=== Debug: All products and their material_ids ===")
-        currentState.allProducts.forEachIndexed { index, product ->
+        Log.d(tag, "=== Product material_ids debug ===")
+        currentState.allProducts.take(5).forEachIndexed { index, product ->
             Log.d(tag, "Product $index: id=${product.id}, name=${product.name}, material_id=${product.materialId}")
         }
-        Log.d(tag, "=== End Debug ===")
+        if (currentState.allProducts.size > 5) {
+            Log.d(tag, "... and ${currentState.allProducts.size - 5} more products")
+        }
+        Log.d(tag, "=== End material_ids debug ===")
 
-        // Fixed material filter logic - convert user selection to material_id format
+        // Fixed material filter logic - get actual material document ID from materials collection
         val filteredProducts = if (filterState.selectedMaterial != null) {
-            val expectedMaterialId = "material_${filterState.selectedMaterial!!.lowercase()}"
-            currentState.allProducts.filter { product ->
-                val matches = product.materialId?.equals(expectedMaterialId, ignoreCase = true) ?: false
-                Log.d(tag, "Product ${product.id}: material_id='${product.materialId}' vs expected='$expectedMaterialId' -> matches=$matches")
-                matches
+            try {
+                val materialId = repository.getMaterialIdByName(filterState.selectedMaterial!!)
+                Log.d(tag, "Material name '${filterState.selectedMaterial}' maps to material_id: $materialId")
+                
+                if (materialId == null) {
+                    Log.w(tag, "⚠️ Material ID not found for name '${filterState.selectedMaterial}', showing no products")
+                    _state.value = currentState.copy(displayedProducts = emptyList())
+                    return
+                }
+
+                val filtered = currentState.allProducts.filter { product ->
+                    val matches = product.materialId?.equals(materialId, ignoreCase = true) ?: false
+                    if (matches) {
+                        Log.d(tag, "✅ Product ${product.id} matches material filter: material_id='${product.materialId}'")
+                    }
+                    matches
+                }
+
+                Log.d(tag, "✅ Filtered ${currentState.allProducts.size} products to ${filtered.size} using material_id: $materialId")
+                filtered
+            } catch (e: Exception) {
+                Log.e(tag, "❌ Error applying material filter", e)
+                emptyList()
             }
         } else {
+            Log.d(tag, "No material filter selected, showing all products")
             currentState.allProducts
         }
 
-        Log.d(tag, "Filtered ${currentState.allProducts.size} products to ${filteredProducts.size} using material filter: ${filterState.selectedMaterial}")
-        Log.d(tag, "Expected material_id format: material_${filterState.selectedMaterial?.lowercase()}")
-
         val sortedProducts = applySorting(filteredProducts, filterState.sortOption)
-
+        Log.d(tag, "Applied sorting to ${sortedProducts.size} products")
         _state.value = currentState.copy(displayedProducts = sortedProducts)
     }
 

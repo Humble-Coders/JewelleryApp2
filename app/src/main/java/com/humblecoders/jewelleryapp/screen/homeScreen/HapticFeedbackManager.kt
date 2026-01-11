@@ -23,6 +23,18 @@ class HapticFeedbackManager(private val context: Context) {
         if (!vibrator.hasVibrator()) return
 
         when (type) {
+            HapticType.ELEGANT_CLICK -> {
+                // Professional, refined single vibration - subtle and responsive
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                    // Use a refined amplitude (120 = ~53% of max 225) for elegance - noticeable but not harsh
+                    val amplitude = 120.coerceIn(1, 225)
+                    // 18ms duration - short enough to feel responsive, long enough to be noticeable
+                    vibrator.vibrate(VibrationEffect.createOneShot(18, amplitude))
+                } else {
+                    @Suppress("DEPRECATION")
+                    vibrator.vibrate(18)
+                }
+            }
             HapticType.LIGHT_CLICK -> {
                 if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
                     vibrator.vibrate(VibrationEffect.createOneShot(50, VibrationEffect.DEFAULT_AMPLITUDE))
@@ -60,6 +72,7 @@ class HapticFeedbackManager(private val context: Context) {
 }
 
 enum class HapticType {
+    ELEGANT_CLICK,  // Professional, refined single vibration
     LIGHT_CLICK,
     MEDIUM_CLICK,
     SUCCESS,

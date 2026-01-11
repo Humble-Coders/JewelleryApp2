@@ -1334,7 +1334,7 @@ class JewelryRepository(
             var lastUpdated = System.currentTimeMillis()
             var currency = "INR"
 
-            // Find Gold and Silver materials and extract 24K rates
+            // Find Gold and Silver materials and extract rates
             snapshot.documents.forEach { doc ->
                 val materialName = doc.getString("name")?.lowercase() ?: ""
                 
@@ -1352,15 +1352,13 @@ class JewelryRepository(
                     }
                 } ?: emptyList()
                 
-                // Find 24K rate
-                val type24K = materialTypes.firstOrNull { it.purity == "24K" }
-                val rate24K = type24K?.rate?.toDoubleOrNull() ?: 0.0
-                
-                Log.d(tag, "Material: $materialName, 24K rate: ${if (rate24K > 0) "₹$rate24K/g" else "not found"}")
-                
                 when (materialName) {
                     "gold" -> {
+                        // Find 24K rate for gold
+                        val type24K = materialTypes.firstOrNull { it.purity == "24K" }
+                        val rate24K = type24K?.rate?.toDoubleOrNull() ?: 0.0
                         goldRate = rate24K
+                        Log.d(tag, "Material: $materialName, 24K rate: ${if (rate24K > 0) "₹$rate24K/g" else "not found"}")
                         // Use created_at as timestamp
                         val docTimestamp = doc.getLong("created_at")?.toLong() ?: System.currentTimeMillis()
                         if (docTimestamp > lastUpdated) {
@@ -1368,7 +1366,11 @@ class JewelryRepository(
                         }
                     }
                     "silver" -> {
-                        silverRate = rate24K
+                        // Find 999 purity rate for silver
+                        val type999 = materialTypes.firstOrNull { it.purity == "999" }
+                        val rate999 = type999?.rate?.toDoubleOrNull() ?: 0.0
+                        silverRate = rate999
+                        Log.d(tag, "Material: $materialName, 999 rate: ${if (rate999 > 0) "₹$rate999/g" else "not found"}")
                         // Use created_at as timestamp
                         val docTimestamp = doc.getLong("created_at")?.toLong() ?: System.currentTimeMillis()
                         if (lastUpdated == 0L || docTimestamp > lastUpdated) {
@@ -1388,7 +1390,7 @@ class JewelryRepository(
                 rateChangePercentage = emptyMap() // Can be calculated if needed
             )
             
-            Log.d(tag, "Rates fetched from materials - Gold: ₹$goldRate/g, Silver: ₹$silverRate/g (24K)")
+            Log.d(tag, "Rates fetched from materials - Gold 24K: ₹$goldRate/g, Silver 999: ₹$silverRate/g")
             emit(rates)
             
         } catch (e: Exception) {
@@ -1587,6 +1589,34 @@ class JewelryRepository(
         } catch (e: Exception) {
             Log.e(tag, "Error fetching materials", e)
             emit(emptyList())
+        }
+    }
+
+    /**
+     * Get material ID by material name
+     * Returns the document ID of the material with the given name
+     */
+    suspend fun getMaterialIdByName(materialName: String): String? {
+        if (materialName.isBlank()) {
+            Log.d(tag, "Material name is blank, returning null")
+            return null
+        }
+
+        return try {
+            val snapshot = withContext(Dispatchers.IO) {
+                firestore.collection("materials")
+                    .whereEqualTo("name", materialName)
+                    .limit(1)
+                    .get()
+                    .await()
+            }
+
+            val materialId = snapshot.documents.firstOrNull()?.id
+            Log.d(tag, "Material ID for name '$materialName': $materialId")
+            materialId
+        } catch (e: Exception) {
+            Log.e(tag, "Error fetching material ID for name: $materialName", e)
+            null
         }
     }
 

@@ -3,6 +3,8 @@ package com.humblecoders.jewelleryapp.screen.categoryProducts
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Close
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -35,13 +37,31 @@ fun FilterSortBottomSheet(
                 .fillMaxWidth()
                 .padding(16.dp)
         ) {
-            // Header
-            Text(
-                text = "Filter & Sort",
-                fontSize = 20.sp,
-                fontWeight = FontWeight.Bold,
-                modifier = Modifier.padding(bottom = 24.dp)
-            )
+            // Header with close button
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(bottom = 24.dp),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(
+                    text = "Filter & Sort",
+                    fontSize = 20.sp,
+                    fontWeight = FontWeight.Bold
+                )
+                IconButton(
+                    onClick = onDismiss,
+                    modifier = Modifier.size(24.dp)
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.Close,
+                        contentDescription = "Close",
+                        tint = Color(0xFF896C6C),
+                        modifier = Modifier.size(20.dp)
+                    )
+                }
+            }
 
             // Material Filter Section
             Text(
@@ -58,14 +78,20 @@ fun FilterSortBottomSheet(
                 MaterialFilterChip(
                     text = "All",
                     isSelected = selectedMaterial == null,
-                    onClick = { selectedMaterial = null }
+                    onClick = {
+                        selectedMaterial = null
+                        onApplyFilter(null)
+                    }
                 )
 
                 filterSortState.availableMaterials.forEach { material ->
                     MaterialFilterChip(
                         text = material,
                         isSelected = selectedMaterial == material,
-                        onClick = { selectedMaterial = material }
+                        onClick = {
+                            selectedMaterial = material
+                            onApplyFilter(material)
+                        }
                     )
                 }
             }
@@ -87,46 +113,11 @@ fun FilterSortBottomSheet(
                     SortOptionRow(
                         text = option.displayName,
                         isSelected = selectedSort == option,
-                        onClick = { selectedSort = option }
+                        onClick = {
+                            selectedSort = option
+                            onApplySort(option)
+                        }
                     )
-                }
-            }
-
-            Spacer(modifier = Modifier.height(32.dp))
-
-            // Action Buttons
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(12.dp)
-            ) {
-                OutlinedButton(
-                    onClick = {
-                        selectedMaterial = null
-                        selectedSort = SortOption.NONE
-                        onApplyFilter(null)
-                        onApplySort(SortOption.NONE)
-                        onDismiss()
-                    },
-                    modifier = Modifier.weight(1f),
-                    colors = ButtonDefaults.outlinedButtonColors(
-                        contentColor = Color(0xFF896C6C)
-                    )
-                ) {
-                    Text("Clear All")
-                }
-
-                Button(
-                    onClick = {
-                        onApplyFilter(selectedMaterial)
-                        onApplySort(selectedSort)
-                        onDismiss()
-                    },
-                    modifier = Modifier.weight(1f),
-                    colors = ButtonDefaults.buttonColors(
-                        containerColor = Color(0xFF896C6C)
-                    )
-                ) {
-                    Text("Apply")
                 }
             }
 

@@ -196,10 +196,9 @@ fun RatesDialog(
                             } else if (rates != null && (rates.goldRatePerGram > 0 || rates.silverRatePerGram > 0)) {
                                 // Animated rate cards
                                 ModernRateCard(
-                                    title = "Gold",
+                                    title = "24K Gold",
                                     rate = rates.goldRatePerGram,
                                     currency = rates.currency,
-                                    changePercentage = rates.rateChangePercentage["gold"] ?: "0%",
                                     cardColor = Color(0xFF896C6C),
                                     delay = 100L
                                 )
@@ -207,10 +206,9 @@ fun RatesDialog(
                                 Spacer(modifier = Modifier.height(16.dp))
 
                                 ModernRateCard(
-                                    title = "Silver",
+                                    title = "Silver 999",
                                     rate = rates.silverRatePerGram,
                                     currency = rates.currency,
-                                    changePercentage = rates.rateChangePercentage["silver"] ?: "0%",
                                     cardColor = Color(0xFFC0C0C0),
                                     delay = 200L
                                 )
@@ -235,7 +233,6 @@ private fun ModernRateCard(
     title: String,
     rate: Double,
     currency: String,
-    changePercentage: String,
     cardColor: Color,
     delay: Long = 0L
 ) {
@@ -277,39 +274,32 @@ private fun ModernRateCard(
                         )
                 )
 
-                Row(
+                Column(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(20.dp),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
+                        .padding(20.dp)
                 ) {
-                    Column {
-                        Row(
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            // Metal indicator
-                            Box(
-                                modifier = Modifier
-                                    .size(12.dp)
-                                    .background(cardColor, CircleShape)
-                            )
-                            Spacer(modifier = Modifier.width(8.dp))
-                            Text(
-                                text = "$title (per gram)",
-                                fontSize = 14.sp,
-                                color = Color.Gray,
-                                fontWeight = FontWeight.Medium
-                            )
-                        }
-                        Spacer(modifier = Modifier.height(8.dp))
-
-                        // Animated rate display
-                        AnimatedRateDisplay(rate = rate)
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        // Metal indicator
+                        Box(
+                            modifier = Modifier
+                                .size(12.dp)
+                                .background(cardColor, CircleShape)
+                        )
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Text(
+                            text = "$title (per gram)",
+                            fontSize = 14.sp,
+                            color = Color.Gray,
+                            fontWeight = FontWeight.Medium
+                        )
                     }
+                    Spacer(modifier = Modifier.height(8.dp))
 
-                    // Change indicator with modern design
-                    ChangeIndicator(changePercentage = changePercentage)
+                    // Animated rate display
+                    AnimatedRateDisplay(rate = rate)
                 }
             }
         }
@@ -534,7 +524,7 @@ private fun ErrorState(onRetry: () -> Unit = {}) {
     }
 }
 
-// Keep the existing RatesDrawerItem function unchanged
+// Compact RatesDrawerItem with 24K Gold and Silver 999
 @Composable
 fun RatesDrawerItem(
     goldRate: Double?,
@@ -547,16 +537,16 @@ fun RatesDrawerItem(
     Card(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(horizontal = 8.dp, vertical = 8.dp)
+            .padding(horizontal = 8.dp, vertical = 4.dp)
             .clickable { onClick() },
-        shape = RoundedCornerShape(16.dp),
+        shape = RoundedCornerShape(12.dp),
         colors = CardDefaults.cardColors(
             containerColor = amberColor.copy(alpha = 0.08f)
         ),
-        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+        elevation = CardDefaults.cardElevation(defaultElevation = 1.dp)
     ) {
         Column(
-            modifier = Modifier.padding(20.dp)
+            modifier = Modifier.padding(12.dp)
         ) {
             Row(
                 modifier = Modifier.fillMaxWidth(),
@@ -568,7 +558,7 @@ fun RatesDrawerItem(
                 ) {
                     Box(
                         modifier = Modifier
-                            .size(40.dp)
+                            .size(28.dp)
                             .background(
                                 amberColor.copy(alpha = 0.15f),
                                 CircleShape
@@ -579,13 +569,13 @@ fun RatesDrawerItem(
                             imageVector = Icons.Outlined.AttachMoney,
                             contentDescription = "Rates",
                             tint = amberColor,
-                            modifier = Modifier.size(20.dp)
+                            modifier = Modifier.size(16.dp)
                         )
                     }
-                    Spacer(modifier = Modifier.width(12.dp))
+                    Spacer(modifier = Modifier.width(8.dp))
                     Text(
-                        text = "Today's Rates",
-                        fontSize = 16.sp,
+                        text = "Rates",
+                        fontSize = 14.sp,
                         fontWeight = FontWeight.Bold,
                         color = Color.Black
                     )
@@ -594,11 +584,11 @@ fun RatesDrawerItem(
                     imageVector = Icons.Outlined.ChevronRight,
                     contentDescription = "View Details",
                     tint = amberColor.copy(alpha = 0.7f),
-                    modifier = Modifier.size(18.dp)
+                    modifier = Modifier.size(16.dp)
                 )
             }
 
-            Spacer(modifier = Modifier.height(16.dp))
+            Spacer(modifier = Modifier.height(10.dp))
 
             if (isLoading) {
                 Row(
@@ -607,8 +597,8 @@ fun RatesDrawerItem(
                 ) {
                     CircularProgressIndicator(
                         color = amberColor,
-                        modifier = Modifier.size(24.dp),
-                        strokeWidth = 3.dp
+                        modifier = Modifier.size(20.dp),
+                        strokeWidth = 2.dp
                     )
                 }
             } else {
@@ -616,7 +606,7 @@ fun RatesDrawerItem(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.SpaceEvenly
                 ) {
-                    // Gold Rate
+                    // Gold 24K Rate
                     Column(
                         horizontalAlignment = Alignment.CenterHorizontally,
                         modifier = Modifier.weight(1f)
@@ -626,28 +616,23 @@ fun RatesDrawerItem(
                         ) {
                             Box(
                                 modifier = Modifier
-                                    .size(10.dp)
+                                    .size(8.dp)
                                     .background(Color(0xFFFFD700), CircleShape)
                             )
-                            Spacer(modifier = Modifier.width(6.dp))
+                            Spacer(modifier = Modifier.width(4.dp))
                             Text(
-                                text = "Gold",
-                                fontSize = 12.sp,
+                                text = "24K Gold",
+                                fontSize = 11.sp,
                                 fontWeight = FontWeight.Medium,
                                 color = Color.DarkGray
                             )
                         }
-                        Spacer(modifier = Modifier.height(4.dp))
+                        Spacer(modifier = Modifier.height(2.dp))
                         Text(
                             text = if (goldRate != null) "₹${goldRate.toInt()}" else "N/A",
-                            fontSize = 16.sp,
+                            fontSize = 14.sp,
                             fontWeight = FontWeight.Bold,
                             color = Color.Black
-                        )
-                        Text(
-                            text = "per gram",
-                            fontSize = 10.sp,
-                            color = Color.Gray
                         )
                     }
                     
@@ -655,11 +640,11 @@ fun RatesDrawerItem(
                     Box(
                         modifier = Modifier
                             .width(1.dp)
-                            .height(40.dp)
+                            .height(32.dp)
                             .background(amberColor.copy(alpha = 0.3f))
                     )
                     
-                    // Silver Rate
+                    // Silver 999 Rate
                     Column(
                         horizontalAlignment = Alignment.CenterHorizontally,
                         modifier = Modifier.weight(1f)
@@ -669,28 +654,23 @@ fun RatesDrawerItem(
                         ) {
                             Box(
                                 modifier = Modifier
-                                    .size(10.dp)
+                                    .size(8.dp)
                                     .background(Color(0xFFC0C0C0), CircleShape)
                             )
-                            Spacer(modifier = Modifier.width(6.dp))
+                            Spacer(modifier = Modifier.width(4.dp))
                             Text(
-                                text = "Silver",
-                                fontSize = 12.sp,
+                                text = "Silver 999",
+                                fontSize = 11.sp,
                                 fontWeight = FontWeight.Medium,
                                 color = Color.DarkGray
                             )
                         }
-                        Spacer(modifier = Modifier.height(4.dp))
+                        Spacer(modifier = Modifier.height(2.dp))
                         Text(
                             text = if (silverRate != null) "₹${silverRate.toInt()}" else "N/A",
-                            fontSize = 16.sp,
+                            fontSize = 14.sp,
                             fontWeight = FontWeight.Bold,
                             color = Color.Black
-                        )
-                        Text(
-                            text = "per gram",
-                            fontSize = 10.sp,
-                            color = Color.Gray
                         )
                     }
                 }

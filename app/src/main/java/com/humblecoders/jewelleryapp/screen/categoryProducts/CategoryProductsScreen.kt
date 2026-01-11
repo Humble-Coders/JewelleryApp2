@@ -128,7 +128,9 @@ fun CategoryProductsScreen(
             FilterSortBar(
                 filterSortState = filterSortState,
                 totalProducts = state.totalProducts,
-                onFilterSortClick = { showFilterBottomSheet = true }
+                onFilterSortClick = { showFilterBottomSheet = true },
+                onRemoveMaterialFilter = { viewModel.applyFilter(null) },
+                onRemoveSortFilter = { viewModel.applySorting(SortOption.NONE) }
             )
 
             // Products Grid
@@ -276,10 +278,12 @@ private fun CategoryTopBar(
 }
 
 @Composable
-private fun FilterSortBar(
+fun FilterSortBar(
     filterSortState: com.humblecoders.jewelleryapp.model.FilterSortState,
     totalProducts: Int,
-    onFilterSortClick: () -> Unit
+    onFilterSortClick: () -> Unit,
+    onRemoveMaterialFilter: () -> Unit,
+    onRemoveSortFilter: () -> Unit
 ) {
     Row(
         modifier = Modifier
@@ -302,14 +306,14 @@ private fun FilterSortBar(
             if (filterSortState.selectedMaterial != null) {
                 FilterChip(
                     text = filterSortState.selectedMaterial,
-                    onRemove = { /* Will be handled in bottom sheet */ }
+                    onRemove = onRemoveMaterialFilter
                 )
             }
 
             if (filterSortState.sortOption != SortOption.NONE) {
                 FilterChip(
                     text = filterSortState.sortOption.displayName,
-                    onRemove = { /* Will be handled in bottom sheet */ }
+                    onRemove = onRemoveSortFilter
                 )
             }
         }
@@ -347,13 +351,22 @@ private fun FilterChip(
         modifier = Modifier.height(32.dp)
     ) {
         Row(
-            modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp),
+            modifier = Modifier
+                .padding(horizontal = 12.dp, vertical = 6.dp)
+                .clickable { onRemove() },
             verticalAlignment = Alignment.CenterVertically
         ) {
             Text(
                 text = text,
                 fontSize = 12.sp,
                 color = Color(0xFF896C6C)
+            )
+            Spacer(modifier = Modifier.width(6.dp))
+            Icon(
+                imageVector = Icons.Default.Close,
+                contentDescription = "Remove filter",
+                modifier = Modifier.size(16.dp),
+                tint = Color(0xFF896C6C)
             )
         }
     }

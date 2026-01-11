@@ -391,10 +391,8 @@ fun HomeScreen(
                                 .fillMaxSize()
                                 .padding(paddingValues),
                             verticalArrangement = Arrangement.spacedBy(0.dp),
-                            userScrollEnabled = true
+                            userScrollEnabled = true,
                             // Pre-render items beyond visible bounds for smooth scrolling
-                            // Uncomment after Gradle sync completes with Compose 1.6.8
-                            // beyondBoundsItemCount = 5
                         ) {
                             // Gradient header with bangles image and promotional text
                             item(key = "gradient_header") {
@@ -701,7 +699,7 @@ fun DrawerContent(
         HorizontalDivider(
             thickness = 1.dp, 
             color = amberColor.copy(alpha = 0.2f),
-            modifier = Modifier.padding(vertical = 8.dp)
+            modifier = Modifier.padding(vertical = 4.dp)
         )
 
         // Navigation items
@@ -724,7 +722,7 @@ fun DrawerContent(
         Card(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(vertical = 8.dp),
+                .padding(vertical = 4.dp),
             shape = RoundedCornerShape(8.dp),
             colors = CardDefaults.cardColors(
                 containerColor = amberColor.copy(alpha = 0.1f)
@@ -735,8 +733,8 @@ fun DrawerContent(
                 text = "Shop By",
                 color = amberColor,
                 fontWeight = FontWeight.Bold,
-                fontSize = 16.sp,
-                modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp)
+                fontSize = 14.sp,
+                modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)
             )
         }
 
@@ -762,11 +760,11 @@ fun DrawerContent(
             Box(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .heightIn(max = 120.dp) // Fixed height with scrolling
+                    .heightIn(max = 100.dp) // Fixed height with scrolling
                     .padding(start = 16.dp)
             ) {
                 LazyColumn(
-                    verticalArrangement = Arrangement.spacedBy(4.dp)
+                    verticalArrangement = Arrangement.spacedBy(2.dp)
                 ) {
                     items(
                         items = materials,
@@ -799,11 +797,11 @@ fun DrawerContent(
             Box(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .heightIn(max = 120.dp) // Fixed height with scrolling
+                    .heightIn(max = 100.dp) // Fixed height with scrolling
                     .padding(start = 16.dp)
             ) {
                 LazyColumn(
-                    verticalArrangement = Arrangement.spacedBy(4.dp)
+                    verticalArrangement = Arrangement.spacedBy(2.dp)
                 ) {
                     items(
                         items = categories,
@@ -828,7 +826,7 @@ fun DrawerContent(
         Card(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(vertical = 8.dp),
+                .padding(vertical = 4.dp),
             shape = RoundedCornerShape(8.dp),
             colors = CardDefaults.cardColors(
                 containerColor = amberColor.copy(alpha = 0.1f)
@@ -839,8 +837,8 @@ fun DrawerContent(
                 text = "More",
                 color = amberColor,
                 fontWeight = FontWeight.Bold,
-                fontSize = 16.sp,
-                modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp)
+                fontSize = 14.sp,
+                modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)
             )
         }
 
@@ -927,7 +925,7 @@ private fun ExpandableDrawerItem(
     Card(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(horizontal = 8.dp, vertical = 4.dp)
+            .padding(horizontal = 8.dp, vertical = 2.dp)
             .clickable { onToggle() },
         shape = RoundedCornerShape(12.dp),
         colors = CardDefaults.cardColors(
@@ -938,12 +936,12 @@ private fun ExpandableDrawerItem(
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(vertical = 14.dp, horizontal = 16.dp),
+                .padding(vertical = 10.dp, horizontal = 16.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
             Box(
                 modifier = Modifier
-                    .size(40.dp)
+                    .size(32.dp)
                     .background(
                         amberColor.copy(alpha = 0.1f),
                         CircleShape
@@ -954,14 +952,14 @@ private fun ExpandableDrawerItem(
                     imageVector = Icons.Filled.Menu,
                     contentDescription = text,
                     tint = amberColor,
-                    modifier = Modifier.size(20.dp)
+                    modifier = Modifier.size(18.dp)
                 )
             }
-            Spacer(modifier = Modifier.width(16.dp))
+            Spacer(modifier = Modifier.width(12.dp))
             
             Text(
                 text = text,
-                fontSize = 16.sp,
+                fontSize = 14.sp,
                 fontWeight = FontWeight.Medium,
                 modifier = Modifier.weight(1f),
                 color = Color.Black
@@ -972,7 +970,7 @@ private fun ExpandableDrawerItem(
                 contentDescription = "Expand/Collapse",
                 tint = amberColor,
                 modifier = Modifier
-                    .size(20.dp)
+                    .size(18.dp)
                     .rotate(rotation)
             )
         }
@@ -989,7 +987,7 @@ private fun SubDrawerItem(
     Card(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(horizontal = 12.dp, vertical = 2.dp)
+            .padding(horizontal = 12.dp, vertical = 1.dp)
             .clickable { onClick() },
         shape = RoundedCornerShape(8.dp),
         colors = CardDefaults.cardColors(containerColor = Color.Transparent),
@@ -998,18 +996,18 @@ private fun SubDrawerItem(
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(vertical = 10.dp, horizontal = 20.dp),
+                .padding(vertical = 6.dp, horizontal = 20.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
             Box(
                 modifier = Modifier
-                    .size(6.dp)
+                    .size(5.dp)
                     .background(amberColor.copy(alpha = 0.6f), CircleShape)
             )
-            Spacer(modifier = Modifier.width(12.dp))
+            Spacer(modifier = Modifier.width(10.dp))
             Text(
                 text = text,
-                fontSize = 15.sp,
+                fontSize = 13.sp,
                 fontWeight = FontWeight.Normal,
                 color = Color.DarkGray
             )
@@ -1032,7 +1030,7 @@ fun DrawerItem(
     Card(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(horizontal = 8.dp, vertical = 4.dp)
+            .padding(horizontal = 8.dp, vertical = 2.dp)
             .clickable { 
                 stableOnClick() 
             }
@@ -1046,13 +1044,13 @@ fun DrawerItem(
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(vertical = 14.dp, horizontal = 16.dp),
+                .padding(vertical = 10.dp, horizontal = 16.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
             if (icon != null) {
                 Box(
                     modifier = Modifier
-                        .size(40.dp)
+                        .size(32.dp)
                         .background(
                             amberColor.copy(alpha = 0.1f),
                             CircleShape
@@ -1063,14 +1061,14 @@ fun DrawerItem(
                         imageVector = icon,
                         contentDescription = text,
                         tint = amberColor,
-                        modifier = Modifier.size(20.dp)
+                        modifier = Modifier.size(18.dp)
                     )
                 }
-                Spacer(modifier = Modifier.width(16.dp))
+                Spacer(modifier = Modifier.width(12.dp))
             }
             Text(
                 text = text,
-                fontSize = 16.sp,
+                fontSize = 14.sp,
                 fontWeight = FontWeight.Medium,
                 modifier = Modifier.weight(1f),
                 color = Color.Black
@@ -1079,7 +1077,7 @@ fun DrawerItem(
                 imageVector = Icons.Outlined.ChevronRight,
                 contentDescription = "Arrow",
                 tint = amberColor.copy(alpha = 0.6f),
-                modifier = Modifier.size(18.dp)
+                modifier = Modifier.size(16.dp)
             )
         }
     }
@@ -1546,6 +1544,7 @@ fun CategorySearchItem(
                     .data(category.imageUrl)
                     .crossfade(true)
                     .size(80, 80) // Optimize for 40dp display
+                    .allowHardware(true) // Enable hardware bitmaps for better performance
                     .memoryCacheKey("category_dropdown_${category.id}")
                     .diskCacheKey("category_dropdown_${category.id}")
                     .build(),
@@ -1638,8 +1637,7 @@ fun CategoryRow(categories: List<Category>, onCategoryClick: (String) -> Unit) {
         LazyRow(
             state = listState,
             horizontalArrangement = Arrangement.spacedBy(24.dp),
-            userScrollEnabled = true
-            // beyondBoundsItemCount = 3 // Uncomment after Compose 1.6.8 sync
+            userScrollEnabled = true,
         ) {
             itemsIndexed(
                 items = infiniteCategories,
@@ -1664,6 +1662,7 @@ fun CategoryItem(category: CategoryModel, onCategoryClick: (String) -> Unit) {
                     .data(category.imageUrl)
                     .crossfade(true)
                     .size(120, 120) // Optimize size for 60dp circle
+                    .allowHardware(true) // Enable hardware bitmaps for better performance
                     .memoryCacheKey("category_${category.id}")
                     .diskCacheKey("category_${category.id}")
                     .build(),
@@ -1776,17 +1775,15 @@ fun BottomNavigationBar(navController: NavController) {
                 },
                 selected = false,  // Always false to remove selection effects
                 onClick = {
+                    // Single elegant haptic feedback - professional and responsive
+                    hapticManager.performHapticFeedback(HapticType.ELEGANT_CLICK)
+                    
                     if (!selected) {
-                        // Haptic feedback on selection
-                        hapticManager.performHapticFeedback(HapticType.LIGHT_CLICK)
-                        hapticFeedback.performHapticFeedback(HapticFeedbackType.LongPress)
-
                         when (item.route) {
                             "home" -> {
                                 navController.navigate("home") {
                                     popUpTo("home") { inclusive = true }
                                 }
-                                hapticManager.performHapticFeedback(HapticType.SUCCESS)
                             }
                             "category" -> {
                                 navController.navigate("category/all") {
@@ -1807,12 +1804,9 @@ fun BottomNavigationBar(navController: NavController) {
                                     Log.d("Navigation", "Profile navigation successful")
                                 } catch (e: Exception) {
                                     Log.e("Navigation", "Profile navigation failed", e)
-                                    hapticManager.performHapticFeedback(HapticType.ERROR)
                                 }
                             }
                         }
-                    } else {
-                        hapticManager.performHapticFeedback(HapticType.LIGHT_CLICK)
                     }
                 },
                 interactionSource = remember { MutableInteractionSource() },
@@ -1885,8 +1879,7 @@ fun RecentlyViewedSection(
             // Products list
             LazyRow(
                 horizontalArrangement = Arrangement.spacedBy(16.dp),
-                contentPadding = PaddingValues(horizontal = 0.dp)
-                // beyondBoundsItemCount = 2 // Uncomment after Compose 1.6.8 sync
+                contentPadding = PaddingValues(horizontal = 0.dp),
             ) {
                 items(
                     items = products,
@@ -1934,6 +1927,7 @@ fun RecentlyViewedItem(
                         .data(product.images.firstOrNull() ?: "")
                         .crossfade(true)
                         .size(400, 300) // Optimize for card dimensions
+                        .allowHardware(true) // Enable hardware bitmaps for better performance
                         .memoryCacheKey("recent_${product.id}")
                         .diskCacheKey("recent_${product.id}")
                         .build(),
@@ -2154,6 +2148,7 @@ fun ElegantCarouselItem(item: CarouselItemModel) {
                     .data(item.imageUrl)
                     .crossfade(true)
                     .size(320, 320) // Optimize for 160dp circle
+                    .allowHardware(true) // Enable hardware bitmaps for better performance
                     .memoryCacheKey("carousel_${item.id}")
                     .diskCacheKey("carousel_${item.id}")
                     .build(),
@@ -2287,8 +2282,9 @@ fun AnimatedProductItem(
                     AsyncImage(
                         model = ImageRequest.Builder(LocalContext.current)
                             .data(imageUrls.getOrNull(currentImageIndex))
-                            .crossfade(300) // Reduced crossfade duration
+                            .crossfade(150) // Reduced crossfade duration for faster appearance
                             .size(500, 480) // Optimize image size
+                            .allowHardware(true) // Enable hardware bitmaps for better performance
                             .memoryCacheKey("product_${product.id}_$currentImageIndex")
                             .diskCacheKey("product_${product.id}_$currentImageIndex")
                             .build(),
@@ -2393,8 +2389,7 @@ fun ThemedCollectionsSection(
 
         LazyRow(
             horizontalArrangement = Arrangement.spacedBy(16.dp),
-            contentPadding = PaddingValues(horizontal = 0.dp)
-            // beyondBoundsItemCount = 2 // Uncomment after Compose 1.6.8 sync
+            contentPadding = PaddingValues(horizontal = 0.dp),
         ) {
             itemsIndexed(collections) { index, collection ->
                 CollectionItem(
@@ -2466,6 +2461,7 @@ fun CollectionItem(
                                     .data(imageUrl)
                                     .crossfade(true)
                                     .size(400, 350) // Optimize for collection card size
+                                    .allowHardware(true) // Enable hardware bitmaps for better performance
                                     .memoryCacheKey("collection_${collection.id}_$imageIndex")
                                     .diskCacheKey("collection_${collection.id}_$imageIndex")
                                     .build(),
@@ -2969,6 +2965,7 @@ fun FeaturedProductCard(
                             .crossfade(true)
                             // Set specific size for better memory usage
                             .size(500, 500) // Resize to reasonable dimensions
+                            .allowHardware(true) // Enable hardware bitmaps for better performance
                             // Aggressive caching for smooth scrolling
                             .memoryCacheKey(imageUrls.getOrNull(currentImageIndex))
                             .diskCacheKey(imageUrls.getOrNull(currentImageIndex))

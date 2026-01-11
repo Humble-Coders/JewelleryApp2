@@ -32,9 +32,9 @@ object ImageLoaderConfig {
             .diskCachePolicy(CachePolicy.ENABLED)
             // Network cache policy
             .networkCachePolicy(CachePolicy.ENABLED)
-            // Enable crossfade for smoother transitions
+            // Reduced crossfade duration for faster image appearance (150ms instead of 300ms)
             .crossfade(true)
-            .crossfade(300)
+            .crossfade(150)
             // Respect cache headers
             .respectCacheHeaders(false)
             .build()
