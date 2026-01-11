@@ -208,13 +208,7 @@ class ItemDetailViewModel(
                     _isInWishlist.value = isInWishlist
 
                     // Set up image URLs and reset current index
-                    val images = if (productDetails.imageUrls.isNotEmpty()) {
-                        productDetails.imageUrls
-                    } else if (productDetails.imageUrl.isNotBlank()) {
-                        listOf(productDetails.imageUrl)
-                    } else {
-                        emptyList()
-                    }
+                    val images = productDetails.images
 
                     _imageUrls.value = images
                     _currentImageIndex.value = 0

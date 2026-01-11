@@ -14,82 +14,136 @@ data class Category(
     val order: Int = 0
 )
 
+// Product stone data class for stones array
+data class ProductStone(
+    val name: String = "",
+    val color: String = "",
+    val rate: Double = 0.0,
+    val quantity: Double = 0.0,
+    val weight: Double = 0.0,
+    val amount: Double = 0.0
+)
+
+// Product show configuration for field-level visibility
+data class ProductShowConfig(
+    val name: Boolean = true,
+    val description: Boolean = true,
+    val price: Boolean = true,
+    val categoryId: Boolean = true,
+    val materialId: Boolean = true,
+    val materialType: Boolean = true,
+    val materialName: Boolean = true,
+    val gender: Boolean = true,
+    val weight: Boolean = true,
+    val makingCharges: Boolean = true,
+    val available: Boolean = true,
+    val featured: Boolean = true,
+    val images: Boolean = true,
+    val quantity: Boolean = true,
+    val totalWeight: Boolean = true,
+    val hasStones: Boolean = true,
+    val stones: Boolean = true,
+    val hasCustomPrice: Boolean = true,
+    val customPrice: Boolean = true,
+    val customMetalRate: Boolean = true,
+    val makingRate: Boolean = true,
+    val materialWeight: Boolean = true,
+    val stoneWeight: Boolean = true,
+    val makingPercent: Boolean = true,
+    val labourCharges: Boolean = true,
+    val effectiveWeight: Boolean = true,
+    val effectiveMetalWeight: Boolean = true,
+    val labourRate: Boolean = true,
+    val stoneAmount: Boolean = true,
+    val isCollectionProduct: Boolean = true,
+    val collectionId: Boolean = true
+)
+
 // Product data class with new schema
 data class Product(
-    // Core fields
-    val id: String,
-    val name: String,
+    val id: String = "",
+    val name: String = "",
     val description: String = "",
-    val price: Double,  // Calculated or custom price
-    val customPrice: Double = 0.0,  // Custom/override price if set
-    val quantity: Int = 0,
-    
-    // Images
-    val images: List<String> = emptyList(),
-    val imageUrl: String = "", // Keep for backward compatibility (first image)
-    
-    // Category & Material
+    val price: Double = 0.0,
     val categoryId: String = "",
-    val materialId: String = "",
-    val materialName: String = "", // Fetched from materials collection
-    val materialType: String = "",
-    val karat: String = "",
-    
-    // Weights
-    val netWeight: Double = 0.0,
-    val totalWeight: Double = 0.0,
-    val lessWeight: Double = 0.0,
-    val cwWeight: Double = 0.0,
-    
-    // Charges & Costs
-    val defaultMakingRate: Double = 0.0,
-    val vaCharges: Double = 0.0,
-    val totalProductCost: Double = 0.0,
-    val discountPercent: Double = 0.0,  // Discount percentage (0-100)
-    val gstRate: Double = 3.0,  // GST percentage (default 3%)
-    val saleType: String = "intrastate",  // "intrastate" or "interstate"
-    
-    // Stone details
-    val hasStones: Boolean = false,
-    val stoneName: String = "",
-    val stoneColor: String = "",
-    val stoneRate: Double = 0.0,
-    val stoneQuantity: Double = 0.0,
-    
-    // Other properties
-    val isOtherThanGold: Boolean = false,
+    val materialId: String = "", // Metal ID
+    val materialType: String = "", // Metal purity (e.g., "24K", "22K")
+    val materialName: String = "", // Metal name (e.g., "Gold", "Silver")
+    val gender: String = "",
+    val weight: String = "",
+    val makingCharges: Double = 0.0, // New field for making charges per gram
     val available: Boolean = true,
     val featured: Boolean = false,
-    val barcodeIds: List<String> = emptyList(),
-    val createdAt: Long = 0L,
-    val autoGenerateId: Boolean = false,
-    val customProductId: String? = null,
-    
-    // UI visibility control
-    val show: Map<String, Boolean> = emptyMap(),
-    
+    val images: List<String> = emptyList(),
+    val quantity: Int = 0,
+    val createdAt: Long = System.currentTimeMillis(),
+    // New fields for enhanced product details
+    val autoGenerateId: Boolean = true, // Radio button for auto-generating product ID
+    val totalWeight: Double = 0.0, // Total weight in grams (same as gross weight)
+    val hasStones: Boolean = false, // Radio button for has stones (kept for backward compatibility)
+    val stones: List<ProductStone> = emptyList(), // Array of stones with all information
+    val hasCustomPrice: Boolean = false, // Checkbox for custom price
+    val customPrice: Double = 0.0, // Custom price value when hasCustomPrice is true
+    val customMetalRate: Double = 0.0, // Custom metal rate for this specific product
+    val makingRate: Double = 0.0, // Custom making rate for this specific product
+    // New weight fields
+    val materialWeight: Double = 0.0, // Metal weight in grams (from materials table)
+    val stoneWeight: Double = 0.0, // Stone weight in grams
+    val makingPercent: Double = 0.0, // Making percentage (%)
+    val labourCharges: Double = 0.0, // Labour charges
+    val effectiveWeight: Double = 0.0, // Effective weight in grams (new weight = totalWeight + makingWeight)
+    val effectiveMetalWeight: Double = 0.0, // Effective metal weight in grams (from calculation)
+    val labourRate: Double = 0.0, // Labour rate per gram
+    // Stone fields - calculated from stones array
+    val stoneAmount: Double = 0.0, // Sum of amount of all stones in stones array
+    // Collection product fields
+    val isCollectionProduct: Boolean = false, // Checkbox for collection product
+    val collectionId: String = "", // ID of the themed collection this product belongs to
+    // Field-level visibility configuration
+    val show: ProductShowConfig = ProductShowConfig(),
     // Client-side only (not in Firestore)
-    val isFavorite: Boolean = false,
-    
-    // Deprecated fields (for backward compatibility)
-    @Deprecated("Use categoryId instead")
-    val category: String = "",
-    @Deprecated("Use images list instead")
-    val imageUrls: List<String> = emptyList(),
-    @Deprecated("Use stoneName, stoneColor instead")
-    val stone: String = "",
-    val clarity: String = "",
-    val cut: String = "",
-    val material: String = "",
-    val currency: String = "Rs"
+    val isFavorite: Boolean = false
 ) {
     /**
-     * Check if a field should be displayed in the UI based on the show map
+     * Check if a field should be displayed in the UI based on the show config
      * @param fieldName The name of the field to check (e.g., "name", "price", "quantity")
      * @return true if the field should be shown, false otherwise
      */
     fun shouldShow(fieldName: String): Boolean {
-        return show[fieldName] ?: true // Default to true if not specified
+        return when (fieldName) {
+            "name" -> show.name
+            "description" -> show.description
+            "price" -> show.price
+            "categoryId" -> show.categoryId
+            "materialId" -> show.materialId
+            "materialType" -> show.materialType
+            "materialName" -> show.materialName
+            "gender" -> show.gender
+            "weight" -> show.weight
+            "makingCharges" -> show.makingCharges
+            "available" -> show.available
+            "featured" -> show.featured
+            "images" -> show.images
+            "quantity" -> show.quantity
+            "totalWeight" -> show.totalWeight
+            "hasStones" -> show.hasStones
+            "stones" -> show.stones
+            "hasCustomPrice" -> show.hasCustomPrice
+            "customPrice" -> show.customPrice
+            "customMetalRate" -> show.customMetalRate
+            "makingRate" -> show.makingRate
+            "materialWeight" -> show.materialWeight
+            "stoneWeight" -> show.stoneWeight
+            "makingPercent" -> show.makingPercent
+            "labourCharges" -> show.labourCharges
+            "effectiveWeight" -> show.effectiveWeight
+            "effectiveMetalWeight" -> show.effectiveMetalWeight
+            "labourRate" -> show.labourRate
+            "stoneAmount" -> show.stoneAmount
+            "isCollectionProduct" -> show.isCollectionProduct
+            "collectionId" -> show.collectionId
+            else -> true // Default to true if field not found
+        }
     }
     
     /**
@@ -169,8 +223,18 @@ data class ProfileUpdateRequest(
 )
 
 /**
+ * Material type with purity and rate
+ * Used within Material data class
+ */
+data class MaterialType(
+    val purity: String = "",
+    val rate: String = "" // Stored as string in Firestore
+)
+
+/**
  * Gold and Silver rates for 24K purity
- * Fetched from rates collection where material_type = "24K"
+ * Fetched from materials collection - finds materials with name "gold" and "silver", 
+ * then extracts the rate from their types array where purity = "24K"
  */
 data class GoldSilverRates(
     val goldRatePerGram: Double = 0.0,      // 24K Gold rate per gram
@@ -198,9 +262,11 @@ data class StoreInfo(
 )
 
 data class Material(
-    val id: String,
-    val name: String,
-    val imageUrl: String
+    val id: String = "",
+    val name: String = "",
+    val imageUrl: String = "",
+    val types: List<MaterialType> = emptyList(), // Updated to support purity and rate
+    val createdAt: Long = System.currentTimeMillis()
 )
 
 

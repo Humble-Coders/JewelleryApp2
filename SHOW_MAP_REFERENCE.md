@@ -250,7 +250,7 @@ fun ProductCard(product: Product) {
     Card {
         Column {
             // Always show
-            AsyncImage(url = product.imageUrl)
+            AsyncImage(url = product.images.firstOrNull() ?: "")
             
             // Controlled by show map
             if (product.shouldShow("name")) {

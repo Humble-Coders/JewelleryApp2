@@ -134,7 +134,7 @@ class WishlistViewModel(private val repository: JewelryRepository) : ViewModel()
                 }
 
                 items.forEach { product ->
-                    Log.d("WishlistViewModel", "Product: id=${product.id}, name=${product.name}, category=${product.category}, imageUrl=${product.imageUrl}")
+                    Log.d("WishlistViewModel", "Product: id=${product.id}, name=${product.name}, categoryId=${product.categoryId}, images=${product.images.size}")
                 }
 
                 _allWishlistItems.value = items

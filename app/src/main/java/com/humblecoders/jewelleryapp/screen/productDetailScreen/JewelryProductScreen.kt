@@ -478,23 +478,7 @@ private fun EnhancedProductDetailsCard(
             // Enhanced specifications grid
             EnhancedSpecificationsGrid(specs = specs)
 
-            // Before-tax amount and GST note
-            if (product.totalProductCost > 0) {
-                Spacer(modifier = Modifier.height(12.dp))
-                Text(
-                    text = "Before taxes: ₹${String.format("% ,.2f", product.totalProductCost)}",
-                    fontSize = 12.sp,
-                    color = TextSecondary,
-                    fontWeight = FontWeight.Medium
-                )
-            }
-
-            Spacer(modifier = Modifier.height(6.dp))
-            Text(
-                text = "GST applied on total cost: 3% on metal, 5% on making",
-                fontSize = 11.sp,
-                color = TextMuted
-            )
+            // Price calculation note removed - using new simple calculation
 
             Spacer(modifier = Modifier.height(24.dp))
 
@@ -788,7 +772,7 @@ private fun EnhancedSimilarProductCard(
                     .height(140.dp)
             ) {
                 AsyncImage(
-                    model = product.imageUrl,
+                    model = product.images.firstOrNull() ?: "",
                     contentDescription = product.name,
                     modifier = Modifier
                         .fillMaxSize()
@@ -968,74 +952,70 @@ private fun createProductSpecs(product: Product): List<ProductSpec> {
         specs.add(ProductSpec(R.drawable.material_icon, "Availability", stockText))
     }
     
-    // Net Weight
-    if (product.shouldShow("net_weight") && product.netWeight > 0) {
-        specs.add(ProductSpec(R.drawable.material_icon, "Net Weight", "${product.netWeight}g"))
+    // Material Weight
+    if (product.shouldShow("material_weight") && product.materialWeight > 0) {
+        specs.add(ProductSpec(R.drawable.material_icon, "Material Weight", "${product.materialWeight}g"))
+    }
+    
+    // Effective Metal Weight (for Gold)
+    if (product.shouldShow("effective_metal_weight") && product.effectiveMetalWeight > 0) {
+        specs.add(ProductSpec(R.drawable.material_icon, "Effective Metal Weight", "${product.effectiveMetalWeight}g"))
+    }
+    
+    // Total Weight
+    if (product.shouldShow("total_weight") && product.totalWeight > 0) {
+        specs.add(ProductSpec(R.drawable.material_icon, "Total Weight", "${product.totalWeight}g"))
     }
     
     // Stone Details
-    if (product.shouldShow("has_stones") && product.hasStones) {
-        if (product.shouldShow("stone_name") && product.stoneName.isNotBlank()) {
-            specs.add(ProductSpec(R.drawable.stone, "Stone", 
-                product.stoneName.replaceFirstChar { if (it.isLowerCase()) it.titlecase(Locale.getDefault()) else it.toString() }
-            ))
-        }
-        
-        if (product.shouldShow("stone_color") && product.stoneColor.isNotBlank()) {
-            specs.add(ProductSpec(R.drawable.clarity, "Stone Color", 
-                product.stoneColor.replaceFirstChar { if (it.isLowerCase()) it.titlecase(Locale.getDefault()) else it.toString() }
-            ))
-        }
-        
-        if (product.shouldShow("cw_weight") && product.cwWeight > 0) {
-            specs.add(ProductSpec(R.drawable.stone, "Stone Weight", "${product.cwWeight} ct"))
+    if (product.shouldShow("has_stones") && product.hasStones && product.stones.isNotEmpty()) {
+        product.stones.forEach { stone ->
+            if (stone.name.isNotBlank()) {
+                specs.add(ProductSpec(R.drawable.stone, "Stone", 
+                    stone.name.replaceFirstChar { if (it.isLowerCase()) it.titlecase(Locale.getDefault()) else it.toString() }
+                ))
+            }
+            if (stone.color.isNotBlank()) {
+                specs.add(ProductSpec(R.drawable.clarity, "Stone Color", 
+                    stone.color.replaceFirstChar { if (it.isLowerCase()) it.titlecase(Locale.getDefault()) else it.toString() }
+                ))
+            }
+            if (stone.weight > 0) {
+                specs.add(ProductSpec(R.drawable.stone, "Stone Weight", "${stone.weight} ct"))
+            }
         }
     }
     
     // Making Charges
-    if (product.shouldShow("default_making_rate") && product.defaultMakingRate > 0) {
-        specs.add(ProductSpec(R.drawable.material_icon, "Making Charges", "₹${String.format("%,.2f", product.defaultMakingRate)}"))
+    if (product.shouldShow("making_charges") && product.makingCharges > 0) {
+        specs.add(ProductSpec(R.drawable.material_icon, "Making Charges", "₹${String.format("%,.2f", product.makingCharges)}"))
     }
     
-    // VA Charges
-    if (product.shouldShow("va_charges") && product.vaCharges > 0) {
-        specs.add(ProductSpec(R.drawable.material_icon, "VA Charges", "₹${String.format("%,.2f", product.vaCharges)}"))
+    // Labour Charges
+    if (product.shouldShow("labour_charges") && product.labourCharges > 0) {
+        specs.add(ProductSpec(R.drawable.material_icon, "Labour Charges", "₹${String.format("%,.2f", product.labourCharges)}"))
     }
     
-    // Other Materials
-    if (product.shouldShow("is_other_than_gold") && product.isOtherThanGold) {
-        specs.add(ProductSpec(R.drawable.material_icon, "Mixed Materials", "Yes"))
+    // Stone Amount
+    if (product.shouldShow("stone_amount") && product.stoneAmount > 0) {
+        specs.add(ProductSpec(R.drawable.stone, "Stone Amount", "₹${String.format("%,.2f", product.stoneAmount)}"))
     }
     
-    // Total Product Cost
-    if (product.shouldShow("total_product_cost") && product.totalProductCost > 0) {
-        specs.add(ProductSpec(R.drawable.material_icon, "Total Cost", "₹${String.format("%,.2f", product.totalProductCost)}"))
-    }
-    
-    // Fallback to old fields if no new specs are visible (backward compatibility)
+    // Fallback if no specs
     if (specs.isEmpty()) {
-        specs.add(ProductSpec(R.drawable.material_icon, "Material", "Gold 22K"))
-        if (product.stone.isNotEmpty()) {
-            specs.add(ProductSpec(R.drawable.stone, "Stone", product.stone))
-        }
-        if (product.clarity.isNotEmpty()) {
-            specs.add(ProductSpec(R.drawable.clarity, "Clarity", product.clarity))
-        }
-        if (product.cut.isNotEmpty()) {
-            specs.add(ProductSpec(R.drawable.cut, "Cut", product.cut))
-        }
+        specs.add(ProductSpec(R.drawable.material_icon, "Material", product.materialName.ifBlank { "Gold" }))
     }
     
     return specs
 }
 
 private fun shareProduct(context: Context, product: Product) {
-    val githubUrl = "https://humble-coders.github.io/gagan-jewellers-links/?product=${product.id}&name=${Uri.encode(product.name)}&price=${product.currency} ${product.price}"
+    val githubUrl = "https://humble-coders.github.io/gagan-jewellers-links/?product=${product.id}&name=${Uri.encode(product.name)}&price=₹${product.price}"
 
     val shareText = """
         ✨ Discover this exquisite ${product.name}!
         
-        💎 Premium Quality | 💰 Price: ${product.currency} ${product.price}
+        💎 Premium Quality | 💰 Price: ₹${product.price}
         
         🔗 View Details: $githubUrl
         

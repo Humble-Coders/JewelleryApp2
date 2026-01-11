@@ -284,7 +284,7 @@ fun WishlistItemCard(
                 // Actual image
                 AsyncImage(
                     model = ImageRequest.Builder(context)
-                        .data(product.imageUrl)
+                        .data(product.images.firstOrNull() ?: "")
                         .crossfade(true)
                         .build(),
                     contentDescription = product.name,

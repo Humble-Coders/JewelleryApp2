@@ -1931,7 +1931,7 @@ fun RecentlyViewedItem(
             ) {
                 AsyncImage(
                     model = ImageRequest.Builder(LocalContext.current)
-                        .data(product.imageUrl)
+                        .data(product.images.firstOrNull() ?: "")
                         .crossfade(true)
                         .size(400, 300) // Optimize for card dimensions
                         .memoryCacheKey("recent_${product.id}")
@@ -1979,7 +1979,7 @@ fun RecentlyViewedItem(
                 Spacer(modifier = Modifier.height(4.dp))
 
                 Text(
-                    text = formatPrice(product.price, product.currency),
+                    text = formatPrice(product.price, "INR"),
                     fontSize = 13.sp,
                     color = Color(0xFF8B4513),
                     fontWeight = FontWeight.Bold
@@ -2247,15 +2247,8 @@ fun AnimatedProductItem(
     var currentImageIndex by remember(productId) { mutableIntStateOf(0) }
 
     // Optimize image list creation - make it stable
-    val imageUrls = remember(productId, product.imageUrls.size, product.imageUrl) {
-        buildList {
-            if (product.imageUrls.isNotEmpty()) {
-                addAll(product.imageUrls.filter { it.isNotBlank() })
-            }
-            if (isEmpty() && product.imageUrl.isNotBlank()) {
-                add(product.imageUrl)
-            }
-        }.distinct()
+    val imageUrls = remember(productId, product.images.size) {
+        product.images.filter { it.isNotBlank() }.distinct()
     }
 
     // Reduce auto-scroll frequency to improve performance
@@ -2374,7 +2367,7 @@ fun AnimatedProductItem(
                 Spacer(modifier = Modifier.height(6.dp))
 
                 Text(
-                    text = formatPrice(product.price, product.currency),
+                    text = formatPrice(product.price, "INR"),
                     fontSize = 13.sp,
                     color = Color(0xFF896C6C),
                     fontWeight = FontWeight.Normal
@@ -2932,15 +2925,8 @@ fun FeaturedProductCard(
     var currentImageIndex by remember(productId) { mutableIntStateOf(0) }
 
     // Optimize image list creation
-    val imageUrls = remember(productId, product.imageUrls.size, product.imageUrl) {
-        buildList {
-            if (product.imageUrls.isNotEmpty()) {
-                addAll(product.imageUrls.filter { it.isNotBlank() })
-            }
-            if (isEmpty() && product.imageUrl.isNotBlank()) {
-                add(product.imageUrl)
-            }
-        }.distinct()
+    val imageUrls = remember(productId, product.images.size) {
+        product.images.filter { it.isNotBlank() }.distinct()
     }
 
     // Auto-scroll images
@@ -3060,7 +3046,7 @@ fun FeaturedProductCard(
                 Spacer(modifier = Modifier.height(4.dp))
 
                 Text(
-                    text = formatPrice(product.price, product.currency),
+                    text = formatPrice(product.price, "INR"),
                     fontSize = 13.sp,
                     color = Color(0xFF8B4513),
                     fontWeight = FontWeight.Bold

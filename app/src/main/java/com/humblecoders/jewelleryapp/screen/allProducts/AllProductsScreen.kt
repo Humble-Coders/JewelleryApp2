@@ -449,7 +449,7 @@ private fun ProductCard(
             ) {
                 AsyncImage(
                     model = ImageRequest.Builder(LocalContext.current)
-                        .data(product.imageUrl)
+                        .data(product.images.firstOrNull() ?: "")
                         .crossfade(true)
                         .build(),
                     contentDescription = product.name,
@@ -488,7 +488,7 @@ private fun ProductCard(
                 Spacer(modifier = Modifier.height(4.dp))
 
                 Text(
-                    text = formatPrice(product.price, product.currency),
+                    text = formatPrice(product.price, "INR"),
                     fontSize = 14.sp,
                     color = Color(0xFF896C6C),
                     fontWeight = FontWeight.Bold

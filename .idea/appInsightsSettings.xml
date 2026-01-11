@@ -8,7 +8,7 @@
             <InsightsFilterSettings>
               <option name="connection">
                 <ConnectionSetting>
-                  <option name="appId" value="com.example.jewelleryapp" />
+                  <option name="appId" value="com.humblecoders.jewelleryapp" />
                   <option name="mobileSdkAppId" value="1:836804403458:android:c821f57c89eb3569ba621b" />
                   <option name="projectId" value="jewellery-app-f6302" />
                   <option name="projectNumber" value="836804403458" />
