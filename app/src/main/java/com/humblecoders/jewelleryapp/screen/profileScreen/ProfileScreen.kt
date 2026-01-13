@@ -100,11 +100,16 @@ fun ProfileScreen(
         uri?.let { viewModel.selectProfileImage(it) }
     }
 
-    // Load profile when screen first appears - with delay for auth stability
+    // Load profile only if not already loaded
     LaunchedEffect(Unit) {
-        Log.d("ProfileScreen", "Screen appeared, loading profile")
-        kotlinx.coroutines.delay(100) // Small delay for stability
-        viewModel.loadUserProfile()
+        val currentState = viewModel.profileState.value
+        if (currentState !is ProfileState.Success && currentState !is ProfileState.Loading) {
+            Log.d("ProfileScreen", "Screen appeared, loading profile (no existing data)")
+            kotlinx.coroutines.delay(100) // Small delay for stability
+            viewModel.loadUserProfile()
+        } else {
+            Log.d("ProfileScreen", "Screen appeared, profile already loaded, skipping reload")
+        }
     }
 
     // Update form when profile loads

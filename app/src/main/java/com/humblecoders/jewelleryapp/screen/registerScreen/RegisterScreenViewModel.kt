@@ -14,6 +14,7 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 
 class RegisterViewModel(private val repository: FirebaseAuthRepository) : ViewModel() {
+    private val TAG = "RegisterViewModel"
 
     private val _registerState = MutableStateFlow<RegisterState>(RegisterState.Idle)
     val registerState: StateFlow<RegisterState> = _registerState.asStateFlow()
@@ -21,14 +22,14 @@ class RegisterViewModel(private val repository: FirebaseAuthRepository) : ViewMo
 
         // Add Google Sign-In methods (same pattern as LoginViewModel)
         fun startGoogleSignIn(): Intent {
-            Log.d("GoogleSignIn", "Starting Google Sign-In from Register")
+            Log.d(TAG, "Starting Google Sign-In from Register")
             _registerState.value = RegisterState.GoogleSignInLoading
 
             // Add timeout to reset state if needed
             viewModelScope.launch {
                 delay(30000) // 30 seconds timeout
                 if (_registerState.value is RegisterState.GoogleSignInLoading) {
-                    Log.w("GoogleSignIn", "Google Sign-In timed out in register")
+                    Log.w(TAG, "Google Sign-In timed out in register")
                     _registerState.value =
                         RegisterState.Error("Google Sign-In timed out. Please try again.")
                 }
@@ -40,26 +41,27 @@ class RegisterViewModel(private val repository: FirebaseAuthRepository) : ViewMo
     fun handleGoogleSignInResult(data: Intent?) {
         viewModelScope.launch {
             try {
-                Log.d(
-                    "GoogleSignIn",
-                    "Handling Google Sign-In result in Register, data: ${data != null}"
-                )
+                Log.d(TAG, "Handling Google Sign-In result in Register, data: ${data != null}")
 
                 val result = repository.handleGoogleSignInResult(data)
 
-                Log.d("GoogleSignIn", "Repository result in Register: ${result.isSuccess}")
+                Log.d(TAG, "Repository result in Register: ${result.isSuccess}")
 
                 result.fold(
                     onSuccess = {
-                        Log.d("GoogleSignIn", "Google Sign-In successful in Register")
-                        _registerState.value = RegisterState.Success
+                        Log.d(TAG, "Google Sign-In successful in Register")
+                        // Verify user is actually authenticated before setting success
+                        val currentUser = repository.getCurrentUser()
+                        if (currentUser != null && currentUser.uid.isNotEmpty()) {
+                            Log.d(TAG, "User verified after Google Sign-In - UID: ${currentUser.uid}, setting Success state")
+                            _registerState.value = RegisterState.Success
+                        } else {
+                            Log.e(TAG, "Google Sign-In succeeded but no valid user found - setting Error state")
+                            _registerState.value = RegisterState.Error("Authentication failed: No user found")
+                        }
                     },
                     onFailure = { exception ->
-                        Log.e(
-                            "GoogleSignIn",
-                            "Google Sign-In failed in Register: ${exception.message}",
-                            exception
-                        )
+                        Log.e(TAG, "Google Sign-In failed in Register: ${exception.message}", exception)
 
                         // NEW: Handle specific error messages for email conflicts
                         val errorMessage = when {
@@ -72,11 +74,7 @@ class RegisterViewModel(private val repository: FirebaseAuthRepository) : ViewMo
                     }
                 )
             } catch (e: Exception) {
-                Log.e(
-                    "GoogleSignIn",
-                    "Unexpected error in Register handleGoogleSignInResult",
-                    e
-                )
+                Log.e(TAG, "Unexpected error in Register handleGoogleSignInResult", e)
                 _registerState.value = RegisterState.Error(
                     "An unexpected error occurred: ${e.message}"
                 )
@@ -99,7 +97,16 @@ class RegisterViewModel(private val repository: FirebaseAuthRepository) : ViewMo
 
             result.fold(
                 onSuccess = {
-                    _registerState.value = RegisterState.Success
+                    Log.d(TAG, "Email/password registration successful")
+                    // Verify user is actually authenticated before setting success
+                    val currentUser = repository.getCurrentUser()
+                    if (currentUser != null && currentUser.uid.isNotEmpty()) {
+                        Log.d(TAG, "User verified after registration - UID: ${currentUser.uid}, setting Success state")
+                        _registerState.value = RegisterState.Success
+                    } else {
+                        Log.e(TAG, "Registration succeeded but no valid user found - setting Error state")
+                        _registerState.value = RegisterState.Error("Registration failed: No user found")
+                    }
                 },
                 onFailure = { exception ->
                     // NEW: Handle specific error messages for Google conflicts

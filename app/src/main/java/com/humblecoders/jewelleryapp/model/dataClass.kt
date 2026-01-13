@@ -21,7 +21,8 @@ data class ProductStone(
     val rate: Double = 0.0,
     val quantity: Double = 0.0,
     val weight: Double = 0.0,
-    val amount: Double = 0.0
+    val amount: Double = 0.0,
+    val purity: String = ""
 )
 
 // Product show configuration for field-level visibility
@@ -298,10 +299,57 @@ sealed class ProfileUpdateState {
     data class Error(val message: String) : ProfileUpdateState()
 }
 
+// Wishlist change events for incremental updates
+sealed class WishlistChange {
+    data class Added(val productId: String) : WishlistChange()
+    data class Removed(val productId: String) : WishlistChange()
+    data class InitialLoad(val productIds: List<String>) : WishlistChange()
+}
+
 sealed class AccountDeletionState {
     object Idle : AccountDeletionState()
     object Loading : AccountDeletionState()
     object ReauthenticationRequired : AccountDeletionState()
     object Success : AccountDeletionState()
     data class Error(val message: String) : AccountDeletionState()
+}
+
+// Order Item data class for items in an order
+data class OrderItem(
+    val productId: String = "",
+    val productName: String = "",
+    val quantity: Int = 0,
+    val weight: Double = 0.0,
+    val price: Double = 0.0
+)
+
+// Order data class
+data class Order(
+    val id: String = "",
+    val customerId: String = "",
+    val items: List<OrderItem> = emptyList(),
+    val subtotal: Double = 0.0,
+    val discountAmount: Double = 0.0,
+    val gstAmount: Double = 0.0,
+    val totalAmount: Double = 0.0,
+    val paymentMethod: String = "",
+    val status: String = "",
+    val isGstIncluded: Boolean = false,
+    val timestamp: Long = 0L
+) {
+    /**
+     * Get formatted total amount with currency
+     */
+    fun getFormattedTotal(): String {
+        return "₹${String.format("%,.2f", totalAmount)}"
+    }
+    
+    /**
+     * Get formatted date from timestamp
+     */
+    fun getFormattedDate(): String {
+        val date = java.util.Date(timestamp)
+        val format = java.text.SimpleDateFormat("dd MMM yyyy, hh:mm a", java.util.Locale.getDefault())
+        return format.format(date)
+    }
 }

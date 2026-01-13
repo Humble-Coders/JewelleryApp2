@@ -17,6 +17,7 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.tasks.await
 
 class LoginViewModel(private val repository: FirebaseAuthRepository) : ViewModel() {
+    private val TAG = "LoginViewModel"
 
     private val _loginState = MutableStateFlow<LoginState>(LoginState.Idle)
     val loginState: StateFlow<LoginState> = _loginState.asStateFlow()
@@ -30,24 +31,28 @@ class LoginViewModel(private val repository: FirebaseAuthRepository) : ViewModel
     fun handleGoogleSignInResult(data: Intent?) {
         viewModelScope.launch {
             try {
-                Log.d("GoogleSignIn", "Handling Google Sign-In result, data: ${data != null}")
+                Log.d(TAG, "Handling Google Sign-In result, data: ${data != null}")
 
                 val result = repository.handleGoogleSignInResult(data)
 
-                Log.d("GoogleSignIn", "Repository result: ${result.isSuccess}")
+                Log.d(TAG, "Repository result: ${result.isSuccess}")
 
                 result.fold(
                     onSuccess = {
-                        Log.d("GoogleSignIn", "Google Sign-In successful")
-                        _loginState.value = LoginState.Success
-
-                        repository.getCurrentUser()?.uid?.let { userId ->
-                            Log.d("GoogleSignIn", "User ID: $userId")
-                            fetchUserProfile(userId)
+                        Log.d(TAG, "Google Sign-In successful")
+                        // Verify user is actually authenticated before setting success
+                        val currentUser = repository.getCurrentUser()
+                        if (currentUser != null && currentUser.uid.isNotEmpty()) {
+                            Log.d(TAG, "User verified after Google Sign-In - UID: ${currentUser.uid}, setting Success state")
+                            _loginState.value = LoginState.Success
+                            fetchUserProfile(currentUser.uid)
+                        } else {
+                            Log.e(TAG, "Google Sign-In succeeded but no valid user found - setting Error state")
+                            _loginState.value = LoginState.Error("Authentication failed: No user found")
                         }
                     },
                     onFailure = { exception ->
-                        Log.e("GoogleSignIn", "Google Sign-In failed: ${exception.message}", exception)
+                        Log.e(TAG, "Google Sign-In failed: ${exception.message}", exception)
 
                         // NEW: Handle specific error messages for email conflicts
                         val errorMessage = when {
@@ -60,7 +65,7 @@ class LoginViewModel(private val repository: FirebaseAuthRepository) : ViewModel
                     }
                 )
             } catch (e: Exception) {
-                Log.e("GoogleSignIn", "Unexpected error in handleGoogleSignInResult", e)
+                Log.e(TAG, "Unexpected error in handleGoogleSignInResult", e)
                 _loginState.value = LoginState.Error(
                     "An unexpected error occurred: ${e.message}"
                 )
@@ -70,14 +75,14 @@ class LoginViewModel(private val repository: FirebaseAuthRepository) : ViewModel
 
     // Add timeout handling
     fun startGoogleSignIn(): Intent {
-        Log.d("GoogleSignIn", "Starting Google Sign-In")
+        Log.d(TAG, "Starting Google Sign-In")
         _loginState.value = LoginState.GoogleSignInLoading
 
         // Add timeout to reset state if needed
         viewModelScope.launch {
             delay(30000) // 30 seconds timeout
             if (_loginState.value is LoginState.GoogleSignInLoading) {
-                Log.w("GoogleSignIn", "Google Sign-In timed out")
+                Log.w(TAG, "Google Sign-In timed out")
                 _loginState.value = LoginState.Error("Google Sign-In timed out. Please try again.")
             }
         }
@@ -120,12 +125,16 @@ class LoginViewModel(private val repository: FirebaseAuthRepository) : ViewModel
 
             result.fold(
                 onSuccess = {
-                    // User logged in successfully
-                    _loginState.value = LoginState.Success
-
-                    // Get the user ID and fetch profile
-                    repository.getCurrentUser()?.uid?.let { userId ->
-                        fetchUserProfile(userId)
+                    Log.d(TAG, "Email/password login successful")
+                    // Verify user is actually authenticated before setting success
+                    val currentUser = repository.getCurrentUser()
+                    if (currentUser != null && currentUser.uid.isNotEmpty()) {
+                        Log.d(TAG, "User verified after login - UID: ${currentUser.uid}, setting Success state")
+                        _loginState.value = LoginState.Success
+                        fetchUserProfile(currentUser.uid)
+                    } else {
+                        Log.e(TAG, "Login succeeded but no valid user found - setting Error state")
+                        _loginState.value = LoginState.Error("Authentication failed: No user found")
                     }
                 },
                 onFailure = { _loginState.value = LoginState.Error(it.message ?: "Authentication failed") }

@@ -67,30 +67,57 @@ fun RegisterScreen(viewModel: RegisterViewModel
     var nameError by remember { mutableStateOf<String?>(null) }
     var phoneError by remember { mutableStateOf<String?>(null) } // Add this
 
+    // Don't auto-navigate on screen entry - let the auth state listener in MainActivity handle navigation
+    // This prevents false navigation after sign out when user clicks sign up button
+    // Navigation will only happen on successful registration via registerState.Success
 
     // Handle registration state changes
     LaunchedEffect(registerState) {
-        Log.d("RegisterScreen", "Register state changed to: $registerState")
+        val TAG = "RegisterScreen"
+        Log.d(TAG, "Register state changed to: $registerState")
 
         when (registerState) {
             is RegisterState.Success -> {
-                Log.d("RegisterScreen", "Navigation to home from register")
-                navController.navigate("home") {
-                    popUpTo("welcome") { inclusive = true }
+                Log.d(TAG, "RegisterState.Success detected - verifying user authentication")
+                
+                // CRITICAL: Verify user is actually authenticated before navigating
+                val firebaseAuth = com.google.firebase.auth.FirebaseAuth.getInstance()
+                val currentUser = firebaseAuth.currentUser
+                
+                if (currentUser != null && currentUser.uid.isNotEmpty()) {
+                    // Double-check with token verification
+                    currentUser.getIdToken(false).addOnCompleteListener { task ->
+                        if (task.isSuccessful && task.result != null) {
+                            Log.d(TAG, "User verified - UID: ${currentUser.uid}, navigating to home")
+                            navController.navigate("home") {
+                                popUpTo("welcome") { inclusive = true }
+                            }
+                            viewModel.resetState()
+                        } else {
+                            Log.e(TAG, "User token verification failed - NOT navigating. Task success: ${task.isSuccessful}, Result: ${task.result}")
+                            // Don't navigate if token is invalid
+                            viewModel.resetState()
+                        }
+                    }
+                } else {
+                    Log.e(TAG, "RegisterState.Success but no valid user found - NOT navigating. CurrentUser: $currentUser")
+                    // Reset state but don't navigate
+                    viewModel.resetState()
                 }
-                viewModel.resetState()
             }
             is RegisterState.Error -> {
-                Log.d("RegisterScreen", "Showing register error: ${(registerState as RegisterState.Error).message}")
+                Log.d(TAG, "Showing register error: ${(registerState as RegisterState.Error).message}")
                 scaffoldState.snackbarHostState.showSnackbar(
                     message = (registerState as RegisterState.Error).message
                 )
                 viewModel.resetState()
             }
             is RegisterState.GoogleSignInLoading -> {
-                Log.d("RegisterScreen", "Google Sign-In loading state active in register")
+                Log.d(TAG, "Google Sign-In loading state active in register")
             }
-            else -> {}
+            else -> {
+                Log.d(TAG, "Register state: $registerState (no action needed)")
+            }
         }
     }
 

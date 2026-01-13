@@ -82,6 +82,7 @@ import androidx.compose.material.icons.outlined.ChevronRight
 import androidx.compose.material.icons.outlined.Headset
 import androidx.compose.material.icons.outlined.LocationOn
 import androidx.compose.material.icons.outlined.Person
+import androidx.compose.material.icons.outlined.Receipt
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
@@ -223,8 +224,12 @@ fun HomeScreen(
         initialValue = DrawerValue.Closed
     )
 
+    // Refresh recently viewed when returning to home screen
+    // Defer the refresh to allow navigation animation to complete smoothly
     LaunchedEffect(navController.currentDestination?.route) {
         if (navController.currentDestination?.route == "home") {
+            // Delay refresh to not block navigation animation
+            delay(400) // Wait for animation to complete (350ms + buffer)
             viewModel.refreshRecentlyViewed()
         }
     }
@@ -251,8 +256,10 @@ fun HomeScreen(
     }
 
     // Force close drawer when returning to home from other screens
+    // Defer to not interfere with navigation animation
     LaunchedEffect(currentRoute) {
         if (currentRoute == "home" && drawerState.isOpen) {
+            delay(400) // Wait for navigation animation to complete
             try {
                 drawerState.close()
             } catch (e: Exception) {
@@ -391,8 +398,7 @@ fun HomeScreen(
                                 .fillMaxSize()
                                 .padding(paddingValues),
                             verticalArrangement = Arrangement.spacedBy(0.dp),
-                            userScrollEnabled = true,
-                            // Pre-render items beyond visible bounds for smooth scrolling
+                            userScrollEnabled = true
                         ) {
                             // Gradient header with bangles image and promotional text
                             item(key = "gradient_header") {
@@ -636,11 +642,14 @@ fun DrawerContent(
                 ) {
                     when {
                         !localImagePath.isNullOrEmpty() -> {
-                            AsyncImage(
-                                model = ImageRequest.Builder(context)
+                            val localImageRequest = remember(localImagePath) {
+                                ImageRequest.Builder(context)
                                     .data(File(localImagePath))
                                     .crossfade(true)
-                                    .build(),
+                                    .build()
+                            }
+                            AsyncImage(
+                                model = localImageRequest,
                                 contentDescription = "Profile Picture",
                                 modifier = Modifier
                                     .fillMaxSize()
@@ -650,11 +659,14 @@ fun DrawerContent(
                             )
                         }
                         !profileImageUrl.isNullOrEmpty() -> {
-                            AsyncImage(
-                                model = ImageRequest.Builder(context)
+                            val profileImageRequest = remember(profileImageUrl) {
+                                ImageRequest.Builder(context)
                                     .data(profileImageUrl)
                                     .crossfade(true)
-                                    .build(),
+                                    .build()
+                            }
+                            AsyncImage(
+                                model = profileImageRequest,
                                 contentDescription = "Profile Picture",
                                 modifier = Modifier
                                     .fillMaxSize()
@@ -712,11 +724,14 @@ fun DrawerContent(
             }
         )
 
-//        DrawerItem(
-//            icon = Icons.Outlined.History,
-//            text = "Order History",
-//            onClick = { onCloseDrawer() }
-//        )
+        DrawerItem(
+            icon = Icons.Outlined.Receipt,
+            text = "Order History",
+            onClick = {
+                onCloseDrawer()
+                navController.navigate("orderHistory")
+            }
+        )
 
         // Section header with better styling
         Card(
@@ -1526,6 +1541,7 @@ fun CategorySearchItem(
     category: Category,
     onClick: () -> Unit
 ) {
+    val context=LocalContext.current
     Surface(
         modifier = Modifier
             .fillMaxWidth()
@@ -1539,15 +1555,18 @@ fun CategorySearchItem(
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(12.dp)
         ) {
-            AsyncImage(
-                model = ImageRequest.Builder(LocalContext.current)
+            val categoryDropdownImageRequest = remember(category.id, category.imageUrl) {
+                ImageRequest.Builder(context)
                     .data(category.imageUrl)
                     .crossfade(true)
                     .size(80, 80) // Optimize for 40dp display
                     .allowHardware(true) // Enable hardware bitmaps for better performance
                     .memoryCacheKey("category_dropdown_${category.id}")
                     .diskCacheKey("category_dropdown_${category.id}")
-                    .build(),
+                    .build()
+            }
+            AsyncImage(
+                model = categoryDropdownImageRequest,
                 contentDescription = category.name,
                 modifier = Modifier
                     .size(40.dp)
@@ -1637,7 +1656,7 @@ fun CategoryRow(categories: List<Category>, onCategoryClick: (String) -> Unit) {
         LazyRow(
             state = listState,
             horizontalArrangement = Arrangement.spacedBy(24.dp),
-            userScrollEnabled = true,
+            userScrollEnabled = true
         ) {
             itemsIndexed(
                 items = infiniteCategories,
@@ -1652,20 +1671,24 @@ fun CategoryRow(categories: List<Category>, onCategoryClick: (String) -> Unit) {
 // Individual category item
 @Composable
 fun CategoryItem(category: CategoryModel, onCategoryClick: (String) -> Unit) {
+    val context=LocalContext.current
     Column(
         horizontalAlignment = Alignment.CenterHorizontally,
         modifier = Modifier.clickable { onCategoryClick(category.id) }
     ) {
         // Use AsyncImage with Coil to load from URL
-            AsyncImage(
-                model = ImageRequest.Builder(LocalContext.current)
+            val categoryImageRequest = remember(category.id, category.imageUrl) {
+                ImageRequest.Builder(context)
                     .data(category.imageUrl)
                     .crossfade(true)
                     .size(120, 120) // Optimize size for 60dp circle
                     .allowHardware(true) // Enable hardware bitmaps for better performance
                     .memoryCacheKey("category_${category.id}")
                     .diskCacheKey("category_${category.id}")
-                    .build(),
+                    .build()
+            }
+            AsyncImage(
+                model = categoryImageRequest,
                 contentDescription = category.name,
                 modifier = Modifier
                     .size(60.dp)
@@ -1879,7 +1902,7 @@ fun RecentlyViewedSection(
             // Products list
             LazyRow(
                 horizontalArrangement = Arrangement.spacedBy(16.dp),
-                contentPadding = PaddingValues(horizontal = 0.dp),
+                contentPadding = PaddingValues(horizontal = 0.dp)
             ) {
                 items(
                     items = products,
@@ -1906,6 +1929,7 @@ fun RecentlyViewedItem(
     onProductClick: (String) -> Unit,
     onFavoriteClick: (String) -> Unit
 ) {
+    val context=LocalContext.current
     Card(
         modifier = Modifier
             .width(140.dp)
@@ -1922,15 +1946,18 @@ fun RecentlyViewedItem(
                     .height(100.dp)
                     .clip(RoundedCornerShape(topStart = 12.dp, topEnd = 12.dp))
             ) {
-                AsyncImage(
-                    model = ImageRequest.Builder(LocalContext.current)
+                val recentProductImageRequest = remember(product.id, product.images.firstOrNull()) {
+                    ImageRequest.Builder(context)
                         .data(product.images.firstOrNull() ?: "")
                         .crossfade(true)
                         .size(400, 300) // Optimize for card dimensions
                         .allowHardware(true) // Enable hardware bitmaps for better performance
                         .memoryCacheKey("recent_${product.id}")
                         .diskCacheKey("recent_${product.id}")
-                        .build(),
+                        .build()
+                }
+                AsyncImage(
+                    model = recentProductImageRequest,
                     contentDescription = product.name,
                     modifier = Modifier.fillMaxSize(),
                     contentScale = ContentScale.Crop,
@@ -1979,7 +2006,7 @@ fun RecentlyViewedItem(
                     fontWeight = FontWeight.Bold
                 )
                 Text(
-                    text = "Inclusive of all taxes",
+                    text = "Exclusive of taxes",
                     fontSize = 10.sp,
                     color = Color(0xFF8B4513).copy(alpha = 0.8f)
                 )
@@ -2131,6 +2158,7 @@ fun ElegantCarouselSection(items: List<CarouselItemModel>) {
 
 @Composable
 fun ElegantCarouselItem(item: CarouselItemModel) {
+    val context=LocalContext.current
     Row(
         modifier = Modifier
             .fillMaxWidth()
@@ -2143,15 +2171,18 @@ fun ElegantCarouselItem(item: CarouselItemModel) {
             modifier = Modifier
                 .size(160.dp)
         ) {
-            AsyncImage(
-                model = ImageRequest.Builder(LocalContext.current)
+            val carouselImageRequest = remember(item.id, item.imageUrl) {
+                ImageRequest.Builder(context)
                     .data(item.imageUrl)
                     .crossfade(true)
                     .size(320, 320) // Optimize for 160dp circle
                     .allowHardware(true) // Enable hardware bitmaps for better performance
                     .memoryCacheKey("carousel_${item.id}")
                     .diskCacheKey("carousel_${item.id}")
-                    .build(),
+                    .build()
+            }
+            AsyncImage(
+                model = carouselImageRequest,
                 contentDescription = item.title,
                 modifier = Modifier
                     .fillMaxSize()
@@ -2260,7 +2291,7 @@ fun AnimatedProductItem(
      LaunchedEffect(product.id) {
          viewModel.checkWishlistStatus(product.id)
      }
-
+    val context=LocalContext.current
     // Use Surface instead of Card for better performance
     Surface(
         modifier = modifier
@@ -2279,15 +2310,19 @@ fun AnimatedProductItem(
             ) {
                 // Simplified image display - remove expensive AnimatedContent
                 if (imageUrls.isNotEmpty()) {
-                    AsyncImage(
-                        model = ImageRequest.Builder(LocalContext.current)
-                            .data(imageUrls.getOrNull(currentImageIndex))
+                    val imageUrl = imageUrls.getOrNull(currentImageIndex) ?: ""
+                    val featuredProductImageRequest = remember(imageUrl, product.id, currentImageIndex) {
+                        ImageRequest.Builder(context)
+                            .data(imageUrl)
                             .crossfade(150) // Reduced crossfade duration for faster appearance
                             .size(500, 480) // Optimize image size
                             .allowHardware(true) // Enable hardware bitmaps for better performance
                             .memoryCacheKey("product_${product.id}_$currentImageIndex")
                             .diskCacheKey("product_${product.id}_$currentImageIndex")
-                            .build(),
+                            .build()
+                    }
+                    AsyncImage(
+                        model = featuredProductImageRequest,
                         contentDescription = product.name,
                         modifier = Modifier.fillMaxSize(),
                         contentScale = ContentScale.Crop,
@@ -2389,7 +2424,7 @@ fun ThemedCollectionsSection(
 
         LazyRow(
             horizontalArrangement = Arrangement.spacedBy(16.dp),
-            contentPadding = PaddingValues(horizontal = 0.dp),
+            contentPadding = PaddingValues(horizontal = 0.dp)
         ) {
             itemsIndexed(collections) { index, collection ->
                 CollectionItem(
@@ -2406,6 +2441,7 @@ fun CollectionItem(
     collection: CollectionModel,
     onCollectionClick: (String) -> Unit
 ) {
+    val context=LocalContext.current
         Card(
             modifier = Modifier
                 .width(320.dp)
@@ -2449,6 +2485,16 @@ fun CollectionItem(
                     Log.d("CollectionCard", "Collection ${collection.name}: imageUrls=${collection.imageUrls.size}, imagesToShow=${imagesToShow.size}")
 
                     imagesToShow.forEachIndexed { imageIndex, imageUrl ->
+                        val collectionImageRequest = remember(collection.id, imageUrl, imageIndex) {
+                            ImageRequest.Builder(context)
+                                .data(imageUrl)
+                                .crossfade(true)
+                                .size(400, 350) // Optimize for collection card size
+                                .allowHardware(true) // Enable hardware bitmaps for better performance
+                                .memoryCacheKey("collection_${collection.id}_$imageIndex")
+                                .diskCacheKey("collection_${collection.id}_$imageIndex")
+                                .build()
+                        }
                         Card(
                             modifier = Modifier
                                 .weight(1f)
@@ -2457,14 +2503,7 @@ fun CollectionItem(
                             shape = RoundedCornerShape(8.dp)
                         ) {
                             AsyncImage(
-                                model = ImageRequest.Builder(LocalContext.current)
-                                    .data(imageUrl)
-                                    .crossfade(true)
-                                    .size(400, 350) // Optimize for collection card size
-                                    .allowHardware(true) // Enable hardware bitmaps for better performance
-                                    .memoryCacheKey("collection_${collection.id}_$imageIndex")
-                                    .diskCacheKey("collection_${collection.id}_$imageIndex")
-                                    .build(),
+                                model = collectionImageRequest,
                                 contentDescription = "${collection.name} image ${imageIndex + 1}",
                                 modifier = Modifier.fillMaxSize(),
                                 contentScale = ContentScale.Crop,
@@ -2917,6 +2956,7 @@ fun FeaturedProductCard(
     viewModel: HomeViewModel,
     modifier: Modifier = Modifier
 ) {
+    val context=LocalContext.current
     val productId = remember(product.id) { product.id }
     var currentImageIndex by remember(productId) { mutableIntStateOf(0) }
 
@@ -2959,17 +2999,21 @@ fun FeaturedProductCard(
                     .clip(RoundedCornerShape(topStart = 12.dp, topEnd = 12.dp))
             ) {
                 if (imageUrls.isNotEmpty()) {
-                    AsyncImage(
-                        model = ImageRequest.Builder(LocalContext.current)
-                            .data(imageUrls.getOrNull(currentImageIndex))
+                    val imageUrl = imageUrls.getOrNull(currentImageIndex) ?: ""
+                    val recentViewedImageRequest = remember(imageUrl, product.id, currentImageIndex) {
+                        ImageRequest.Builder(context)
+                            .data(imageUrl)
                             .crossfade(true)
                             // Set specific size for better memory usage
                             .size(500, 500) // Resize to reasonable dimensions
                             .allowHardware(true) // Enable hardware bitmaps for better performance
                             // Aggressive caching for smooth scrolling
-                            .memoryCacheKey(imageUrls.getOrNull(currentImageIndex))
-                            .diskCacheKey(imageUrls.getOrNull(currentImageIndex))
-                            .build(),
+                            .memoryCacheKey("recent_${product.id}_$currentImageIndex")
+                            .diskCacheKey("recent_${product.id}_$currentImageIndex")
+                            .build()
+                    }
+                    AsyncImage(
+                        model = recentViewedImageRequest,
                         contentDescription = product.name,
                         modifier = Modifier.fillMaxSize(),
                         contentScale = ContentScale.Crop,

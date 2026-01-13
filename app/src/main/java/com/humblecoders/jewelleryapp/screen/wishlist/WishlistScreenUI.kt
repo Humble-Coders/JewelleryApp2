@@ -1,5 +1,6 @@
 package com.humblecoders.jewelleryapp.screen.wishlist
 
+import android.util.Log
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.horizontalScroll
@@ -72,10 +73,8 @@ fun WishlistScreen(
     // Define the gold accent color to match
     val goldColor = Color(0xFF896C6C)
 
-    // Force refresh wishlist items when screen enters composition
-    LaunchedEffect(Unit) {
-        viewModel.refreshWishlistItems()
-    }
+    // The ViewModel's init block automatically starts the real-time listener
+    // No need to manually refresh - the listener handles all updates
 
     Scaffold(
         topBar = {

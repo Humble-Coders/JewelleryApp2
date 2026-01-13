@@ -5,6 +5,7 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.shadow
@@ -29,6 +30,7 @@ fun JewelryGridItem(
     item: JewelryItem,
     modifier: Modifier = Modifier
 ) {
+    val context=LocalContext.current
     Card(
         modifier = modifier
             .shadow(
@@ -47,11 +49,18 @@ fun JewelryGridItem(
                 .fillMaxSize()
                 .padding(4.dp)
         ) {
-            AsyncImage(
-                model = ImageRequest.Builder(LocalContext.current)
+            val gridImageRequest = remember(item.imageUrl) {
+                ImageRequest.Builder(context)
                     .data(item.imageUrl)
                     .crossfade(true)
-                    .build(),
+                    .size(600, 600) // Optimize size
+                    .allowHardware(true)
+                    .memoryCacheKey("grid_${item.imageUrl}")
+                    .diskCacheKey("grid_${item.imageUrl}")
+                    .build()
+            }
+            AsyncImage(
+                model = gridImageRequest,
                 contentDescription = "Jewelry item",
                 modifier = Modifier
                     .fillMaxSize()

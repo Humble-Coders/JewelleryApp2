@@ -281,6 +281,27 @@ class HomeViewModel(private val repository: JewelryRepository) : ViewModel() {
         _isLoading.value = true // Always show loading when explicitly refreshing
         loadData()
     }
+    
+    // Clear all state when user signs out
+    fun clearAllState() {
+        Log.d(tag, "Clearing all home screen state")
+        _categories.value = emptyList()
+        _featuredProducts.value = emptyList()
+        _collections.value = emptyList()
+        _carouselItems.value = emptyList()
+        _recentlyViewedProducts.value = emptyList()
+        _goldSilverRates.value = null
+        _video.value = null
+        _isLoading.value = false
+        _isRecentlyViewedLoading.value = false
+        _isRatesLoading.value = false
+        _isVideoLoading.value = false
+        _error.value = null
+        _isSearchActive.value = false
+        _searchQuery.value = ""
+        _filteredCategories.value = emptyList()
+        _showRatesDialog.value = false
+    }
 
     private fun loadRecentlyViewedWithDelay() {
         viewModelScope.launch {
@@ -288,13 +309,17 @@ class HomeViewModel(private val repository: JewelryRepository) : ViewModel() {
                 // Small delay to ensure Firebase Auth is ready
                 delay(500)
 
-                _isRecentlyViewedLoading.value = true
+                // Only show loading if we don't have cached data
+                if (_recentlyViewedProducts.value.isEmpty()) {
+                    _isRecentlyViewedLoading.value = true
+                }
 
                 // Refresh wishlist cache first to ensure accurate favorite status
                 repository.refreshWishlistCache()
 
                 // Use collect instead of first() to handle flow properly
-                repository.getRecentlyViewedProducts().collect { recentlyViewed ->
+                // Don't force refresh - use cache if available
+                repository.getRecentlyViewedProducts(forceRefresh = false).collect { recentlyViewed ->
                     _recentlyViewedProducts.value = recentlyViewed
                     Log.d(tag, "Loaded ${recentlyViewed.size} recently viewed products with delay")
                     _isRecentlyViewedLoading.value = false
@@ -461,16 +486,20 @@ class HomeViewModel(private val repository: JewelryRepository) : ViewModel() {
     }
 
     // This method is called when returning from other screens
+    // Only refreshes if cache is invalid (i.e., new product was added)
     fun refreshRecentlyViewed() {
         viewModelScope.launch {
             try {
-                _isRecentlyViewedLoading.value = true
+                // Only show loading if we don't have data yet
+                if (_recentlyViewedProducts.value.isEmpty()) {
+                    _isRecentlyViewedLoading.value = true
+                }
 
                 // Refresh wishlist cache to get latest favorite status
                 repository.refreshWishlistCache()
 
-                // Use collect instead of first() to handle flow properly
-                repository.getRecentlyViewedProducts().collect { recentlyViewed ->
+                // Don't force refresh - use cache if available (will be invalidated when new product is added)
+                repository.getRecentlyViewedProducts(forceRefresh = false).collect { recentlyViewed ->
                     _recentlyViewedProducts.value = recentlyViewed
                     Log.d(tag, "Refreshed ${recentlyViewed.size} recently viewed products")
                     _isRecentlyViewedLoading.value = false
@@ -478,7 +507,7 @@ class HomeViewModel(private val repository: JewelryRepository) : ViewModel() {
 
             } catch (e: Exception) {
                 Log.e(tag, "Error refreshing recently viewed products", e)
-                _recentlyViewedProducts.value = emptyList()
+                // Don't clear existing data on error
                 _isRecentlyViewedLoading.value = false
             }
         }

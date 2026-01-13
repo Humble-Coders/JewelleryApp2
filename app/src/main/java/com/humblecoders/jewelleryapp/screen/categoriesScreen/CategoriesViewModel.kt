@@ -80,4 +80,11 @@ class CategoriesViewModel(private val repository: JewelryRepository) : ViewModel
 //    fun refreshData() {
 //        loadCategoriesAndCollections()
 //    }
+    
+    // Clear all state when user signs out
+    fun clearState() {
+        _categories.value = emptyList()
+        _collections.value = emptyList()
+        _isLoading.value = false
+    }
 }

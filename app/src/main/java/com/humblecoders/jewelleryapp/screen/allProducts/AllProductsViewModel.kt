@@ -56,6 +56,19 @@ class AllProductsViewModel(
     companion object {
         private const val PAGE_SIZE = 20
     }
+    
+    // Clear all state when user signs out
+    fun clearState() {
+        Log.d(tag, "Clearing all products state")
+        _state.value = CategoryProductsState()
+        _filterSortState.value = FilterSortState()
+        _displayProductsCount.value = 0
+        _searchQuery.value = ""
+        _isSearchActive.value = false
+        _categories.value = emptyList()
+        _selectedCategoryId.value = null
+        loadedProducts.clear()
+    }
 
     init {
         Log.d(tag, "Initializing AllProductsViewModel with preSelected - Material: $preSelectedMaterial, Category: $preSelectedCategoryId")

@@ -16,6 +16,7 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -36,6 +37,7 @@ fun GradientSearchItem(
     category: Category,
     onClick: () -> Unit
 ) {
+    val context = LocalContext.current
     Surface(
         modifier = Modifier
             .fillMaxWidth()
@@ -49,11 +51,18 @@ fun GradientSearchItem(
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(12.dp)
         ) {
-            AsyncImage(
-                model = ImageRequest.Builder(LocalContext.current)
+            val searchCategoryImageRequest = remember(category.id, category.imageUrl) {
+                ImageRequest.Builder(context)
                     .data(category.imageUrl)
                     .crossfade(true)
-                    .build(),
+                    .size(80, 80)
+                    .allowHardware(true)
+                    .memoryCacheKey("search_category_${category.id}")
+                    .diskCacheKey("search_category_${category.id}")
+                    .build()
+            }
+            AsyncImage(
+                model = searchCategoryImageRequest,
                 contentDescription = category.name,
                 modifier = Modifier
                     .size(40.dp)
@@ -85,15 +94,23 @@ fun GradientCategoryItem(
     category: Category,
     onClick: () -> Unit
 ) {
+    val context=LocalContext.current
     Column(
         horizontalAlignment = Alignment.CenterHorizontally,
         modifier = Modifier.clickable { onClick() }
     ) {
-        AsyncImage(
-            model = ImageRequest.Builder(LocalContext.current)
+        val gradientCategoryImageRequest = remember(category.id, category.imageUrl) {
+            ImageRequest.Builder(context)
                 .data(category.imageUrl)
                 .crossfade(true)
-                .build(),
+                .size(120, 120)
+                .allowHardware(true)
+                .memoryCacheKey("gradient_category_${category.id}")
+                .diskCacheKey("gradient_category_${category.id}")
+                .build()
+        }
+        AsyncImage(
+            model = gradientCategoryImageRequest,
             contentDescription = category.name,
             modifier = Modifier
                 .size(60.dp)

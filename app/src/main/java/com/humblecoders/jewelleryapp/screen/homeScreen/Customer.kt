@@ -12,6 +12,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -48,6 +49,7 @@ fun CoverFlowTestimonialCard(
     pageOffset: Float,
     modifier: Modifier = Modifier
 ) {
+    val context = LocalContext.current
     Card(
         modifier = modifier
             .width(260.dp)
@@ -105,11 +107,18 @@ fun CoverFlowTestimonialCard(
                         .clip(RoundedCornerShape(4.dp))
                         .background(Color(0xFFF8F8F8))
                 ) {
-                    AsyncImage(
-                        model = ImageRequest.Builder(LocalContext.current)
+                    val testimonialImageRequest = remember(testimonial.imageUrl) {
+                        ImageRequest.Builder(context)
                             .data(testimonial.imageUrl)
                             .crossfade(true)
-                            .build(),
+                            .size(120, 120)
+                            .allowHardware(true)
+                            .memoryCacheKey("testimonial_${testimonial.imageUrl}")
+                            .diskCacheKey("testimonial_${testimonial.imageUrl}")
+                            .build()
+                    }
+                    AsyncImage(
+                        model = testimonialImageRequest,
                         contentDescription = "Customer photo",
                         modifier = Modifier
                             .fillMaxSize()

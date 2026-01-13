@@ -47,10 +47,29 @@ class ItemDetailViewModel(
     private val _imageUrls = MutableStateFlow<List<String>>(emptyList())
     val imageUrls: StateFlow<List<String>> = _imageUrls.asStateFlow()
 
+    // Track current productId to detect changes and clear old data
+    private var currentProductId: String? = null
 
-
-
-
+    // Clear product data immediately (called when navigating to new product)
+    fun clearProduct() {
+        _product.value = null
+        _imageUrls.value = emptyList()
+        _currentImageIndex.value = 0
+        _similarProducts.value = emptyList()
+        _isInWishlist.value = false
+        _error.value = null
+        currentProductId = null
+        _isLoading.value = true // Set loading to show skeleton
+    }
+    
+    // Clear all state when user signs out
+    fun clearState() {
+        Log.d(TAG, "Clearing all item detail state")
+        clearProduct()
+        _isLoading.value = false
+        _isSimilarProductsLoading.value = false
+        _isFullScreenMode.value = false
+    }
 
     fun toggleSimilarProductWishlist(productId: String) {
         viewModelScope.launch {
@@ -184,6 +203,17 @@ class ItemDetailViewModel(
     fun loadProduct(productId: String) {
         viewModelScope.launch {
             try {
+                // Clear old data immediately if this is a different product
+                if (currentProductId != null && currentProductId != productId) {
+                    _product.value = null
+                    _imageUrls.value = emptyList()
+                    _currentImageIndex.value = 0
+                    _similarProducts.value = emptyList()
+                    _isInWishlist.value = false
+                    _error.value = null
+                }
+                
+                currentProductId = productId
                 _isLoading.value = true
                 _error.value = null
 
@@ -204,26 +234,34 @@ class ItemDetailViewModel(
                     val productDetails = productDetailsJob.await()
                     val isInWishlist = wishlistStatusJob.await()
 
-                    _product.value = productDetails
-                    _isInWishlist.value = isInWishlist
+                    // Only update if this is still the current product (prevent race conditions)
+                    if (currentProductId == productId) {
+                        _product.value = productDetails
+                        _isInWishlist.value = isInWishlist
 
-                    // Set up image URLs and reset current index
-                    val images = productDetails.images
+                        // Set up image URLs and reset current index
+                        val images = productDetails.images
 
-                    _imageUrls.value = images
-                    _currentImageIndex.value = 0
+                        _imageUrls.value = images
+                        _currentImageIndex.value = 0
 
-                    // Track product view - ADD THIS LINE
-                    trackProductView(productId)
+                        // Track product view - ADD THIS LINE
+                        trackProductView(productId)
 
-                    Log.d(TAG, "Loaded product with ${images.size} images")
-                    Log.d(TAG, "Product $productId wishlist status: $isInWishlist")
+                        Log.d(TAG, "Loaded product with ${images.size} images")
+                        Log.d(TAG, "Product $productId wishlist status: $isInWishlist")
+                    }
                 }
             } catch (e: Exception) {
-                _error.value = e.message ?: "An error occurred while loading the product"
+                // Only set error if this is still the current product
+                if (currentProductId == productId) {
+                    _error.value = e.message ?: "An error occurred while loading the product"
+                }
                 Log.e(TAG, "Error loading product details", e)
             } finally {
-                _isLoading.value = false
+                if (currentProductId == productId) {
+                    _isLoading.value = false
+                }
             }
         }
     }

@@ -64,16 +64,25 @@ class ProfileViewModel(
         Log.d(tag, "ProfileViewModel initialized - waiting for explicit load call")
     }
 
-    fun loadUserProfile() {
+    fun loadUserProfile(forceRefresh: Boolean = false) {
         if (isCurrentlyLoading) {
             Log.d(tag, "Profile loading already in progress, skipping")
+            return
+        }
+
+        // If data already exists and we're not forcing a refresh, skip loading
+        if (!forceRefresh && _profileState.value is ProfileState.Success) {
+            Log.d(tag, "Profile already loaded, skipping reload")
             return
         }
 
         viewModelScope.launch {
             try {
                 isCurrentlyLoading = true
-                _profileState.value = ProfileState.Loading
+                // Only show loading state if we don't have existing data
+                if (_profileState.value !is ProfileState.Success) {
+                    _profileState.value = ProfileState.Loading
+                }
                 Log.d(tag, "Loading user profile...")
 
                 // Clear any previous sign out state
@@ -356,14 +365,15 @@ class ProfileViewModel(
         }
     }
 
-    private fun clearAllState() {
+    fun clearAllState() {
         _currentProfile.value = null
         _selectedImageUri.value = null
         _profileState.value = ProfileState.Loading
         _updateState.value = ProfileUpdateState.Idle
         _deletionState.value = AccountDeletionState.Idle
         isCurrentlyLoading = false
-        Log.d(tag, "All state cleared")
+        signOutRequested = false
+        Log.d(tag, "All profile state cleared")
     }
 
     fun resetUpdateState() {

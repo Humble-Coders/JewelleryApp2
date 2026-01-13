@@ -15,11 +15,16 @@ import com.humblecoders.jewelleryapp.model.CustomerTestimonial
 import com.humblecoders.jewelleryapp.model.EditorialImage
 import com.humblecoders.jewelleryapp.model.StoreInfo
 import com.humblecoders.jewelleryapp.model.Video
+import com.humblecoders.jewelleryapp.model.Order
+import com.humblecoders.jewelleryapp.model.OrderItem
 import com.google.firebase.auth.FirebaseAuth
 import kotlinx.coroutines.tasks.await
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.flow
+import kotlinx.coroutines.flow.callbackFlow
+import kotlinx.coroutines.channels.awaitClose
 import kotlinx.coroutines.async
+import com.humblecoders.jewelleryapp.model.WishlistChange
 import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.coroutineScope
@@ -42,6 +47,10 @@ class JewelryRepository(
     
     // Cache for material rates (24K)
     private val materialRatesCache = mutableMapOf<String, Double>()
+    
+    // Cache for recently viewed products to avoid reloading on every screen change
+    private var recentlyViewedCache: List<Product>? = null
+    private var isRecentlyViewedCacheValid = false
     
     /**
      * Calculate jewelry price - NEW SIMPLE CALCULATION
@@ -318,13 +327,23 @@ class JewelryRepository(
         return stones?.mapNotNull { stoneMap ->
             when (stoneMap) {
                 is Map<*, *> -> {
+                    // Helper function to parse number from string or number
+                    fun parseDouble(value: Any?): Double {
+                        return when (value) {
+                            is Number -> value.toDouble()
+                            is String -> value.toDoubleOrNull() ?: 0.0
+                            else -> 0.0
+                        }
+                    }
+                    
                     ProductStone(
                         name = (stoneMap["name"] as? String) ?: "",
                         color = (stoneMap["color"] as? String) ?: "",
-                        rate = ((stoneMap["rate"] as? Number)?.toDouble()) ?: 0.0,
-                        quantity = ((stoneMap["quantity"] as? Number)?.toDouble()) ?: 0.0,
-                        weight = ((stoneMap["weight"] as? Number)?.toDouble()) ?: 0.0,
-                        amount = ((stoneMap["amount"] as? Number)?.toDouble()) ?: 0.0
+                        rate = parseDouble(stoneMap["rate"]),
+                        quantity = parseDouble(stoneMap["quantity"]),
+                        weight = parseDouble(stoneMap["weight"]),
+                        amount = parseDouble(stoneMap["amount"]),
+                        purity = (stoneMap["purity"] as? String) ?: ""
                     )
                 }
                 else -> null
@@ -434,10 +453,94 @@ class JewelryRepository(
         }
     }
 
-    // Optimized with async
-     fun getWishlistItems(): Flow<List<Product>> = flow {
-        try {
+    // Real-time wishlist listener with incremental updates
+    fun getWishlistChanges(): Flow<WishlistChange> = callbackFlow {
+        if (!hasValidUser()) {
+            Log.e(tag, "Cannot listen to wishlist: No valid user")
+            close()
+            return@callbackFlow
+        }
 
+        Log.d(tag, "Setting up real-time wishlist listener for user: $userId")
+        
+        var isInitialLoad = true
+
+        val listenerRegistration = firestore.collection("users")
+            .document(userId)
+            .collection("wishlist")
+            .addSnapshotListener { snapshot, error ->
+                if (error != null) {
+                    Log.e(tag, "Error in wishlist snapshot listener", error)
+                    close(error)
+                    return@addSnapshotListener
+                }
+
+                if (snapshot == null) {
+                    Log.d(tag, "Wishlist snapshot is null")
+                    // Even if snapshot is null, emit empty InitialLoad to stop loading
+                    if (isInitialLoad) {
+                        trySend(WishlistChange.InitialLoad(emptyList()))
+                        isInitialLoad = false
+                    }
+                    return@addSnapshotListener
+                }
+
+                // On initial load, emit all current product IDs first
+                if (isInitialLoad) {
+                    val allProductIds = snapshot.documents.map { it.id }
+                    Log.d(tag, "Initial wishlist load: ${allProductIds.size} items")
+                    trySend(WishlistChange.InitialLoad(allProductIds))
+                    // Update cache
+                    allProductIds.forEach { wishlistCache[it] = true }
+                    isInitialLoad = false
+                    
+                    // Don't process document changes on initial load as they're already included
+                    return@addSnapshotListener
+                }
+
+                // Handle document changes (after initial load)
+                snapshot.documentChanges.forEach { change ->
+                    when (change.type) {
+                        com.google.firebase.firestore.DocumentChange.Type.ADDED -> {
+                            val productId = change.document.id
+                            Log.d(tag, "Wishlist item added: $productId")
+                            trySend(WishlistChange.Added(productId))
+                            // Update cache
+                            wishlistCache[productId] = true
+                            // Invalidate recently viewed cache so it refreshes with updated favorite status
+                            invalidateRecentlyViewedCache()
+                        }
+                        com.google.firebase.firestore.DocumentChange.Type.REMOVED -> {
+                            val productId = change.document.id
+                            Log.d(tag, "Wishlist item removed: $productId")
+                            trySend(WishlistChange.Removed(productId))
+                            // Update cache
+                            wishlistCache[productId] = false
+                            // Invalidate recently viewed cache so it refreshes with updated favorite status
+                            invalidateRecentlyViewedCache()
+                        }
+                        com.google.firebase.firestore.DocumentChange.Type.MODIFIED -> {
+                            // For wishlist, modifications are rare, but handle if needed
+                            val productId = change.document.id
+                            Log.d(tag, "Wishlist item modified: $productId")
+                            // Treat as removed then added to refresh the product
+                            trySend(WishlistChange.Removed(productId))
+                            trySend(WishlistChange.Added(productId))
+                        }
+                    }
+                }
+            }
+
+        // Keep the channel open and clean up on close
+        awaitClose {
+            Log.d(tag, "Closing wishlist listener")
+            listenerRegistration.remove()
+        }
+    }
+
+    // Legacy method for backward compatibility - now uses real-time listener internally
+    fun getWishlistItems(): Flow<List<Product>> = flow {
+        try {
             if (!hasValidUser()) {
                 Log.e(tag, "Cannot fetch wishlist items: No valid user")
                 emit(emptyList())
@@ -500,6 +603,8 @@ class JewelryRepository(
 
                 // Update cache
                 wishlistCache[productId] = false
+                // Invalidate recently viewed cache so it refreshes with updated favorite status
+                invalidateRecentlyViewedCache()
                 Log.d(tag, "Successfully removed product $productId from wishlist")
             }
         } catch (e: Exception) {
@@ -528,6 +633,8 @@ class JewelryRepository(
 
                 // Update cache
                 wishlistCache[productId] = true
+                // Invalidate recently viewed cache so it refreshes with updated favorite status
+                invalidateRecentlyViewedCache()
                 Log.d(tag, "Successfully added product $productId to wishlist")
             }
         } catch (e: Exception) {
@@ -572,7 +679,7 @@ class JewelryRepository(
     }
 
     // In JewelryRepository.kt - Update fetchProductsByIds method
-    private suspend fun fetchProductsByIds(productIds: List<String>): List<Product> = coroutineScope {
+    suspend fun fetchProductsByIds(productIds: List<String>): List<Product> = coroutineScope {
         try {
             Log.d(tag, "Fetching products for IDs: $productIds")
 
@@ -686,6 +793,86 @@ class JewelryRepository(
         } catch (e: Exception) {
             Log.e(tag, "Error fetching products by IDs: $productIds", e)
             throw e
+        }
+    }
+
+    // Fetch a single product by ID (for incremental updates)
+    suspend fun fetchProductById(productId: String): Product? {
+        return try {
+            Log.d(tag, "Fetching single product: $productId")
+            
+            val doc = withContext(Dispatchers.IO) {
+                firestore.collection("products").document(productId).get().await()
+            }
+            
+            if (!doc.exists()) {
+                Log.e(tag, "Product document $productId does not exist")
+                return null
+            }
+            
+            // Reuse the same logic as fetchProductsByIds
+            val images = doc.get("images") as? List<*>
+            val imageUrls = images?.mapNotNull { it as? String }?.filter { it.isNotBlank() } ?: emptyList()
+            
+            val barcodes = doc.get("barcode_ids") as? List<*>
+            val barcodeIds = barcodes?.mapNotNull { it as? String } ?: emptyList()
+            
+            val showMap = doc.get("show") as? Map<*, *>
+            val show = showMap?.mapKeys { it.key.toString() }?.mapValues { it.value as? Boolean ?: false } ?: emptyMap()
+            
+            val isFavorite = wishlistCache[doc.id] == true
+            
+            val materialId = doc.getString("material_id") ?: ""
+            val materialName = getMaterialName(materialId)
+            
+            val breakdown = calculateJewelryPrice(doc)
+            val finalPriceRaw = breakdown.finalAmount
+            val finalPrice = roundToNearestHundred(finalPriceRaw)
+            
+            val stonesList = parseStones(doc)
+            val showConfig = mapToProductShowConfig(show)
+            
+            Product(
+                id = doc.id,
+                name = doc.getString("name") ?: "",
+                description = doc.getString("description") ?: "",
+                price = finalPrice,
+                categoryId = doc.getString("category_id") ?: "",
+                materialId = materialId,
+                materialType = doc.getString("material_type") ?: "",
+                materialName = materialName,
+                gender = doc.getString("gender") ?: "",
+                weight = doc.getString("weight") ?: "",
+                makingCharges = parseDoubleField(doc, "making_charges"),
+                available = doc.getBoolean("available") ?: true,
+                featured = doc.getBoolean("featured") ?: false,
+                images = imageUrls,
+                quantity = parseIntField(doc, "quantity"),
+                createdAt = parseLongField(doc, "created_at"),
+                autoGenerateId = doc.getBoolean("auto_generate_id") ?: true,
+                totalWeight = parseDoubleField(doc, "total_weight"),
+                hasStones = doc.getBoolean("has_stones") ?: false,
+                stones = stonesList,
+                hasCustomPrice = false,
+                customPrice = 0.0,
+                customMetalRate = parseDoubleField(doc, "custom_metal_rate"),
+                makingRate = parseDoubleField(doc, "making_rate"),
+                materialWeight = parseDoubleField(doc, "material_weight"),
+                stoneWeight = parseDoubleField(doc, "stone_weight"),
+                makingPercent = parseDoubleField(doc, "making_percent"),
+                labourCharges = parseDoubleField(doc, "labour_charges"),
+                effectiveWeight = parseDoubleField(doc, "effective_weight"),
+                effectiveMetalWeight = parseDoubleField(doc, "effective_metal_weight"),
+                labourRate = parseDoubleField(doc, "labour_rate"),
+                stoneAmount = stonesList.sumOf { it.amount },
+                isCollectionProduct = doc.getBoolean("is_collection_product") ?: false,
+                collectionId = doc.getString("collection_id") ?: "",
+                show = showConfig,
+                isFavorite = isFavorite
+            )
+        } catch (e: Exception) {
+            Log.e(tag, "Error fetching product $productId", e)
+            null
         }
     }
 
@@ -1166,9 +1353,40 @@ class JewelryRepository(
 
     // Add a function to update user ID if it changes
     fun updateUserId(newUserId: String) {
+        val oldUserId = userId
         userId = newUserId
-        // Clear cache when user ID changes
+        
+        Log.d(tag, "Updating user ID from '$oldUserId' to '$newUserId'")
+        
+        // Clear all caches and state when user ID changes
+        clearAllUserData()
+    }
+    
+    // Comprehensive method to clear all user-specific data and caches
+    fun clearAllUserData() {
+        Log.d(tag, "Clearing all user data and caches")
+        
+        // Clear wishlist cache
         wishlistCache.clear()
+        
+        // Clear recently viewed cache
+        recentlyViewedCache = null
+        isRecentlyViewedCacheValid = false
+        
+        // Clear material name cache
+        materialNameCache.clear()
+        
+        // Clear material rates cache
+        materialRatesCache.clear()
+        
+        Log.d(tag, "All user data cleared")
+    }
+    
+    // Helper function to invalidate recently viewed cache
+    private fun invalidateRecentlyViewedCache() {
+        isRecentlyViewedCacheValid = false
+        // Don't clear the cache, just mark it as invalid so it will be refreshed with updated favorite status
+        Log.d(tag, "Invalidated recently viewed cache to refresh favorite status")
     }
 
     // Add a function to check if the repository has a valid user
@@ -1625,6 +1843,7 @@ class JewelryRepository(
 
     /**
      * Add product to recently viewed (limit 10, remove oldest when full)
+     * Invalidates cache so it will be refreshed on next fetch
      */
     suspend fun addToRecentlyViewed(productId: String) {
         try {
@@ -1672,6 +1891,10 @@ class JewelryRepository(
                 )).await()
 
                 Log.d(tag, "Successfully added product $productId to recently viewed")
+                
+                // Invalidate cache so it will be refreshed on next fetch
+                isRecentlyViewedCacheValid = false
+                recentlyViewedCache = null
             }
         } catch (e: Exception) {
             Log.e(tag, "Error adding product to recently viewed", e)
@@ -1688,11 +1911,25 @@ class JewelryRepository(
      */
     /**
      * Get recently viewed products (ordered by most recent first)
+     * Uses cache to avoid reloading on every screen change
      */
-    fun getRecentlyViewedProducts(): Flow<List<Product>> = flow {
+    fun getRecentlyViewedProducts(forceRefresh: Boolean = false): Flow<List<Product>> = flow {
         if (!hasValidUser()) {
             Log.e(tag, "Cannot fetch recently viewed: No valid user")
             emit(emptyList())
+            return@flow
+        }
+
+        // Return cached data if available and valid, unless force refresh is requested
+        // But update favorite status from current wishlist cache to ensure accuracy
+        if (!forceRefresh && isRecentlyViewedCacheValid && recentlyViewedCache != null) {
+            Log.d(tag, "Returning cached recently viewed products: ${recentlyViewedCache!!.size} items")
+            // Update favorite status from current wishlist cache
+            val updatedCache = recentlyViewedCache!!.map { product ->
+                val isInWishlist = wishlistCache[product.id] == true
+                product.copy(isFavorite = isInWishlist)
+            }
+            emit(updatedCache)
             return@flow
         }
 
@@ -1715,6 +1952,8 @@ class JewelryRepository(
         Log.d(tag, "Found ${productIds.size} recently viewed products: $productIds")
 
         if (productIds.isEmpty()) {
+            recentlyViewedCache = emptyList()
+            isRecentlyViewedCacheValid = true
             emit(emptyList())
             return@flow
         }
@@ -1727,11 +1966,31 @@ class JewelryRepository(
             products.find { it.id == productId }
         }
 
-        Log.d(tag, "Successfully fetched ${orderedProducts.size} recently viewed products")
-        emit(orderedProducts)
+        // Update favorite status from wishlist cache before caching
+        val productsWithUpdatedFavorites = orderedProducts.map { product ->
+            val isInWishlist = wishlistCache[product.id] == true
+            product.copy(isFavorite = isInWishlist)
+        }
+        
+        // Update cache with products that have correct favorite status
+        recentlyViewedCache = productsWithUpdatedFavorites
+        isRecentlyViewedCacheValid = true
+
+        Log.d(tag, "Successfully fetched ${productsWithUpdatedFavorites.size} recently viewed products and cached them")
+        emit(productsWithUpdatedFavorites)
     }.catch { e ->
         Log.e(tag, "Error fetching recently viewed products", e)
-        emit(emptyList())
+        // If we have cached data, return it even on error
+        // But update favorite status from current wishlist cache
+        if (recentlyViewedCache != null) {
+            val updatedCache = recentlyViewedCache!!.map { product ->
+                val isInWishlist = wishlistCache[product.id] == true
+                product.copy(isFavorite = isInWishlist)
+            }
+            emit(updatedCache)
+        } else {
+            emit(emptyList())
+        }
     }
 
     /**
@@ -1878,6 +2137,92 @@ class JewelryRepository(
     }.catch { e ->
         Log.e(tag, "Error fetching editorial images", e)
         emit(emptyList())
+    }
+
+    /**
+     * Fetch orders by customer ID from orders collection
+     * Orders are sorted by timestamp descending (newest first) in memory to avoid Firebase index requirement
+     */
+    fun getOrdersByCustomerId(customerId: String): Flow<List<Order>> = flow {
+        try {
+            val snapshot = withContext(Dispatchers.IO) {
+                firestore.collection("orders")
+                    .whereEqualTo("customerId", customerId)
+                    .get()
+                    .await()
+            }
+
+            val orders = snapshot.documents.map { doc ->
+                // Parse items array
+                val itemsList = mutableListOf<OrderItem>()
+                val itemsArray = doc.get("items") as? List<Map<String, Any>> ?: emptyList()
+                
+                itemsArray.forEach { itemMap ->
+                    val orderItem = OrderItem(
+                        productId = itemMap["productId"] as? String ?: "",
+                        productName = itemMap["productName"] as? String ?: "",
+                        quantity = (itemMap["quantity"] as? Number)?.toInt() ?: 0,
+                        weight = (itemMap["weight"] as? Number)?.toDouble() ?: 0.0,
+                        price = (itemMap["price"] as? Number)?.toDouble() ?: 0.0
+                    )
+                    itemsList.add(orderItem)
+                }
+
+                Order(
+                    id = doc.getString("id") ?: doc.id,
+                    customerId = doc.getString("customerId") ?: "",
+                    items = itemsList,
+                    subtotal = (doc.get("subtotal") as? Number)?.toDouble() ?: 0.0,
+                    discountAmount = (doc.get("discountAmount") as? Number)?.toDouble() ?: 0.0,
+                    gstAmount = (doc.get("gstAmount") as? Number)?.toDouble() ?: 0.0,
+                    totalAmount = (doc.get("totalAmount") as? Number)?.toDouble() ?: 0.0,
+                    paymentMethod = doc.getString("paymentMethod") ?: "",
+                    status = doc.getString("status") ?: "",
+                    isGstIncluded = doc.getBoolean("isGstIncluded") ?: false,
+                    timestamp = doc.getLong("timestamp") ?: 0L
+                )
+            }
+                .sortedByDescending { it.timestamp } // Sort in memory instead of using orderBy
+
+            Log.d(tag, "Fetched ${orders.size} orders for customer: $customerId")
+            emit(orders)
+        } catch (e: Exception) {
+            Log.e(tag, "Error fetching orders for customer: $customerId", e)
+            emit(emptyList())
+        }
+    }.catch { e ->
+        Log.e(tag, "Error in orders flow", e)
+        emit(emptyList())
+    }
+
+    /**
+     * Fetch user balance from users collection
+     * Document ID is userId, field is "balance"
+     * Returns inverted balance (positive becomes negative, negative becomes positive)
+     */
+    suspend fun getUserBalance(userId: String): Double? {
+        return try {
+            val doc = withContext(Dispatchers.IO) {
+                firestore.collection("users")
+                    .document(userId)
+                    .get()
+                    .await()
+            }
+
+            if (doc.exists()) {
+                val balance = (doc.get("balance") as? Number)?.toDouble() ?: 0.0
+                // Invert the balance: positive becomes negative, negative becomes positive
+                val invertedBalance = -balance
+                Log.d(tag, "Fetched balance for user $userId: $balance (inverted: $invertedBalance)")
+                invertedBalance
+            } else {
+                Log.w(tag, "User document not found for userId: $userId")
+                null
+            }
+        } catch (e: Exception) {
+            Log.e(tag, "Error fetching balance for user: $userId", e)
+            null
+        }
     }
 
 }

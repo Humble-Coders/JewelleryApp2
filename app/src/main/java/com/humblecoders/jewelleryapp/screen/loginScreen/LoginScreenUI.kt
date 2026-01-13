@@ -1,6 +1,7 @@
 // LoginScreen.kt (modified)
 package com.humblecoders.jewelleryapp.screen.loginScreen
 
+import android.util.Log
 import androidx.activity.result.ActivityResultLauncher
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Image
@@ -52,32 +53,54 @@ fun LoginScreen(viewModel: LoginViewModel,
     val scaffoldState = rememberScaffoldState()
     val focusManager = LocalFocusManager.current
 
-    // Check if user is already logged in
-    LaunchedEffect(Unit) {
-        if (viewModel.isUserLoggedIn()) {
-            navController.navigate("home") {
-                popUpTo("welcome") { inclusive = true }
-            }
-        }
-    }
+    // Don't auto-navigate on screen entry - let the auth state listener in MainActivity handle navigation
+    // This prevents false navigation after sign out when user clicks login button
+    // Navigation will only happen on successful login via loginState.Success
 
     // Handle login state changes
     // Update the existing LaunchedEffect for loginState
     LaunchedEffect(loginState) {
+        val TAG = "LoginScreen"
+        Log.d(TAG, "Login state changed to: $loginState")
+        
         when (loginState) {
             is LoginState.Success -> {
-                navController.navigate("home") {
-                    popUpTo("welcome") { inclusive = true }
+                Log.d(TAG, "LoginState.Success detected - verifying user authentication")
+                
+                // CRITICAL: Verify user is actually authenticated before navigating
+                val firebaseAuth = com.google.firebase.auth.FirebaseAuth.getInstance()
+                val currentUser = firebaseAuth.currentUser
+                
+                if (currentUser != null && currentUser.uid.isNotEmpty()) {
+                    // Double-check with token verification
+                    currentUser.getIdToken(false).addOnCompleteListener { task ->
+                        if (task.isSuccessful && task.result != null) {
+                            Log.d(TAG, "User verified - UID: ${currentUser.uid}, navigating to home")
+                            navController.navigate("home") {
+                                popUpTo("welcome") { inclusive = true }
+                            }
+                            viewModel.resetState()
+                        } else {
+                            Log.e(TAG, "User token verification failed - NOT navigating. Task success: ${task.isSuccessful}, Result: ${task.result}")
+                            // Don't navigate if token is invalid
+                            viewModel.resetState()
+                        }
+                    }
+                } else {
+                    Log.e(TAG, "LoginState.Success but no valid user found - NOT navigating. CurrentUser: $currentUser")
+                    // Reset state but don't navigate
+                    viewModel.resetState()
                 }
-                viewModel.resetState()
             }
             is LoginState.Error -> {
+                Log.d(TAG, "Showing login error: ${(loginState as LoginState.Error).message}")
                 scaffoldState.snackbarHostState.showSnackbar(
                     message = (loginState as LoginState.Error).message
                 )
                 viewModel.resetState()
             }
             is LoginState.PasswordResetSent -> {
+                Log.d(TAG, "Password reset email sent")
                 scaffoldState.snackbarHostState.showSnackbar(
                     message = "Password reset email sent. Check your inbox."
                 )
@@ -85,9 +108,12 @@ fun LoginScreen(viewModel: LoginViewModel,
             }
             // Handle Google Sign-In loading state if needed
             is LoginState.GoogleSignInLoading -> {
+                Log.d(TAG, "Google Sign-In loading state active")
                 // Optional: You can show additional UI feedback here
             }
-            else -> {}
+            else -> {
+                Log.d(TAG, "Login state: $loginState (no action needed)")
+            }
         }
     }
 

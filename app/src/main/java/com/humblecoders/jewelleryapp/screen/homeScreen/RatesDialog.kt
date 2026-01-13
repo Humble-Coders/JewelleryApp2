@@ -542,8 +542,8 @@ fun RatesDrawerItem(
         shape = RoundedCornerShape(12.dp),
         colors = CardDefaults.cardColors(
             containerColor = amberColor.copy(alpha = 0.08f)
-        ),
-        elevation = CardDefaults.cardElevation(defaultElevation = 1.dp)
+        )
+
     ) {
         Column(
             modifier = Modifier.padding(12.dp)

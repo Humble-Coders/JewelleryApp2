@@ -78,21 +78,16 @@ fun VideoPlayerComposable(
     val testVideoUrl = "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4"
     val videoUrl = video?.videoUrl?.takeIf { it.isNotEmpty() } ?: testVideoUrl
     val context = LocalContext.current
-    var exoPlayer by remember { mutableStateOf<ExoPlayer?>(null) }
-    var isLoading by remember { mutableStateOf(true) }
-    var hasError by remember { mutableStateOf(false) }
-
-    // Initialize ExoPlayer with caching
-    LaunchedEffect(videoUrl) {
+    
+    // Use remember with stable key to prevent recreation on scroll
+    val exoPlayer = remember(videoUrl) {
         if (videoUrl.isNotEmpty()) {
             try {
-                exoPlayer?.release()
-                
                 // Use cached data source from VideoCacheManager
                 val dataSourceFactory = VideoCacheManager.getCacheDataSourceFactory(context)
                 val mediaSourceFactory = androidx.media3.exoplayer.source.DefaultMediaSourceFactory(dataSourceFactory)
                 
-                val player = ExoPlayer.Builder(context)
+                ExoPlayer.Builder(context)
                     .setMediaSourceFactory(mediaSourceFactory)
                     .build()
                     .apply {
@@ -105,60 +100,63 @@ fun VideoPlayerComposable(
                         // Enable infinite looping
                         repeatMode = Player.REPEAT_MODE_ONE
                         
-                        addListener(object : Player.Listener {
-                            override fun onPlaybackStateChanged(playbackState: Int) {
-                                super.onPlaybackStateChanged(playbackState)
-                                when (playbackState) {
-                                    Player.STATE_READY -> {
-                                        isLoading = false
-                                        hasError = false
-                                    }
-                                    Player.STATE_BUFFERING -> {
-                                        isLoading = true
-                                    }
-                                    Player.STATE_ENDED -> {
-                                    }
-                                    Player.STATE_IDLE -> {
-                                        isLoading = false
-                                    }
-                                }
-                            }
-                            
-                            override fun onPlayerError(error: androidx.media3.common.PlaybackException) {
-                                super.onPlayerError(error)
-                                hasError = true
-                                isLoading = false
-                                Log.e("VideoPlayer", "Player error: ${error.message}", error)
-                            }
-                            
-                            override fun onIsPlayingChanged(isPlayingNow: Boolean) {
-                                super.onIsPlayingChanged(isPlayingNow)
-                            }
-                        })
-                        
-                            // Start muted
-                            volume = 0f
-                            // Auto-play the video
-                            playWhenReady = true
+                        // Start muted
+                        volume = 0f
+                        // Auto-play the video
+                        playWhenReady = true
                     }
-                
-                exoPlayer = player
-                
-                // Small delay to ensure player is ready
-                delay(100)
             } catch (e: Exception) {
                 Log.e("VideoPlayer", "Error initializing ExoPlayer", e)
-                hasError = true
-                isLoading = false
+                null
             }
         } else {
-            hasError = true
-            isLoading = false
+            null
+        }
+    }
+    
+    var isLoading by remember { mutableStateOf(true) }
+    var hasError by remember { mutableStateOf(false) }
+
+    // Setup player listener
+    DisposableEffect(exoPlayer) {
+        val listener = exoPlayer?.let { player ->
+            object : Player.Listener {
+                override fun onPlaybackStateChanged(playbackState: Int) {
+                    super.onPlaybackStateChanged(playbackState)
+                    when (playbackState) {
+                        Player.STATE_READY -> {
+                            isLoading = false
+                            hasError = false
+                        }
+                        Player.STATE_BUFFERING -> {
+                            isLoading = true
+                        }
+                        Player.STATE_ENDED -> {
+                        }
+                        Player.STATE_IDLE -> {
+                            isLoading = false
+                        }
+                    }
+                }
+                
+                override fun onPlayerError(error: androidx.media3.common.PlaybackException) {
+                    super.onPlayerError(error)
+                    hasError = true
+                    isLoading = false
+                    Log.e("VideoPlayer", "Player error: ${error.message}", error)
+                }
+            }
+        }
+        
+        listener?.let { exoPlayer?.addListener(it) }
+        
+        onDispose {
+            listener?.let { exoPlayer?.removeListener(it) }
         }
     }
 
-    // Cleanup ExoPlayer
-    DisposableEffect(Unit) {
+    // Cleanup ExoPlayer only when composable is disposed
+    DisposableEffect(exoPlayer) {
         onDispose {
             exoPlayer?.release()
         }
@@ -175,7 +173,7 @@ fun VideoPlayerComposable(
                 .height(200.dp)
                 .background(Color.Black) // Add black background to make sure the container is visible
         ) {
-            if (videoUrl.isNotEmpty() && !hasError) {
+            if (videoUrl.isNotEmpty() && !hasError && exoPlayer != null) {
                 // Use PlayerView with proper configuration
                 AndroidView(
                     factory = { context ->
@@ -191,14 +189,14 @@ fun VideoPlayerComposable(
                             setKeepContentOnPlayerReset(true)
                             // Remove black borders by scaling video to fill
                             resizeMode = androidx.media3.ui.AspectRatioFrameLayout.RESIZE_MODE_ZOOM
-                            // Force redraw
-                            invalidate()
                         }
                     },
                     modifier = Modifier.fillMaxSize(),
                     update = { playerView ->
-                        playerView.player = exoPlayer
-                        playerView.invalidate() // Force redraw
+                        // Only update if player changed to prevent unnecessary redraws
+                        if (playerView.player != exoPlayer) {
+                            playerView.player = exoPlayer
+                        }
                     }
                 )
             } else {

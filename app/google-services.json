@@ -9,7 +9,7 @@
       "client_info": {
         "mobilesdk_app_id": "1:836804403458:android:c821f57c89eb3569ba621b",
         "android_client_info": {
-          "package_name": "com.humblecoders.jewelleryapp"
+          "package_name": "com.example.jewelleryapp"
         }
       },
       "oauth_client": [
@@ -17,7 +17,7 @@
           "client_id": "836804403458-219sgch478dljfrgp8s5bqubel655hjl.apps.googleusercontent.com",
           "client_type": 1,
           "android_info": {
-            "package_name": "com.humblecoders.jewelleryapp",
+            "package_name": "com.example.jewelleryapp",
             "certificate_hash": "f70586698907915da6f9575848c1890abfabbfe0"
           }
         },
@@ -25,7 +25,7 @@
           "client_id": "836804403458-5m4a01enqd7l3kb0hb6ss1rk691cnovu.apps.googleusercontent.com",
           "client_type": 1,
           "android_info": {
-            "package_name": "com.humblecoders.jewelleryapp",
+            "package_name": "com.example.jewelleryapp",
             "certificate_hash": "100c56ff6522749a13b0c6fb74178cccae962a53"
           }
         },
@@ -33,12 +33,124 @@
           "client_id": "836804403458-q97imqkircua04ohv851f8671en8e2fb.apps.googleusercontent.com",
           "client_type": 1,
           "android_info": {
-            "package_name": "com.humblecoders.jewelleryapp",
+            "package_name": "com.example.jewelleryapp",
             "certificate_hash": "7162b5546c6a0c1353786b15669db25269ab9163"
           }
         },
         {
           "client_id": "836804403458-uckl2pkcsoiaipfhsclckmh6b3ie7pdp.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.example.jewelleryapp",
+            "certificate_hash": "52b8296ad3b7647a4a3d9722bc3bd4cab7d87104"
+          }
+        },
+        {
+          "client_id": "836804403458-elef27d8q4o8bbs05qoef776bhlogrfj.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyBkDwJrIaw7mIKm9U0fjLVGykJtl28104g"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "836804403458-elef27d8q4o8bbs05qoef776bhlogrfj.apps.googleusercontent.com",
+              "client_type": 3
+            },
+            {
+              "client_id": "836804403458-fhpsdp9tsts6gursppn04254r87mtd0h.apps.googleusercontent.com",
+              "client_type": 2,
+              "ios_info": {
+                "bundle_id": "com.humblecoders.hopeforhs.HopeForHS"
+              }
+            }
+          ]
+        }
+      }
+    },
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:836804403458:android:82214604efc4f48cba621b",
+        "android_client_info": {
+          "package_name": "com.humblecoders.hopeforhs"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "836804403458-elef27d8q4o8bbs05qoef776bhlogrfj.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyBkDwJrIaw7mIKm9U0fjLVGykJtl28104g"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "836804403458-elef27d8q4o8bbs05qoef776bhlogrfj.apps.googleusercontent.com",
+              "client_type": 3
+            },
+            {
+              "client_id": "836804403458-fhpsdp9tsts6gursppn04254r87mtd0h.apps.googleusercontent.com",
+              "client_type": 2,
+              "ios_info": {
+                "bundle_id": "com.humblecoders.hopeforhs.HopeForHS"
+              }
+            }
+          ]
+        }
+      }
+    },
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:836804403458:android:88872c3ec5f3d8e8ba621b",
+        "android_client_info": {
+          "package_name": "com.humblecoders.jewelleryapp"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "836804403458-347jm5ef3im86ao0oa073oujhjl5maeu.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.humblecoders.jewelleryapp",
+            "certificate_hash": "7162b5546c6a0c1353786b15669db25269ab9163"
+          }
+        },
+        {
+          "client_id": "836804403458-9m71r9cehci3t8q9qvadmggcavd9ardk.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.humblecoders.jewelleryapp",
+            "certificate_hash": "100c56ff6522749a13b0c6fb74178cccae962a53"
+          }
+        },
+        {
+          "client_id": "836804403458-kp9ru5g94gd0ed4j4lpqkldctjm0ql24.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.humblecoders.jewelleryapp",
+            "certificate_hash": "f70586698907915da6f9575848c1890abfabbfe0"
+          }
+        },
+        {
+          "client_id": "836804403458-lht5o9jg10fk2lpnpnm0pbdibfbi22li.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.humblecoders.jewelleryapp",
+            "certificate_hash": "7de572fdd5524744ecc51c7ee1cfcb51b62a704e"
+          }
+        },
+        {
+          "client_id": "836804403458-m8cftfracubrlkc1opmj3s7dud8hvopd.apps.googleusercontent.com",
           "client_type": 1,
           "android_info": {
             "package_name": "com.humblecoders.jewelleryapp",
@@ -63,10 +175,10 @@
               "client_type": 3
             },
             {
-              "client_id": "836804403458-gbld8teerkv57473omav6l3pd0mirici.apps.googleusercontent.com",
+              "client_id": "836804403458-fhpsdp9tsts6gursppn04254r87mtd0h.apps.googleusercontent.com",
               "client_type": 2,
               "ios_info": {
-                "bundle_id": "HumbleCoders.in.Gagan-Jewellers"
+                "bundle_id": "com.humblecoders.hopeforhs.HopeForHS"
               }
             }
           ]

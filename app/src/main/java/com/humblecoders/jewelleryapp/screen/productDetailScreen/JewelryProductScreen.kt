@@ -6,6 +6,11 @@ import android.net.Uri
 import android.util.Log
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.RepeatMode
+import androidx.compose.animation.core.LinearEasing
+import androidx.compose.animation.core.animateFloat
+import androidx.compose.animation.core.infiniteRepeatable
+import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.ExperimentalFoundationApi
@@ -48,6 +53,7 @@ import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
+import androidx.activity.compose.BackHandler
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
@@ -57,6 +63,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.scale
+import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
@@ -72,7 +79,9 @@ import androidx.navigation.NavController
 import coil.compose.AsyncImage
 import com.humblecoders.jewelleryapp.R
 import com.humblecoders.jewelleryapp.model.Product
+import com.humblecoders.jewelleryapp.model.ProductStone
 import com.humblecoders.jewelleryapp.screen.homeScreen.BottomNavigationBar
+import kotlinx.coroutines.delay
 import java.util.Locale
 
 // Enhanced color palette with gradients
@@ -125,7 +134,17 @@ fun JewelryProductScreen(
     val cardOffset = 32.dp
     val parallaxFactor = 0.5f
 
+    // Handle system back button with proper animation
+    BackHandler(enabled = !isFullScreenMode) {
+        onBackClick()
+    }
+
     LaunchedEffect(productId) {
+        // Clear old product immediately when productId changes
+        // This prevents showing old product data briefly
+        viewModel.clearProduct()
+        // Small delay to allow navigation transition to start smoothly
+        delay(100)
         viewModel.loadProduct(productId)
     }
 
@@ -184,21 +203,14 @@ fun JewelryProductScreen(
                     )
                 )
         ) {
-            if (isLoading) {
-                Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                        CircularProgressIndicator(
-                            color = PrimaryGold,
-                            strokeWidth = 3.dp,
-                            modifier = Modifier.size(48.dp)
-                        )
-                        Spacer(modifier = Modifier.height(16.dp))
-                        Text(
-                            "Loading your treasure...",
-                            color = TextSecondary,
-                            fontSize = 16.sp
-                        )
-                    }
+            if (isLoading || product == null) {
+                // Show elegant skeleton loader with proper padding
+                Box(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .padding(paddingValues)
+                ) {
+                    ProductDetailSkeletonLoader()
                 }
             } else if (error != null) {
                 Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
@@ -458,7 +470,7 @@ private fun EnhancedProductDetailsCard(
                         )
                         
                         Text(
-                            text = "Inclusive of all taxes",
+                            text = "Exclusive of taxes",
                             fontSize = 12.sp,
                             color = TextSecondary,
                             fontWeight = FontWeight.Medium
@@ -481,6 +493,12 @@ private fun EnhancedProductDetailsCard(
             // Price calculation note removed - using new simple calculation
 
             Spacer(modifier = Modifier.height(24.dp))
+
+            // Stones section - show if stones are present
+            if (product.stones.isNotEmpty()) {
+                StonesSection(stones = product.stones)
+                Spacer(modifier = Modifier.height(24.dp))
+            }
 
             // Enhanced description section - only show if enabled in show map
             if (product.shouldShow("description") || product.description.isNotBlank()) {
@@ -686,7 +704,9 @@ private fun EnhancedSpecCard(
                 text = spec.title,
                 fontSize = 12.sp,
                 color = TextMuted,
-                fontWeight = FontWeight.Medium
+                fontWeight = FontWeight.Medium,
+                textAlign = androidx.compose.ui.text.style.TextAlign.Center,
+                modifier = Modifier.fillMaxWidth()
             )
 
             Text(
@@ -695,8 +715,134 @@ private fun EnhancedSpecCard(
                 fontWeight = FontWeight.SemiBold,
                 color = TextPrimary,
                 maxLines = 2,
-                overflow = TextOverflow.Ellipsis
+                overflow = TextOverflow.Ellipsis,
+                textAlign = androidx.compose.ui.text.style.TextAlign.Center,
+                modifier = Modifier.fillMaxWidth()
             )
+        }
+    }
+}
+
+@Composable
+private fun StonesSection(stones: List<ProductStone>) {
+    Column(
+        modifier = Modifier.fillMaxWidth()
+    ) {
+        Text(
+            text = "Stone Details",
+            fontSize = 18.sp,
+            fontWeight = FontWeight.Bold,
+            color = TextPrimary
+        )
+
+        Spacer(modifier = Modifier.height(16.dp))
+
+        stones.forEachIndexed { index, stone ->
+            StoneCard(stone = stone)
+            if (index < stones.size - 1) {
+                Spacer(modifier = Modifier.height(12.dp))
+            }
+        }
+    }
+}
+
+@Composable
+private fun StoneCard(stone: ProductStone) {
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        colors = CardDefaults.cardColors(
+            containerColor = SecondaryGold.copy(alpha = 0.1f)
+        ),
+        shape = RoundedCornerShape(16.dp),
+        border = BorderStroke(1.dp, PrimaryGold.copy(alpha = 0.2f))
+    ) {
+        Column(
+            modifier = Modifier.padding(16.dp),
+            verticalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
+            // Stone Name
+            if (stone.name.isNotBlank()) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween
+                ) {
+                    Text(
+                        text = "Name",
+                        fontSize = 14.sp,
+                        color = TextSecondary,
+                        fontWeight = FontWeight.Medium
+                    )
+                    Text(
+                        text = stone.name,
+                        fontSize = 14.sp,
+                        color = TextPrimary,
+                        fontWeight = FontWeight.SemiBold
+                    )
+                }
+            }
+
+            // Stone Weight
+            if (stone.weight > 0) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween
+                ) {
+                    Text(
+                        text = "Weight",
+                        fontSize = 14.sp,
+                        color = TextSecondary,
+                        fontWeight = FontWeight.Medium
+                    )
+                    Text(
+                        text = "${stone.weight}",
+                        fontSize = 14.sp,
+                        color = TextPrimary,
+                        fontWeight = FontWeight.SemiBold
+                    )
+                }
+            }
+
+            // Stone Amount
+            if (stone.amount > 0) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween
+                ) {
+                    Text(
+                        text = "Amount",
+                        fontSize = 14.sp,
+                        color = TextSecondary,
+                        fontWeight = FontWeight.Medium
+                    )
+                    Text(
+                        text = "₹${String.format("%,.2f", stone.amount)}",
+                        fontSize = 14.sp,
+                        color = TextPrimary,
+                        fontWeight = FontWeight.SemiBold
+                    )
+                }
+            }
+
+            // Stone Purity
+            if (stone.purity.isNotBlank()) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween
+                ) {
+                    Text(
+                        text = "Purity",
+                        fontSize = 14.sp,
+                        color = TextSecondary,
+                        fontWeight = FontWeight.Medium
+                    )
+                    Text(
+                        text = stone.purity,
+                        fontSize = 14.sp,
+                        color = TextPrimary,
+                        fontWeight = FontWeight.SemiBold
+                    )
+                }
+            }
         }
     }
 }
@@ -823,6 +969,91 @@ private fun EnhancedSimilarProductCard(
     }
 }
 
+@Composable
+private fun ProductDetailSkeletonLoader() {
+    val infiniteTransition = rememberInfiniteTransition(label = "skeleton")
+    val shimmerAlpha by infiniteTransition.animateFloat(
+        initialValue = 0.2f,
+        targetValue = 0.5f,
+        animationSpec = infiniteRepeatable(
+            animation = tween(1200, easing = LinearEasing),
+            repeatMode = RepeatMode.Reverse
+        ),
+        label = "shimmer_alpha"
+    )
+
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .padding(horizontal = 16.dp)
+    ) {
+        Spacer(modifier = Modifier.height(16.dp))
+        
+        // Elegant image skeleton with rounded corners
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(420.dp)
+                .clip(RoundedCornerShape(24.dp))
+                .background(
+                    brush = Brush.verticalGradient(
+                        colors = listOf(
+                            SecondaryGold.copy(alpha = shimmerAlpha),
+                            SecondaryGold.copy(alpha = shimmerAlpha * 0.6f),
+                            SecondaryGold.copy(alpha = shimmerAlpha)
+                        )
+                    )
+                )
+        )
+
+        Spacer(modifier = Modifier.height(32.dp))
+
+        // Minimal title placeholder
+        Box(
+            modifier = Modifier
+                .fillMaxWidth(0.75f)
+                .height(32.dp)
+                .clip(RoundedCornerShape(12.dp))
+                .background(
+                    SecondaryGold.copy(alpha = shimmerAlpha),
+                    RoundedCornerShape(12.dp)
+                )
+        )
+
+        Spacer(modifier = Modifier.height(16.dp))
+
+        // Elegant price placeholder
+        Box(
+            modifier = Modifier
+                .fillMaxWidth(0.5f)
+                .height(36.dp)
+                .clip(RoundedCornerShape(12.dp))
+                .background(
+                    SecondaryGold.copy(alpha = shimmerAlpha),
+                    RoundedCornerShape(12.dp)
+                )
+        )
+
+        Spacer(modifier = Modifier.height(40.dp))
+
+        // Single elegant card placeholder
+        Card(
+            modifier = Modifier.fillMaxWidth(),
+            shape = RoundedCornerShape(24.dp),
+            colors = CardDefaults.cardColors(containerColor = SurfaceElevated),
+            elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+        ) {
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(200.dp)
+                    .background(
+                        SecondaryGold.copy(alpha = shimmerAlpha * 0.3f)
+                    )
+            )
+        }
+    }
+}
 @Composable
 private fun EnhancedProductPlaceholder() {
     Card(
@@ -957,9 +1188,9 @@ private fun createProductSpecs(product: Product): List<ProductSpec> {
         specs.add(ProductSpec(R.drawable.material_icon, "Material Weight", "${product.materialWeight}g"))
     }
     
-    // Effective Metal Weight (for Gold)
+    // Metal Weight (for Gold)
     if (product.shouldShow("effective_metal_weight") && product.effectiveMetalWeight > 0) {
-        specs.add(ProductSpec(R.drawable.material_icon, "Effective Metal Weight", "${product.effectiveMetalWeight}g"))
+        specs.add(ProductSpec(R.drawable.material_icon, "Metal Weight", "${product.effectiveMetalWeight}g"))
     }
     
     // Total Weight
@@ -1000,6 +1231,9 @@ private fun createProductSpecs(product: Product): List<ProductSpec> {
     if (product.shouldShow("stone_amount") && product.stoneAmount > 0) {
         specs.add(ProductSpec(R.drawable.stone, "Stone Amount", "₹${String.format("%,.2f", product.stoneAmount)}"))
     }
+    
+    // GST Information
+    specs.add(ProductSpec(R.drawable.material_icon, "GST", "5%"))
     
     // Fallback if no specs
     if (specs.isEmpty()) {

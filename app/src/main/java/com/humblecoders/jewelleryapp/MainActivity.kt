@@ -28,6 +28,9 @@ import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
+import androidx.compose.animation.*
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.core.FastOutSlowInEasing
 import com.humblecoders.jewelleryapp.repository.FirebaseAuthRepository
 import com.humblecoders.jewelleryapp.repository.JewelryRepository
 import com.humblecoders.jewelleryapp.repository.ProfileRepository
@@ -50,6 +53,8 @@ import com.humblecoders.jewelleryapp.screen.registerScreen.RegisterViewModel
 import com.humblecoders.jewelleryapp.screen.homeScreen.StoreInfoViewModel
 import com.humblecoders.jewelleryapp.screen.wishlist.WishlistScreen
 import com.humblecoders.jewelleryapp.screen.wishlist.WishlistViewModel
+import com.humblecoders.jewelleryapp.screen.orderHistory.OrderHistoryScreen
+import com.humblecoders.jewelleryapp.screen.orderHistory.OrderHistoryViewModel
 import com.humblecoders.jewelleryapp.screen.welcomeScreen.WelcomeScreen
 import com.humblecoders.jewelleryapp.screen.splashScreen.SplashScreen
 import com.humblecoders.jewelleryapp.ui.theme.JewelleryAppTheme
@@ -86,6 +91,10 @@ class MainActivity : ComponentActivity() {
     private lateinit var storeInfoViewModel: StoreInfoViewModel // Add this line
     private lateinit var allProductsViewModel: AllProductsViewModel // Add this line
     private lateinit var drawerViewModel: DrawerViewModel
+    private lateinit var orderHistoryViewModel: OrderHistoryViewModel
+    
+    // Flag to track if sign out is in progress to prevent false navigation
+    private var isSigningOut = false
 
 
 
@@ -144,20 +153,73 @@ class MainActivity : ComponentActivity() {
         authStateListener = FirebaseAuth.AuthStateListener { auth ->
             val user = auth.currentUser
             val newUserId = user?.uid ?: ""
+            val oldUserId = userId
 
             // Update repository with new user ID when auth state changes
-            if (newUserId != userId) {
-                Log.d("MainActivity", "Auth changed, updating user ID to: $newUserId")
+            if (newUserId != oldUserId) {
+                Log.d("MainActivity", "Auth changed: oldUserId='$oldUserId', newUserId='$newUserId'")
+                
+                // Clear all ViewModel states when user changes (sign out or sign in)
+                if (oldUserId.isNotEmpty() && newUserId.isEmpty()) {
+                    // User signed out - clear all state
+                    isSigningOut = true
+                    Log.d("MainActivity", "User signed out - clearing all ViewModel states")
+                    if (::wishlistViewModel.isInitialized) {
+                        wishlistViewModel.clearAllState()
+                    }
+                    if (::homeViewModel.isInitialized) {
+                        homeViewModel.clearAllState()
+                    }
+                    if (::profileViewModel.isInitialized) {
+                        profileViewModel.clearAllState()
+                    }
+                    if (::itemDetailViewModel.isInitialized) {
+                        itemDetailViewModel.clearState()
+                    }
+                    if (::categoryViewModel.isInitialized) {
+                        categoryViewModel.clearState()
+                    }
+                    if (::allProductsViewModel.isInitialized) {
+                        allProductsViewModel.clearState()
+                    }
+                    
+                    // Force clear Google Sign-In client to prevent cached credentials
+                    try {
+                        authRepository.signOutGoogle()
+                        Log.d("MainActivity", "Cleared Google Sign-In client")
+                    } catch (e: Exception) {
+                        Log.e("MainActivity", "Error clearing Google Sign-In", e)
+                    }
+                    
+                    // Reset sign out flag after a delay to allow sign out to complete
+                    android.os.Handler(android.os.Looper.getMainLooper()).postDelayed({
+                        isSigningOut = false
+                        Log.d("MainActivity", "Sign out process completed, flag reset")
+                    }, 2000) // 2 second delay to ensure sign out is complete
+                }
+                
+                // Reset flag if user signed in (sign out was successful)
+                if (oldUserId.isEmpty() && newUserId.isNotEmpty()) {
+                    isSigningOut = false
+                }
+                
+                // Update repository with new user ID (this clears all caches)
                 jewelryRepository.updateUserId(newUserId)
-
-                // If repositories were already passed to ViewModels, we need to refresh them
-                if (::wishlistViewModel.isInitialized) {
-                    wishlistViewModel.refreshWishlistItems()
+                
+                // If new user signed in, refresh/restart ViewModels
+                if (newUserId.isNotEmpty()) {
+                    Log.d("MainActivity", "New user signed in - refreshing ViewModels")
+                    // Small delay to ensure repository user ID is updated
+                    android.os.Handler(android.os.Looper.getMainLooper()).postDelayed({
+                        if (::wishlistViewModel.isInitialized) {
+                            wishlistViewModel.restartListener()
+                        }
+                        if (::homeViewModel.isInitialized) {
+                            homeViewModel.refreshData()
+                        }
+                        // Profile will load when screen is accessed
+                    }, 100)
                 }
-                if (::homeViewModel.isInitialized) {
-                    homeViewModel.refreshData()
-                }
-                // Refresh other ViewModels as needed
             }
         }
 
@@ -173,6 +235,7 @@ class MainActivity : ComponentActivity() {
         storeInfoViewModel = StoreInfoViewModel(jewelryRepository)
         allProductsViewModel = AllProductsViewModel(jewelryRepository)
         drawerViewModel = DrawerViewModel(jewelryRepository)
+        orderHistoryViewModel = OrderHistoryViewModel(jewelryRepository)
 
         // Start background video preloading
         startBackgroundVideoPreloading(jewelryRepository)
@@ -206,7 +269,8 @@ class MainActivity : ComponentActivity() {
                         profileViewModel,
                         storeInfoViewModel, // Pass the store info ViewModel
                         allProductsViewModel, // Pass the all products ViewModel
-                        drawerViewModel
+                        drawerViewModel,
+                        orderHistoryViewModel // Pass the order history ViewModel
                     )
                 }
             }
@@ -323,8 +387,8 @@ fun AppNavigation(
     profileViewModel: ProfileViewModel, // Add this parameter
     storeInfoViewModel: StoreInfoViewModel, // Add this parameter
     allProductsViewModel: AllProductsViewModel, // Add this parameter
-    drawerViewModel: DrawerViewModel // Add this parameter
-
+    drawerViewModel: DrawerViewModel, // Add this parameter
+    orderHistoryViewModel: OrderHistoryViewModel // Add this parameter
 ) {
     val navController = rememberNavController()
     
@@ -344,26 +408,92 @@ fun AppNavigation(
 
     // Listen to Firebase Auth state changes for subsequent changes
     LaunchedEffect(Unit) {
+        var lastNavigationTime = 0L
+        var lastSignOutTime = Long.MAX_VALUE // Initialize to max so cooldown doesn't trigger initially
+        val navigationDebounceMs = 2000L // 2 second debounce to prevent rapid navigation
+        val signOutCooldownMs = 3000L // 3 second cooldown after sign out before allowing navigation
+        
         FirebaseAuth.getInstance().addAuthStateListener { auth ->
+            val currentTime = System.currentTimeMillis()
             val user = auth.currentUser
             val wasAuthenticated = isAuthenticated
-            isAuthenticated = user != null
+            val currentRoute = navController.currentDestination?.route
             
-            Log.d("AppNavigation", "Auth state changed - User: ${user?.uid}, Authenticated: $isAuthenticated, Was: $wasAuthenticated")
+            // CRITICAL: Never navigate if we're on login/register screens
+            // This prevents false navigation when user clicks login/signup buttons
+            if (currentRoute == "login" || currentRoute == "register") {
+                Log.d("AppNavigation", "Blocking navigation - on login/register screen: $currentRoute")
+                // Still update state but don't navigate
+                isAuthenticated = user != null && user.uid.isNotEmpty()
+                return@addAuthStateListener
+            }
             
-            // Only navigate if auth state actually changed and we're not on splash screen
-            if (isAuthChecked && wasAuthenticated != isAuthenticated) {
-                if (isAuthenticated) {
-                    // User logged in, navigate to home
-                    navController.navigate("home") {
-                        popUpTo("splash") { inclusive = true }
+            // Verify user is actually authenticated by checking if user exists and has valid data
+            val isActuallyAuthenticated = user != null && user.uid.isNotEmpty()
+            
+            // Track sign out time when transitioning from authenticated to unauthenticated
+            if (wasAuthenticated && !isActuallyAuthenticated) {
+                lastSignOutTime = currentTime
+                Log.d("AppNavigation", "Sign out detected, starting cooldown period")
+            }
+            
+            // Check if we're in sign out cooldown period (only if we recently signed out)
+            val timeSinceSignOut = if (lastSignOutTime != Long.MAX_VALUE) currentTime - lastSignOutTime else Long.MAX_VALUE
+            val inCooldownPeriod = timeSinceSignOut < signOutCooldownMs && lastSignOutTime != Long.MAX_VALUE
+            
+            if (inCooldownPeriod && isActuallyAuthenticated) {
+                Log.d("AppNavigation", "Blocking navigation - in sign out cooldown period (${timeSinceSignOut}ms < ${signOutCooldownMs}ms), preventing false login")
+                isAuthenticated = false
+                return@addAuthStateListener
+            }
+            
+            // Reset cooldown if enough time has passed
+            if (timeSinceSignOut >= signOutCooldownMs && lastSignOutTime != Long.MAX_VALUE) {
+                lastSignOutTime = Long.MAX_VALUE
+                Log.d("AppNavigation", "Sign out cooldown period ended")
+            }
+            
+            Log.d("AppNavigation", "Auth state changed - User: ${user?.uid}, Authenticated: $isActuallyAuthenticated, Was: $wasAuthenticated, CurrentRoute: $currentRoute, AuthChecked: $isAuthChecked, TimeSinceSignOut: ${if (timeSinceSignOut != Long.MAX_VALUE) timeSinceSignOut else "N/A"}ms")
+            
+            // Only navigate if:
+            // 1. Auth check is complete
+            // 2. Auth state actually changed
+            // 3. We're not already on the target screen
+            // 4. We're not on login/register screens (already checked above)
+            // 5. Enough time has passed since last navigation (debounce)
+            // 6. Not in sign out cooldown period
+            if (isAuthChecked && wasAuthenticated != isActuallyAuthenticated && 
+                (currentTime - lastNavigationTime) > navigationDebounceMs &&
+                !inCooldownPeriod) {
+                
+                isAuthenticated = isActuallyAuthenticated
+                
+                if (isActuallyAuthenticated) {
+                    // User logged in - only navigate if not already on home
+                    if (currentRoute != "home" && currentRoute != "splash") {
+                        Log.d("AppNavigation", "Navigating to home - user authenticated")
+                        lastNavigationTime = currentTime
+                        navController.navigate("home") {
+                            popUpTo("splash") { inclusive = true }
+                        }
+                    } else {
+                        Log.d("AppNavigation", "Skipping navigation to home - already on $currentRoute")
                     }
                 } else {
-                    // User logged out, navigate to welcome
-                    navController.navigate("welcome") {
-                        popUpTo("splash") { inclusive = true }
+                    // User logged out - only navigate if not already on welcome
+                    if (currentRoute != "welcome" && currentRoute != "splash") {
+                        Log.d("AppNavigation", "Navigating to welcome - user signed out")
+                        lastNavigationTime = currentTime
+                        navController.navigate("welcome") {
+                            popUpTo("splash") { inclusive = true }
+                        }
+                    } else {
+                        Log.d("AppNavigation", "Skipping navigation to welcome - already on $currentRoute")
                     }
                 }
+            } else {
+                // Update state even if not navigating
+                isAuthenticated = isActuallyAuthenticated
             }
         }
     }
@@ -402,9 +532,57 @@ fun AppNavigation(
     // Determine start destination based on auth state
     val startDestination = "splash" // Always start with splash screen
 
-    NavHost(navController = navController, startDestination = startDestination) {
-        // Splash Screen - handles initial auth check
-        composable("splash") {
+    // Smooth navigation transitions - using slide + fade for better visibility
+    fun smoothEnterTransition(): EnterTransition {
+        return fadeIn(
+            animationSpec = tween(350, easing = FastOutSlowInEasing)
+        ) + slideInHorizontally(
+            initialOffsetX = { it / 4 }, // Slide from right (1/4 of screen width)
+            animationSpec = tween(350, easing = FastOutSlowInEasing)
+        )
+    }
+
+    fun smoothExitTransition(): ExitTransition {
+        return fadeOut(
+            animationSpec = tween(350, easing = FastOutSlowInEasing)
+        ) + slideOutHorizontally(
+            targetOffsetX = { -it / 4 }, // Slide to left
+            animationSpec = tween(350, easing = FastOutSlowInEasing)
+        )
+    }
+
+    fun smoothPopEnterTransition(): EnterTransition {
+        return fadeIn(
+            animationSpec = tween(350, easing = FastOutSlowInEasing)
+        ) + slideInHorizontally(
+            initialOffsetX = { -it / 4 }, // Slide from left when going back
+            animationSpec = tween(350, easing = FastOutSlowInEasing)
+        )
+    }
+
+    fun smoothPopExitTransition(): ExitTransition {
+        return fadeOut(
+            animationSpec = tween(350, easing = FastOutSlowInEasing)
+        ) + slideOutHorizontally(
+            targetOffsetX = { it / 4 }, // Slide to right when going back
+            animationSpec = tween(350, easing = FastOutSlowInEasing)
+        )
+    }
+
+    NavHost(
+        navController = navController, 
+        startDestination = startDestination,
+        enterTransition = { smoothEnterTransition() },
+        exitTransition = { smoothExitTransition() },
+        popEnterTransition = { smoothPopEnterTransition() },
+        popExitTransition = { smoothPopExitTransition() }
+    ) {
+        // Splash Screen - handles initial auth check (no transition for splash)
+        composable(
+            route = "splash",
+            enterTransition = { fadeIn(animationSpec = tween(200)) },
+            exitTransition = { fadeOut(animationSpec = tween(200)) }
+        ) {
             SplashScreen(
                 navController = navController,
                 onAuthCheckComplete = { isAuthenticated ->
@@ -630,8 +808,14 @@ fun AppNavigation(
                 viewModel = itemDetailViewModel,
                 navController = navController, // Pass navController for bottom navigation
                 onBackClick = {
-                    // Navigate back to the previous screen
-                    navController.popBackStack()
+                    // Navigate back to the previous screen with animation
+                    // Using popBackStack() which respects the pop transitions
+                    if (!navController.popBackStack()) {
+                        // If popBackStack returns false, navigate to home as fallback
+                        navController.navigate("home") {
+                            popUpTo("home") { inclusive = false }
+                        }
+                    }
                 },
                 onShareClick = {
 
@@ -670,6 +854,14 @@ fun AppNavigation(
             WishlistScreen(
                 viewModel = wishlistViewModel,
                 navController = navController // Pass navController for bottom navigation
+            )
+        }
+
+        // Order History Screen
+        composable("orderHistory") {
+            OrderHistoryScreen(
+                viewModel = orderHistoryViewModel,
+                navController = navController
             )
         }
 
