@@ -2441,7 +2441,7 @@ fun CollectionItem(
     collection: CollectionModel,
     onCollectionClick: (String) -> Unit
 ) {
-    val context=LocalContext.current
+
         Card(
             modifier = Modifier
                 .width(320.dp)
@@ -2480,7 +2480,7 @@ fun CollectionItem(
                     } else {
                         listOf(collection.imageUrl).take(3)
                     }
-                    
+                    val context=LocalContext.current
                     // Debug logging
                     Log.d("CollectionCard", "Collection ${collection.name}: imageUrls=${collection.imageUrls.size}, imagesToShow=${imagesToShow.size}")
 
