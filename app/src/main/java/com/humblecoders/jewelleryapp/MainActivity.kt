@@ -65,6 +65,8 @@ import android.os.Build
 import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
 import com.humblecoders.jewelleryapp.screen.allProducts.AllProductsScreen
+import com.humblecoders.jewelleryapp.screen.carouselProducts.CarouselProductsScreen
+import com.humblecoders.jewelleryapp.screen.carouselProducts.CarouselProductsViewModel
 import com.humblecoders.jewelleryapp.screen.homeScreen.StoreInfoScreen
 import com.humblecoders.jewelleryapp.utils.VideoCacheManager
 import com.humblecoders.jewelleryapp.repository.VideoBookingRepository
@@ -696,6 +698,44 @@ fun AppNavigation(
             )
         }
 
+        // Carousel Products Screen
+        composable(
+            route = "carouselProducts/{productIds}/{title}",
+            arguments = listOf(
+                navArgument("productIds") {
+                    type = NavType.StringType
+                    nullable = false
+                },
+                navArgument("title") {
+                    type = NavType.StringType
+                    nullable = false
+                }
+            )
+        ) { backStackEntry ->
+            val productIdsString = backStackEntry.arguments?.getString("productIds") ?: ""
+            val encodedTitle = backStackEntry.arguments?.getString("title") ?: "Collection"
+            
+            // Decode productIds from comma-separated string
+            val productIds = productIdsString.split(",").filter { it.isNotBlank() }
+            
+            // Decode title (replace underscores back to slashes if needed, or use URL decoding)
+            val title = encodedTitle.replace("_", "/")
+
+            val carouselProductsViewModel: CarouselProductsViewModel = viewModel(
+                key = "carouselProducts_${productIdsString}_$encodedTitle"
+            ) {
+                CarouselProductsViewModel(
+                    repository = jewelryRepository,
+                    productIds = productIds
+                )
+            }
+
+            CarouselProductsScreen(
+                viewModel = carouselProductsViewModel,
+                navController = navController,
+                carouselTitle = title
+            )
+        }
 
         // Home Screen
         // Update HomeScreen call in AppNavigation

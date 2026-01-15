@@ -205,7 +205,8 @@ fun HomeScreen(
             name = testimonial.customerName,
             age = testimonial.age,
             imageUrl = testimonial.imageUrl, // Now using Firebase URL
-            text = testimonial.testimonial
+            text = testimonial.testimonial,
+            productId = testimonial.productId
         )
     }
 
@@ -214,7 +215,8 @@ fun HomeScreen(
         // Use isLarge based on imagePos for layout variety
         JewelryItem(
             imageUrl = editorialImage.imageUrl, // Now using Firebase URL
-            isLarge = editorialImage.imagePos % 3 == 0
+            isLarge = editorialImage.imagePos % 3 == 0,
+            productId = editorialImage.productId
         )
     }
 
@@ -453,46 +455,49 @@ fun HomeScreen(
 
                             item(key = "carousel") {
                                 if (carouselItems.isNotEmpty()) {
-                                    ElegantCarouselSection(carouselItems)
+                                    ElegantCarouselSection(carouselItems, navController)
                                 } else {
                                     ShimmerCarouselPlaceholder()
                                 }
                             }
 
-                            item(key = "featured_title") {
-                                FeaturedProductsTitle()
-                            }
-
-                            // Use itemsIndexed with keys for featured products
-                            itemsIndexed(
-                                items = featuredProducts.chunked(2),
-                                key = { index, productPair ->
-                                    "products_${productPair.joinToString("_") { it.id }}"
+                            // Only show featured products section if there are featured products
+                            if (featuredProducts.isNotEmpty()) {
+                                item(key = "featured_title") {
+                                    FeaturedProductsTitle()
                                 }
-                            ) { index, productPair ->
-                                Row(
-                                    modifier = Modifier
-                                        .fillMaxWidth()
-                                        .padding(horizontal = 16.dp, vertical = 4.dp),
-                                    horizontalArrangement = Arrangement.spacedBy(16.dp)
-                                ) {
-                                    productPair.forEach { product ->
-                                        FeaturedProductCard(
-                                            product = product,
-                                            onProductClick = onProductClick,
-                                            viewModel = viewModel,
-                                            modifier = Modifier.weight(1f)
-                                        )
+
+                                // Use itemsIndexed with keys for featured products
+                                itemsIndexed(
+                                    items = featuredProducts.chunked(2),
+                                    key = { index, productPair ->
+                                        "products_${productPair.joinToString("_") { it.id }}"
                                     }
-                                    if (productPair.size == 1) {
-                                        Spacer(modifier = Modifier.weight(1f))
+                                ) { index, productPair ->
+                                    Row(
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .padding(horizontal = 16.dp, vertical = 4.dp),
+                                        horizontalArrangement = Arrangement.spacedBy(16.dp)
+                                    ) {
+                                        productPair.forEach { product ->
+                                            FeaturedProductCard(
+                                                product = product,
+                                                onProductClick = onProductClick,
+                                                viewModel = viewModel,
+                                                modifier = Modifier.weight(1f)
+                                            )
+                                        }
+                                        if (productPair.size == 1) {
+                                            Spacer(modifier = Modifier.weight(1f))
+                                        }
                                     }
                                 }
                             }
 
                             item(key = "collections") {
                                 if (collections.isNotEmpty()) {
-                                    ThemedCollectionsSection(collections, onCollectionClick)
+                                    ThemedCollectionsSection(collections, onCollectionClick, navController)
                                 } else {
                                     ShimmerCollectionsPlaceholder()
                                 }
@@ -501,14 +506,16 @@ fun HomeScreen(
                             item(key = "customer_testimonials") {
                                 CustomerTestimonialsWithCurvedString(
                                     testimonials = testimonials,
-                                    clipDrawableRes = R.drawable.paper_clip
+                                    clipDrawableRes = R.drawable.paper_clip,
+                                    onProductClick = onProductClick
                                 )
                             }
 
                             item(key = "jewelry_grid") {
                                 ExactPatternJewelryGrid(
                                     items = jewelryGridItems,
-                                    modifier = Modifier.fillMaxWidth()
+                                    modifier = Modifier.fillMaxWidth(),
+                                    onProductClick = onProductClick
                                 )
                             }
 
@@ -2072,7 +2079,7 @@ fun RecentlyViewedPlaceholder() {
 }
 
 @Composable
-fun ElegantCarouselSection(items: List<CarouselItemModel>) {
+fun ElegantCarouselSection(items: List<CarouselItemModel>, navController: NavController) {
     if (items.isEmpty()) return
 
     val pagerState = rememberPagerState(pageCount = { items.size })
@@ -2125,7 +2132,7 @@ fun ElegantCarouselSection(items: List<CarouselItemModel>) {
             modifier = Modifier.height(200.dp)
         ) { page ->
             val item = items[page]
-            ElegantCarouselItem(item = item)
+            ElegantCarouselItem(item = item, navController = navController)
         }
 
         // Pagination dots
@@ -2157,7 +2164,7 @@ fun ElegantCarouselSection(items: List<CarouselItemModel>) {
 }
 
 @Composable
-fun ElegantCarouselItem(item: CarouselItemModel) {
+fun ElegantCarouselItem(item: CarouselItemModel, navController: NavController) {
     val context=LocalContext.current
     Row(
         modifier = Modifier
@@ -2223,7 +2230,14 @@ fun ElegantCarouselItem(item: CarouselItemModel) {
             ) {
                 // Dynamic button with Firebase text
                 Button(
-                    onClick = { /* Handle click */ },
+                    onClick = {
+                        // Navigate to carousel products screen with productIds
+                        if (item.productIds.isNotEmpty()) {
+                            val productIdsString = item.productIds.joinToString(",")
+                            val encodedTitle = item.title.replace("/", "_") // Encode title to avoid navigation issues
+                            navController.navigate("carouselProducts/$productIdsString/$encodedTitle")
+                        }
+                    },
                     shape = RoundedCornerShape(20.dp),
                     colors = ButtonDefaults.buttonColors(
                         containerColor = Color.Transparent
@@ -2241,7 +2255,14 @@ fun ElegantCarouselItem(item: CarouselItemModel) {
 
                 // Navigation arrow
                 IconButton(
-                    onClick = { /* Handle next */ },
+                    onClick = {
+                        // Navigate to carousel products screen with productIds
+                        if (item.productIds.isNotEmpty()) {
+                            val productIdsString = item.productIds.joinToString(",")
+                            val encodedTitle = item.title.replace("/", "_") // Encode title to avoid navigation issues
+                            navController.navigate("carouselProducts/$productIdsString/$encodedTitle")
+                        }
+                    },
                     modifier = Modifier
                         .size(40.dp)
                         .background(
@@ -2411,7 +2432,8 @@ fun AnimatedProductItem(
 @Composable
 fun ThemedCollectionsSection(
     collections: List<CollectionModel>,
-    onCollectionClick: (String) -> Unit
+    onCollectionClick: (String) -> Unit,
+    navController: NavController
 ) {
     if (collections.isEmpty()) return
 
@@ -2429,7 +2451,8 @@ fun ThemedCollectionsSection(
             itemsIndexed(collections) { index, collection ->
                 CollectionItem(
                     collection = collection,
-                    onCollectionClick = onCollectionClick
+                    onCollectionClick = onCollectionClick,
+                    navController = navController
                 )
             }
         }
@@ -2439,14 +2462,24 @@ fun ThemedCollectionsSection(
 @Composable
 fun CollectionItem(
     collection: CollectionModel,
-    onCollectionClick: (String) -> Unit
+    onCollectionClick: (String) -> Unit,
+    navController: NavController
 ) {
 
         Card(
             modifier = Modifier
                 .width(320.dp)
                 .height(280.dp)
-                .clickable { onCollectionClick(collection.id) },
+                .clickable { 
+                    // Navigate to carousel products page with productIds
+                    if (collection.productIds.isNotEmpty()) {
+                        val productIdsString = collection.productIds.joinToString(",")
+                        val encodedTitle = collection.name.replace("/", "_") // Encode title to avoid navigation issues
+                        navController.navigate("carouselProducts/$productIdsString/$encodedTitle")
+                    } else {
+                        onCollectionClick(collection.id)
+                    }
+                },
             elevation = CardDefaults.cardElevation(defaultElevation = 8.dp),
             colors = CardDefaults.cardColors(containerColor = Color(0xFFF8F1E9)) // Light beige background
         ) {
@@ -2535,7 +2568,16 @@ fun CollectionItem(
 
                 // See All Products Button
                 Button(
-                    onClick = { onCollectionClick(collection.id) },
+                    onClick = { 
+                        // Navigate to carousel products page with productIds
+                        if (collection.productIds.isNotEmpty()) {
+                            val productIdsString = collection.productIds.joinToString(",")
+                            val encodedTitle = collection.name.replace("/", "_") // Encode title to avoid navigation issues
+                            navController.navigate("carouselProducts/$productIdsString/$encodedTitle")
+                        } else {
+                            onCollectionClick(collection.id)
+                        }
+                    },
                     modifier = Modifier
                         .fillMaxWidth()
                         .height(44.dp),

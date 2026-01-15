@@ -937,15 +937,30 @@ class JewelryRepository(
                         
                         // Use first image as primary, but store all images
                         val primaryImageUrl = imageUrls.firstOrNull() ?: doc.getString("imageUrl") ?: ""
+                        
+                        // Fetch productIds - handle both map and list formats
+                        val productIds = when {
+                            doc.get("productIds") is Map<*, *> -> {
+                                // If it's a map (Firestore map with numeric keys like 0, 1, 2)
+                                val productIdsMap = doc.get("productIds") as? Map<*, *> ?: emptyMap<Any, Any>()
+                                productIdsMap.values.mapNotNull { it.toString() }
+                            }
+                            doc.get("productIds") is List<*> -> {
+                                // If it's a list
+                                (doc.get("productIds") as? List<*>)?.mapNotNull { it.toString() } ?: emptyList()
+                            }
+                            else -> emptyList<String>()
+                        }
 
-                        Log.d(tag, "Collection ${doc.id}: Found ${imageUrls.size} images: $imageUrls")
+                        Log.d(tag, "Collection ${doc.id}: Found ${imageUrls.size} images: $imageUrls, ${productIds.size} product IDs")
 
                         Collection(
                             id = doc.id,
                             name = doc.getString("name") ?: "",
                             imageUrl = primaryImageUrl,
                             imageUrls = imageUrls,
-                            description = doc.getString("description") ?: ""
+                            description = doc.getString("description") ?: "",
+                            productIds = productIds
                         )
                     }
                 }.awaitAll()
@@ -977,13 +992,28 @@ class JewelryRepository(
                     async(Dispatchers.Default) {
                         // Direct HTTPS URL - no conversion needed
                         val imageUrl = doc.getString("imageUrl") ?: ""
+                        
+                        // Fetch productIds - handle both map and list formats
+                        val productIds = when {
+                            doc.get("productIds") is Map<*, *> -> {
+                                // If it's a map (Firestore map with numeric keys like 0, 1, 2)
+                                val productIdsMap = doc.get("productIds") as? Map<*, *> ?: emptyMap<Any, Any>()
+                                productIdsMap.values.mapNotNull { it.toString() }
+                            }
+                            doc.get("productIds") is List<*> -> {
+                                // If it's a list
+                                (doc.get("productIds") as? List<*>)?.mapNotNull { it.toString() } ?: emptyList()
+                            }
+                            else -> emptyList<String>()
+                        }
 
                         CarouselItem(
                             id = doc.id,
                             imageUrl = imageUrl,
                             title = doc.getString("title") ?: "",
                             subtitle = doc.getString("subtitle") ?: "",
-                            buttonText = doc.getString("buttonText") ?: ""
+                            buttonText = doc.getString("buttonText") ?: "",
+                            productIds = productIds
                         )
                     }
                 }.awaitAll()
@@ -2085,12 +2115,17 @@ class JewelryRepository(
                 ?: doc.getString("image")
                 ?: ""
 
+            val productId = doc.getString("productId")
+                ?: doc.getString("product_id")
+                ?: null
+
             CustomerTestimonial(
                 id = doc.id,
                 customerName = name,
                 age = age,
                 testimonial = testimonial,
-                imageUrl = imageUrl
+                imageUrl = imageUrl,
+                productId = productId
             )
         }
 
@@ -2125,10 +2160,15 @@ class JewelryRepository(
                 ?: doc.getString("image")
                 ?: ""
 
+            val productId = doc.getString("productId")
+                ?: doc.getString("product_id")
+                ?: null
+
             EditorialImage(
                 id = doc.id,
                 imagePos = pos,
-                imageUrl = imageUrl
+                imageUrl = imageUrl,
+                productId = productId
             )
         }
             .sortedBy { it.imagePos }

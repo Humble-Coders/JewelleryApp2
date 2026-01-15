@@ -4,6 +4,7 @@ import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.pager.HorizontalPager
 import androidx.compose.foundation.pager.PageSize
@@ -39,7 +40,8 @@ data class Testimonial(
     val name: String,
     val age: Int,
     val imageUrl: String, // Changed from imageRes: Int to imageUrl: String for Firebase URLs
-    val text: String
+    val text: String,
+    val productId: String? = null
 )
 
 @OptIn(ExperimentalFoundationApi::class)
@@ -47,6 +49,7 @@ data class Testimonial(
 fun CoverFlowTestimonialCard(
     testimonial: Testimonial,
     pageOffset: Float,
+    onProductClick: ((String) -> Unit)? = null,
     modifier: Modifier = Modifier
 ) {
     val context = LocalContext.current
@@ -54,6 +57,17 @@ fun CoverFlowTestimonialCard(
         modifier = modifier
             .width(260.dp)
             .height(360.dp)
+            .then(
+                if (testimonial.productId != null) {
+                    Modifier.clickable { 
+                        testimonial.productId?.let { productId ->
+                            onProductClick?.invoke(productId)
+                        }
+                    }
+                } else {
+                    Modifier
+                }
+            )
             .graphicsLayer {
                 // Calculate the absolute offset
                 val absOffset = pageOffset.absoluteValue
@@ -161,7 +175,8 @@ fun CoverFlowTestimonialCard(
 fun CustomerTestimonialsWithCurvedString(
     testimonials: List<Testimonial>,
     modifier: Modifier = Modifier,
-    clipDrawableRes: Int = R.drawable.paper_clip // Keep for compatibility but not used
+    clipDrawableRes: Int = R.drawable.paper_clip, // Keep for compatibility but not used
+    onProductClick: ((String) -> Unit)? = null
 ) {
     if (testimonials.isEmpty()) return
 
@@ -232,7 +247,8 @@ fun CustomerTestimonialsWithCurvedString(
 
                 CoverFlowTestimonialCard(
                     testimonial = testimonial,
-                    pageOffset = pageOffset
+                    pageOffset = pageOffset,
+                    onProductClick = onProductClick
                 )
             }
         }

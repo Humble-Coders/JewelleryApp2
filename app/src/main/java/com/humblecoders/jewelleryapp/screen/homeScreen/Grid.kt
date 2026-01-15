@@ -1,6 +1,7 @@
 package com.humblecoders.jewelleryapp.screen.homeScreen
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.*
@@ -22,12 +23,14 @@ import com.humblecoders.jewelleryapp.R
 
 data class JewelryItem(
     val imageUrl: String, // Changed from imageRes: Int to imageUrl: String for Firebase URLs
-    val isLarge: Boolean = false
+    val isLarge: Boolean = false,
+    val productId: String? = null
 )
 
 @Composable
 fun JewelryGridItem(
     item: JewelryItem,
+    onProductClick: ((String) -> Unit)? = null,
     modifier: Modifier = Modifier
 ) {
     val context=LocalContext.current
@@ -37,6 +40,17 @@ fun JewelryGridItem(
                 elevation = 4.dp,
                 shape = RoundedCornerShape(12.dp),
                 ambientColor = Color.Black.copy(alpha = 0.1f)
+            )
+            .then(
+                if (item.productId != null) {
+                    Modifier.clickable { 
+                        item.productId?.let { productId ->
+                            onProductClick?.invoke(productId)
+                        }
+                    }
+                } else {
+                    Modifier
+                }
             ),
         shape = RoundedCornerShape(12.dp),
         colors = CardDefaults.cardColors(
@@ -75,7 +89,8 @@ fun JewelryGridItem(
 @Composable
 fun ExactPatternJewelryGrid(
     items: List<JewelryItem>,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    onProductClick: ((String) -> Unit)? = null
 ) {
     Column(
         modifier = modifier
@@ -110,6 +125,7 @@ fun ExactPatternJewelryGrid(
                 // Large item on left (takes 2/3 width)
                 JewelryGridItem(
                     item = patternItems[0],
+                    onProductClick = onProductClick,
                     modifier = Modifier
                         .weight(2f)
                         .height(320.dp)
@@ -122,12 +138,14 @@ fun ExactPatternJewelryGrid(
                 ) {
                     JewelryGridItem(
                         item = patternItems[1],
+                        onProductClick = onProductClick,
                         modifier = Modifier
                             .fillMaxWidth()
                             .height(154.dp)
                     )
                     JewelryGridItem(
                         item = patternItems[2],
+                        onProductClick = onProductClick,
                         modifier = Modifier
                             .fillMaxWidth()
                             .height(154.dp)
@@ -142,12 +160,14 @@ fun ExactPatternJewelryGrid(
             ) {
                 JewelryGridItem(
                     item = patternItems[3],
+                    onProductClick = onProductClick,
                     modifier = Modifier
                         .weight(1f)
                         .height(200.dp)
                 )
                 JewelryGridItem(
                     item = patternItems[4],
+                    onProductClick = onProductClick,
                     modifier = Modifier
                         .weight(1f)
                         .height(200.dp)
@@ -166,12 +186,14 @@ fun ExactPatternJewelryGrid(
                 ) {
                     JewelryGridItem(
                         item = patternItems[5],
+                        onProductClick = onProductClick,
                         modifier = Modifier
                             .fillMaxWidth()
                             .height(154.dp)
                     )
                     JewelryGridItem(
                         item = patternItems[6],
+                        onProductClick = onProductClick,
                         modifier = Modifier
                             .fillMaxWidth()
                             .height(154.dp)
@@ -181,6 +203,7 @@ fun ExactPatternJewelryGrid(
                 // Large item on right (takes 2/3 width)
                 JewelryGridItem(
                     item = patternItems[7],
+                    onProductClick = onProductClick,
                     modifier = Modifier
                         .weight(2f)
                         .height(320.dp)
@@ -194,12 +217,14 @@ fun ExactPatternJewelryGrid(
             ) {
                 JewelryGridItem(
                     item = patternItems[8],
+                    onProductClick = onProductClick,
                     modifier = Modifier
                         .weight(1f)
                         .height(200.dp)
                 )
                 JewelryGridItem(
                     item = patternItems[9],
+                    onProductClick = onProductClick,
                     modifier = Modifier
                         .weight(1f)
                         .height(200.dp)
@@ -220,6 +245,7 @@ fun ExactPatternJewelryGrid(
                 ) {
                     JewelryGridItem(
                         item = pair[0],
+                        onProductClick = onProductClick,
                         modifier = Modifier
                             .weight(1f)
                             .height(200.dp)
@@ -227,6 +253,7 @@ fun ExactPatternJewelryGrid(
                     if (pair.size > 1) {
                         JewelryGridItem(
                             item = pair[1],
+                            onProductClick = onProductClick,
                             modifier = Modifier
                                 .weight(1f)
                                 .height(200.dp)

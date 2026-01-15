@@ -167,7 +167,8 @@ data class Collection(
     val name: String,
     val imageUrl: String,
     val imageUrls: List<String> = emptyList(),
-    val description: String = ""
+    val description: String = "",
+    val productIds: List<String> = emptyList()
 )
 
 data class CarouselItem(
@@ -175,7 +176,8 @@ data class CarouselItem(
     val imageUrl: String,
     val title: String,
     val subtitle: String,
-    val buttonText: String
+    val buttonText: String,
+    val productIds: List<String> = emptyList()
 )
 
 data class CategoryProductsState(
@@ -276,13 +278,15 @@ data class CustomerTestimonial(
     val customerName: String,
     val age: Int = 0,
     val testimonial: String,
-    val imageUrl: String
+    val imageUrl: String,
+    val productId: String? = null
 )
 
 data class EditorialImage(
     val id: String,
     val imagePos: Int,
-    val imageUrl: String
+    val imageUrl: String,
+    val productId: String? = null
 )
 
 
