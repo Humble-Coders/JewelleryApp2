@@ -216,12 +216,12 @@ fun CustomerTestimonialsWithCurvedString(
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
         // Header
-        Text(
+        HeadingWithDividers(
             text = "Customer Testimonials",
             fontSize = 24.sp,
             fontWeight = FontWeight.Bold,
             color = Color(0xFF896C6C),
-            modifier = Modifier.padding(bottom = 24.dp)
+            modifier = Modifier.fillMaxWidth()
         )
 
         // Cover Flow Carousel

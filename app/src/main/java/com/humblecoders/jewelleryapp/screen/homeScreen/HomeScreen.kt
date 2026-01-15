@@ -443,6 +443,10 @@ fun HomeScreen(
                                 }
                             }
 
+                            item(key = "text_carousel") {
+                                JewelryTextCarousel()
+                            }
+
                             item(key = "video_section") {
                                 VideoSection(
                                     video = video,
@@ -1880,18 +1884,13 @@ fun RecentlyViewedSection(
     Column(
         modifier = Modifier.padding(8.dp)
     ) {
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.Center,
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Text(
-                text = "Recently Viewed",
-                fontSize = 14.sp,
-                fontWeight = FontWeight.Medium,
-                color = Color(0xFF8B4513)
-            )
-        }
+        HeadingWithDividers(
+            text = "Recently Viewed",
+            fontSize = 14.sp,
+            fontWeight = FontWeight.Medium,
+            color = Color(0xFF8B4513),
+            modifier = Modifier.fillMaxWidth()
+        )
 
         Spacer(modifier = Modifier.height(12.dp))
 
@@ -2101,40 +2100,32 @@ fun ElegantCarouselSection(items: List<CarouselItemModel>, navController: NavCon
     }
 
     Column(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(horizontal = 16.dp)
+        modifier = Modifier.fillMaxWidth()
     ) {
         // "Discover Our Finest Collections" heading
-        Text(
-            text = "Discover Our Finest Collections",
-            fontSize = 18.sp,
-            fontWeight = FontWeight.Medium,
-            color = Color(0xFF8B4513),
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(bottom = 8.dp),
-            textAlign = TextAlign.Center
+        HeadingWithDividers(
+            text = "Our Finest Collections",
+            fontSize = 24.sp,
+            fontWeight = FontWeight.Bold,
+            color = Color(0xFF896C6C),
+            modifier = Modifier.padding(bottom = 16.dp)
         )
-
-        // Horizontal line
+        
+        // Main carousel content with padding
         Box(
             modifier = Modifier
                 .fillMaxWidth()
-                .height(1.dp)
-                .background(Color(0xFF8B4513).copy(alpha = 0.3f))
-                .padding(bottom = 16.dp)
-        )
-
-        // Main carousel content
-        HorizontalPager(
-            state = pagerState,
-            modifier = Modifier.height(200.dp)
-        ) { page ->
-            val item = items[page]
-            ElegantCarouselItem(item = item, navController = navController)
+                .padding(horizontal = 16.dp)
+        ) {
+            HorizontalPager(
+                state = pagerState,
+                modifier = Modifier.height(200.dp)
+            ) { page ->
+                val item = items[page]
+                ElegantCarouselItem(item = item, navController = navController)
+            }
         }
-
+        
         // Pagination dots
         Row(
             modifier = Modifier
@@ -2440,7 +2431,14 @@ fun ThemedCollectionsSection(
     Column(
         modifier = Modifier.padding(16.dp)
     ) {
-
+        // Collections heading
+        HeadingWithDividers(
+            text = "Collections",
+            fontSize = 24.sp,
+            fontWeight = FontWeight.Bold,
+            color = Color(0xFF896C6C),
+            modifier = Modifier.fillMaxWidth()
+        )
 
         Spacer(modifier = Modifier.height(16.dp))
 
@@ -2975,18 +2973,74 @@ fun GradientHeaderWithBangles(
     }
 }
 
+// Heading with side dividers composable
+@Composable
+fun HeadingWithDividers(
+    text: String,
+    fontSize: androidx.compose.ui.unit.TextUnit = 20.sp,
+    fontWeight: FontWeight = FontWeight.SemiBold,
+    color: Color = Color(0xFF333333),
+    modifier: Modifier = Modifier
+) {
+    Row(
+        modifier = modifier
+            .fillMaxWidth()
+            .padding(horizontal = 16.dp, vertical = 16.dp),
+        horizontalArrangement = Arrangement.Center,
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        // Left divider with gradient fade
+        Box(
+            modifier = Modifier
+                .width(60.dp)
+                .height(1.5.dp)
+                .background(
+                    brush = Brush.horizontalGradient(
+                        colors = listOf(
+                            Color.Transparent,
+                            Color(0xFFF5D5C8).copy(alpha = 0.6f)
+                        )
+                    )
+                )
+        )
+        
+        Spacer(modifier = Modifier.width(12.dp))
+        
+        Text(
+            text = text,
+            fontSize = fontSize,
+            fontWeight = fontWeight,
+            color = color,
+            textAlign = TextAlign.Center
+        )
+        
+        Spacer(modifier = Modifier.width(12.dp))
+        
+        // Right divider with gradient fade
+        Box(
+            modifier = Modifier
+                .width(60.dp)
+                .height(1.5.dp)
+                .background(
+                    brush = Brush.horizontalGradient(
+                        colors = listOf(
+                            Color(0xFFF5D5C8).copy(alpha = 0.6f),
+                            Color.Transparent
+                        )
+                    )
+                )
+        )
+    }
+}
+
 // Featured Products Title Composable
 @Composable
 fun FeaturedProductsTitle() {
-    Text(
+    HeadingWithDividers(
         text = "Featured Products",
-        fontSize = 20.sp,
-        fontWeight = FontWeight.SemiBold,
-        color = Color(0xFF333333),
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(horizontal = 16.dp, vertical = 16.dp),
-        textAlign = TextAlign.Center
+        fontSize = 24.sp,
+        fontWeight = FontWeight.Bold,
+        color = Color(0xFF896C6C)
     )
 }
 

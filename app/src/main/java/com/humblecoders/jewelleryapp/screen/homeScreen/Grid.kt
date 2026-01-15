@@ -100,12 +100,12 @@ fun ExactPatternJewelryGrid(
         verticalArrangement = Arrangement.spacedBy(12.dp)
     ) {
         // Editorial heading
-        Text(
-            text = "#Editorial",
+        HeadingWithDividers(
+            text = "Editorial",
             fontSize = 24.sp,
             fontWeight = FontWeight.Bold,
-            color = Color(0xFF2D3748),
-            modifier = Modifier.padding(bottom = 16.dp)
+            color = Color(0xFF896C6C),
+            modifier = Modifier.fillMaxWidth()
         )
         // Calculate how many complete patterns we can create (each pattern uses 10 items)
         val patternSize = 10
