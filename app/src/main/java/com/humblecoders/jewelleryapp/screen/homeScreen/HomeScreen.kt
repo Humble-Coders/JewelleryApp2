@@ -2715,6 +2715,31 @@ fun GradientHeaderWithBangles(
     var gradientSearchQuery by remember { mutableStateOf("") }
     val focusManager = LocalFocusManager.current
     
+    // Rotating search placeholder categories
+    val searchCategories = remember {
+        listOf(
+            "Category",
+            "Ring",
+            "Pendants",
+            "Earrings",
+            "Necklace",
+            "Bracelet",
+            "Bangles",
+            "Chain"
+        )
+    }
+    var currentSearchCategoryIndex by remember { mutableIntStateOf(0) }
+    
+    // Rotate search category every 3 seconds
+    LaunchedEffect(Unit) {
+        while (true) {
+            delay(3000) // 3 seconds
+            currentSearchCategoryIndex = (currentSearchCategoryIndex + 1) % searchCategories.size
+        }
+    }
+    
+    val currentSearchCategory = searchCategories[currentSearchCategoryIndex]
+    
     // Filter categories based on search query
     val filteredCategories = remember(gradientSearchQuery, categories) {
         if (gradientSearchQuery.isEmpty()) {
@@ -2742,13 +2767,13 @@ fun GradientHeaderWithBangles(
         ) {
             Spacer(modifier = Modifier.height(16.dp))
             Image(
-                painter = painterResource(id = R.drawable.bangles),
+                painter = painterResource(id = R.drawable.bangles3),
                 contentDescription = "Bangles Header",
                 modifier = Modifier
                     .fillMaxWidth()
-                    .height(250.dp)
+                    .height(200.dp)
                     .align(Alignment.BottomCenter),
-                contentScale = ContentScale.Crop
+                contentScale = ContentScale.FillHeight
             )
             Column(modifier = Modifier.fillMaxWidth()) {
                 Row(modifier = Modifier.fillMaxWidth(),
@@ -2851,7 +2876,7 @@ fun GradientHeaderWithBangles(
                             decorationBox = { innerTextField ->
                                 if (gradientSearchQuery.isEmpty()) {
                                     Text(
-                                        text = "Search by Category",
+                                        text = "Search by $currentSearchCategory",
                                         color = Color(0xFF564444).copy(alpha = 0.6f),
                                         fontSize = 16.sp,
                                         fontWeight = FontWeight.Normal
@@ -2862,7 +2887,7 @@ fun GradientHeaderWithBangles(
                         )
                     } else {
                         Text(
-                            text = "Search by Category",
+                            text = "Search by $currentSearchCategory",
                             color = Color(0xFF564444),
                             fontSize = 16.sp,
                             fontWeight = FontWeight.Normal,

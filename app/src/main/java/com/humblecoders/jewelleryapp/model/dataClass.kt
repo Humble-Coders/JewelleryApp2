@@ -339,7 +339,8 @@ data class Order(
     val paymentMethod: String = "",
     val status: String = "",
     val isGstIncluded: Boolean = false,
-    val timestamp: Long = 0L
+    val timestamp: Long = 0L,
+    val invoiceUrl: String = ""
 ) {
     /**
      * Get formatted total amount with currency

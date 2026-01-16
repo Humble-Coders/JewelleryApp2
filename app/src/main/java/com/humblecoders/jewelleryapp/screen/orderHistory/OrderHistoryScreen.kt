@@ -1,5 +1,16 @@
 package com.humblecoders.jewelleryapp.screen.orderHistory
 
+import android.app.DownloadManager
+import android.content.Context
+import android.content.Intent
+import android.net.Uri
+import android.os.Environment
+import android.widget.Toast
+import androidx.core.content.FileProvider
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
+import java.io.File
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
@@ -8,15 +19,21 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.ArrowForward
+import androidx.compose.material.icons.filled.Download
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
+import kotlinx.coroutines.launch
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
@@ -302,6 +319,23 @@ fun OrderDetailView(
     order: Order,
     goldColor: Color
 ) {
+    val context = LocalContext.current
+    val downloadId = remember { mutableLongStateOf(-1L) }
+    var isDownloading by remember { mutableStateOf(false) }
+    
+    // Show loading for 5 seconds and then show toast
+    LaunchedEffect(isDownloading) {
+        if (isDownloading) {
+            delay(5000) // Hardcoded 5 seconds
+            isDownloading = false
+            Toast.makeText(
+                context,
+                "Invoice downloaded! Please check your Downloads folder.",
+                Toast.LENGTH_LONG
+            ).show()
+        }
+    }
+    
     LazyColumn(
         modifier = Modifier.fillMaxSize(),
         contentPadding = PaddingValues(16.dp),
@@ -430,6 +464,193 @@ fun OrderDetailView(
                 }
             }
         }
+        
+        // Download Invoice Card (only show if invoiceUrl is present)
+        if (order.invoiceUrl.isNotEmpty()) {
+            item {
+                Card(
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(12.dp),
+                    colors = CardDefaults.cardColors(containerColor = Color.White),
+                    elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+                ) {
+                    Button(
+                        onClick = {
+                            val id = downloadInvoice(context, order.invoiceUrl, order.id)
+                            downloadId.longValue = id
+                            isDownloading = true
+                        },
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(16.dp),
+                        colors = ButtonDefaults.buttonColors(containerColor = goldColor),
+                        enabled = !isDownloading
+                    ) {
+                        if (isDownloading) {
+                            CircularProgressIndicator(
+                                modifier = Modifier.size(20.dp),
+                                color = Color.White,
+                                strokeWidth = 2.dp
+                            )
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Text(
+                                text = "Downloading...",
+                                fontSize = 16.sp,
+                                fontWeight = FontWeight.Medium
+                            )
+                        } else {
+                            Icon(
+                                imageVector = Icons.Default.Download,
+                                contentDescription = "Download",
+                                modifier = Modifier.size(20.dp)
+                            )
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Text(
+                                text = "Download Invoice",
+                                fontSize = 16.sp,
+                                fontWeight = FontWeight.Medium
+                            )
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+/**
+ * Download invoice PDF using Android DownloadManager
+ * Returns the download ID for monitoring completion
+ */
+private fun downloadInvoice(context: Context, invoiceUrl: String, orderId: String): Long {
+    return try {
+        val downloadManager = context.getSystemService(Context.DOWNLOAD_SERVICE) as DownloadManager
+        val uri = Uri.parse(invoiceUrl)
+        
+        // Extract filename from URL or use order ID
+        var fileName = if (invoiceUrl.contains("/")) {
+            val urlParts = invoiceUrl.split("/")
+            val lastPart = urlParts.lastOrNull() ?: "invoice_$orderId"
+            // Remove query parameters if present
+            lastPart.split("?").firstOrNull() ?: "invoice_$orderId"
+        } else {
+            "invoice_$orderId"
+        }
+        
+        // Ensure .pdf extension
+        if (!fileName.lowercase().endsWith(".pdf")) {
+            // Remove any existing extension and add .pdf
+            val nameWithoutExt = fileName.substringBeforeLast(".")
+            fileName = "$nameWithoutExt.pdf"
+        }
+        
+        val request = DownloadManager.Request(uri)
+            .setTitle("Invoice - Order $orderId")
+            .setDescription("Downloading invoice PDF")
+            .setNotificationVisibility(DownloadManager.Request.VISIBILITY_VISIBLE_NOTIFY_COMPLETED)
+            .setDestinationInExternalPublicDir(Environment.DIRECTORY_DOWNLOADS, fileName)
+            .setAllowedOverMetered(true)
+            .setAllowedOverRoaming(true)
+            .setMimeType("application/pdf")
+        
+        downloadManager.enqueue(request)
+    } catch (e: Exception) {
+        android.util.Log.e("OrderHistory", "Error downloading invoice", e)
+        -1L
+    }
+}
+
+/**
+ * Open the downloaded PDF file
+ */
+private fun openDownloadedPdf(context: Context, orderId: String, downloadId: Long = -1L) {
+    try {
+        val downloadsDir = Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS)
+        
+        // Try to find the file - check common filename patterns
+        val possibleFiles = listOf(
+            "invoice_$orderId.pdf",
+            "Invoice - Order $orderId.pdf"
+        )
+        
+        // Also search for files starting with invoice_ and order ID
+        val pdfFile = downloadsDir.listFiles()?.firstOrNull { file ->
+            file.isFile && 
+            file.name.startsWith("invoice_", ignoreCase = true) && 
+            file.name.contains(orderId) && 
+            file.name.lowercase().endsWith(".pdf")
+        } ?: possibleFiles.firstOrNull()?.let { 
+            File(downloadsDir, it)
+        }?.takeIf { it.exists() }
+        
+        if (pdfFile != null && pdfFile.exists()) {
+            val uri = if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.N) {
+                FileProvider.getUriForFile(
+                    context,
+                    "${context.packageName}.fileprovider",
+                    pdfFile
+                )
+            } else {
+                Uri.fromFile(pdfFile)
+            }
+            
+            val intent = Intent(Intent.ACTION_VIEW).apply {
+                setDataAndType(uri, "application/pdf")
+                addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+                addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+            }
+            
+            if (intent.resolveActivity(context.packageManager) != null) {
+                context.startActivity(intent)
+            } else {
+                android.util.Log.e("OrderHistory", "No PDF viewer found")
+            }
+        } else {
+            // Fallback: Try to open from DownloadManager using download ID
+            if (downloadId != -1L) {
+                val downloadManager = context.getSystemService(Context.DOWNLOAD_SERVICE) as DownloadManager
+                val query = DownloadManager.Query().setFilterById(downloadId)
+                val cursor = downloadManager.query(query)
+                
+                if (cursor.moveToFirst()) {
+                    val uriIndex = cursor.getColumnIndex(DownloadManager.COLUMN_LOCAL_URI)
+                    val downloadedUri = cursor.getString(uriIndex)
+                    
+                    if (downloadedUri != null) {
+                        val fileUri = Uri.parse(downloadedUri)
+                        // Convert to FileProvider URI if needed
+                        val finalUri = if (fileUri.scheme == "file") {
+                            val file = File(fileUri.path ?: "")
+                            if (file.exists() && android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.N) {
+                                FileProvider.getUriForFile(
+                                    context,
+                                    "${context.packageName}.fileprovider",
+                                    file
+                                )
+                            } else {
+                                fileUri
+                            }
+                        } else {
+                            fileUri
+                        }
+                        
+                        val intent = Intent(Intent.ACTION_VIEW).apply {
+                            setDataAndType(finalUri, "application/pdf")
+                            addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+                            addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                        }
+                        if (intent.resolveActivity(context.packageManager) != null) {
+                            context.startActivity(intent)
+                            cursor.close()
+                            return
+                        }
+                    }
+                }
+                cursor.close()
+            }
+        }
+    } catch (e: Exception) {
+        android.util.Log.e("OrderHistory", "Error opening PDF", e)
     }
 }
 

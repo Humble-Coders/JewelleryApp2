@@ -2219,7 +2219,8 @@ class JewelryRepository(
                     paymentMethod = doc.getString("paymentMethod") ?: "",
                     status = doc.getString("status") ?: "",
                     isGstIncluded = doc.getBoolean("isGstIncluded") ?: false,
-                    timestamp = doc.getLong("timestamp") ?: 0L
+                    timestamp = doc.getLong("timestamp") ?: doc.getLong("createdAt") ?: 0L,
+                    invoiceUrl = doc.getString("invoiceUrl") ?: ""
                 )
             }
                 .sortedByDescending { it.timestamp } // Sort in memory instead of using orderBy
